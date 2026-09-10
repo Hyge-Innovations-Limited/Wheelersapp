@@ -24,6 +24,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
+import { maxBidNgn } from '@/lib/bid-limits';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
@@ -121,6 +122,7 @@ export default function IncomingRequestScreen() {
   const responsive = useResponsive();
   const keyboardHeight = useKeyboardHeight();
   const offer = session.currentOffer;
+  const maxBid = maxBidNgn(offer?.plannedDistanceKm);
   const [countdown, setCountdown] = useState(0);
   const [bidMode, setBidMode] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
@@ -323,6 +325,14 @@ export default function IncomingRequestScreen() {
     const amount = parseInt(bidAmount, 10);
     if (!amount || amount < 100) {
       Alert.alert('Invalid amount', 'Enter a valid bid amount.');
+      return;
+    }
+    // Rider-priced marketplace: a driver may bid up, but only to ₦500/km.
+    if (maxBid !== null && amount > maxBid) {
+      Alert.alert(
+        'Bid too high',
+        `The most you can bid on this trip is ${formatNgn(maxBid)} (₦500 per km).`,
+      );
       return;
     }
     try {
@@ -728,6 +738,11 @@ export default function IncomingRequestScreen() {
                   onSubmitEditing={handleSubmitBid}
                 />
               </View>
+              {maxBid !== null && (
+                <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
+                  {`Max bid ${formatNgn(maxBid)} · ₦500/km`}
+                </AppText>
+              )}
               <View style={styles.bidActions}>
                 <Pressable onPress={handleCancelBid} style={styles.bidCancelBtn}>
                   <AppText variant="label" color={theme.colors.muted}>Cancel</AppText>
@@ -1099,6 +1114,10 @@ const styles = StyleSheet.create({
   },
 
   // Bid input
+  bidCapHint: {
+    marginTop: 6,
+    textAlign: 'center',
+  },
   bidInputWrap: {
     gap: theme.spacing.sm,
   },
