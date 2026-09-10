@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
 import * as NativeSplash from "expo-splash-screen";
 import { Animated, Image, Pressable, StyleSheet, View, useColorScheme } from "react-native";
@@ -28,15 +28,20 @@ type SplashRoute = VariantPublicRoute | AuthenticatedRoute;
 const MIN_SPLASH_MS = 900;
 
 /**
- * Metro launches show the NATIVE splash for seconds while the bundle
- * builds — the user has already watched a full splash by the time JS runs.
- * Playing the JS act on top (min-hold + variant fade) reads as a SECOND
- * splash. In dev we therefore just continue the native frame and leave the
- * moment auth resolves; release builds keep the choreography, where the
- * native phase is only a blink.
+ * ONE splash, always. The JS screen continues the native frame it was handed
+ * and nothing is drawn over it.
+ *
+ * There used to be a second act: 350ms after the native splash had already
+ * been seen, a randomly chosen colour treatment faded in on top. Two of the
+ * three variants differ from the native frame, so most launches showed a
+ * splash, then a visibly different splash — the "double splash" riders and
+ * drivers reported, intermittent because the pick was random.
+ *
+ * Metro launches already show the native splash for seconds while the bundle
+ * builds, so dev leaves the moment auth resolves; release holds the frame
+ * briefly, where the native phase is only a blink.
  */
-const CONTINUE_NATIVE_ONLY = __DEV__;
-const EFFECTIVE_MIN_SPLASH_MS = CONTINUE_NATIVE_ONLY ? 0 : MIN_SPLASH_MS;
+const EFFECTIVE_MIN_SPLASH_MS = __DEV__ ? 0 : MIN_SPLASH_MS;
 
 function prefetchHomeData(getAccessToken: () => Promise<string | null | undefined>) {
   void prefetchRiderHistory(getAccessToken);
@@ -185,10 +190,6 @@ const LEGACY_WORDMARKS = {
   },
 };
 
-function pickSplashVariant() {
-  return SPLASH_VARIANTS[Math.floor(Math.random() * SPLASH_VARIANTS.length)];
-}
-
 function SplashMark({ variant }: { variant: (typeof SPLASH_VARIANTS)[number] }) {
   return (
     <View style={styles.markWrap}>
@@ -239,47 +240,26 @@ function SplashBase() {
 }
 
 function SplashShell({ onContinue }: { onContinue: () => void }) {
-  // Chosen once per mount via the lazy initialiser — re-renders must not
-  // reshuffle the artwork mid-splash.
-  const [variant] = useState(pickSplashVariant);
-  const variantOpacity = useRef(new Animated.Value(0)).current;
+  const scheme = useColorScheme();
+  const baseIsBrand = NATIVE_SPLASH_STYLE === "brand";
 
   useEffect(() => {
-    // The base layer below is pixel-identical to the native splash, so the
-    // handoff is seamless; then the day's variant fades in over it — except
-    // in dev, where the native splash already ran long and any second act
-    // would read as a second splash.
+    // The frame below is pixel-identical to the native splash, so handing
+    // over is invisible — and nothing arrives after it.
     NativeSplash.hideAsync();
-    if (CONTINUE_NATIVE_ONLY) return;
-    Animated.timing(variantOpacity, {
-      toValue: 1,
-      duration: 450,
-      delay: 350,
-      useNativeDriver: true,
-    }).start();
-  }, [variantOpacity]);
+  }, []);
 
   return (
     <View style={styles.root}>
+      {/* Matches whatever SplashBase paints, so the bar never fights it. */}
       <StatusBar
-        style={CONTINUE_NATIVE_ONLY ? "dark" : variant.statusBar}
-        backgroundColor={CONTINUE_NATIVE_ONLY ? undefined : variant.background}
+        style={baseIsBrand || scheme === "dark" ? "light" : "dark"}
+        backgroundColor={baseIsBrand ? "#FF7700" : undefined}
       />
 
-      {/* Base: the native splash frame, continued — pixel-matched to what
-          THIS binary bakes in, so the handoff is invisible. */}
+      {/* The native splash frame, continued — pixel-matched to what THIS
+          binary bakes in, so the handoff is invisible. */}
       <SplashBase />
-
-      {/* The randomly chosen treatment fades in over it. */}
-      <Animated.View
-        style={[
-          StyleSheet.absoluteFillObject,
-          styles.center,
-          { backgroundColor: variant.background, opacity: variantOpacity },
-        ]}
-      >
-        <SplashMark variant={variant} />
-      </Animated.View>
 
       <Pressable
         accessibilityLabel="Continue"
