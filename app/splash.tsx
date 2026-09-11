@@ -55,17 +55,28 @@ export default function SplashScreen() {
   const mountedAtRef = useRef(Date.now());
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function go(href: SplashRoute) {
+    router.replace(href);
+    // The native splash comes down only now, with the destination already
+    // mounted underneath it. Hiding it any earlier uncovers this JS screen,
+    // whose frame is NOT pixel-identical to the baked one — that handoff is
+    // what read as a second splash.
+    requestAnimationFrame(() => {
+      void NativeSplash.hideAsync().catch(() => undefined);
+    });
+  }
+
   function navigate(href: SplashRoute) {
     if (hasNavigated.current) return;
     hasNavigated.current = true;
 
     const remaining = EFFECTIVE_MIN_SPLASH_MS - (Date.now() - mountedAtRef.current);
     if (remaining <= 0) {
-      router.replace(href);
+      go(href);
       return;
     }
 
-    navTimerRef.current = setTimeout(() => router.replace(href), remaining);
+    navTimerRef.current = setTimeout(() => go(href), remaining);
   }
 
   useEffect(() => {
@@ -243,11 +254,11 @@ function SplashShell({ onContinue }: { onContinue: () => void }) {
   const scheme = useColorScheme();
   const baseIsBrand = NATIVE_SPLASH_STYLE === "brand";
 
-  useEffect(() => {
-    // The frame below is pixel-identical to the native splash, so handing
-    // over is invisible — and nothing arrives after it.
-    NativeSplash.hideAsync();
-  }, []);
+  // No hideAsync here on purpose. The native splash stays up until the
+  // destination has mounted (see `go` above), so the launch shows exactly
+  // one splash: the one baked into the binary. What follows is only ever
+  // seen when this route is re-entered later — a logout, say — where no
+  // native splash is on screen to match.
 
   return (
     <View style={styles.root}>
