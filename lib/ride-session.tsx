@@ -751,7 +751,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     connectPromiseRef.current = (async () => {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) {
-        throw new Error('Could not get a Privy access token for ride updates.');
+        throw new Error('Could not get an access token for ride updates.');
       }
 
       const socketUrl = new URL(wsBaseUrl);
