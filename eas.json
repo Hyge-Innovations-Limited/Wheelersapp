@@ -50,7 +50,8 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://app.wheelersng.com",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-lvs2n7lv6it788n2vvf1edsem3bvn8io.apps.googleusercontent.com"
-      }
+      },
+      "channel": "preview-rider"
     },
     "preview:driver": {
       "distribution": "store",
@@ -66,7 +67,8 @@
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com",
         "EXPO_PUBLIC_API_BASE_URL": "https://app.wheelersng.com"
-      }
+      },
+      "channel": "preview-driver"
     },
     "production": {
       "distribution": "store",
@@ -77,7 +79,8 @@
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-lvs2n7lv6it788n2vvf1edsem3bvn8io.apps.googleusercontent.com",
         "EXPO_PUBLIC_API_BASE_URL": "https://app.wheelersng.com"
-      }
+      },
+      "channel": "production-rider"
     },
     "production:driver": {
       "distribution": "store",
@@ -93,7 +96,8 @@
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com",
         "EXPO_PUBLIC_API_BASE_URL": "https://app.wheelersng.com"
-      }
+      },
+      "channel": "production-driver"
     },
     "production:driver:play": {
       "distribution": "store",
@@ -106,7 +110,8 @@
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com",
         "EXPO_PUBLIC_API_BASE_URL": "https://app.wheelersng.com"
-      }
+      },
+      "channel": "production-driver"
     }
   },
   "submit": {

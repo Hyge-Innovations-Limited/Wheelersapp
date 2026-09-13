@@ -56,6 +56,18 @@ module.exports = () => ({
       appVariant,
       googleMapsApiKey,
     },
+    // Over-the-air updates. JS-only fixes ship with `eas update --channel …`
+    // and land on every phone at its next launch; native changes still need
+    // a store build. The runtime version tracks app.json "version": bump it
+    // whenever a build changes anything native, and updates stay matched to
+    // the shell they were built for.
+    updates: {
+      url: `https://u.expo.dev/${appJson.expo.extra.eas.projectId}`,
+      enabled: true,
+      checkAutomatically: "ON_LOAD",
+      fallbackToCacheTimeout: 0,
+    },
+    runtimeVersion: { policy: "appVersion" },
     plugins: withVariantGoogleScheme(appJson.expo.plugins ?? []),
     ios: {
       ...appJson.expo.ios,

@@ -27,6 +27,7 @@ import { InterstateRequestsProvider } from "@/lib/interstate-requests-context";
 import { QuestBadgeProvider } from "@/lib/quest-badge-context";
 import { RideSessionProvider } from "@/lib/ride-session";
 import { ThemeProvider, useAppTheme } from "@/lib/theme-context";
+import { useOtaUpdates } from "@/lib/ota-updates";
 import { theme } from "@/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -70,6 +71,7 @@ export default function RootLayout() {
 
 function ThemedLayout() {
   const { isDark } = useAppTheme();
+  useOtaUpdates();
 
   return (
     <>
