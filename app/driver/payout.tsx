@@ -104,7 +104,9 @@ export default function DriverPayoutScreen() {
           <SummaryRow label="Duration" value={`${Math.ceil(ride.durationSeconds / 60)} min`} />
         )}
         <View style={styles.totalRow}>
-          <AppText variant="bodyMedium">Credited to wallet</AppText>
+          <AppText variant="bodyMedium">
+            {ride?.paymentMethod === 'CASH' ? 'Collect in cash' : 'Credited to wallet'}
+          </AppText>
           <AppText variant="monoLarge" color={theme.colors.orange} numberOfLines={1} style={styles.rowValue}>
             {formatNgn(finalPayout)}
           </AppText>

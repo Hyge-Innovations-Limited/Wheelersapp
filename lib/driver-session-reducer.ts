@@ -89,6 +89,8 @@ export type DriverRide = {
   distanceKm?: number;
   durationSeconds?: number;
   riderPaid?: boolean;
+  /** WALLET or CASH — a cash fare is collected in the car, not credited. */
+  paymentMethod?: string;
   riderPhone?: string;
   liveDistanceKm?: number;
 };
@@ -120,7 +122,7 @@ export type PendingBid = {
    * greyed, dismissible — instead of vanishing: work should end with an
    * outcome, never with disappearance.
    */
-  outcome?: 'expired' | 'lost';
+  outcome?: 'expired' | 'lost' | 'withdrawn';
   resolvedAt?: string;
 };
 
@@ -360,8 +362,23 @@ export function hydrateBidRecords(
   now: number = Date.now(),
 ): DriverSessionState {
   let pendingBids = prev.pendingBids;
+  const TERMINAL = new Set(['EXPIRED', 'LOST', 'WITHDRAWN', 'CANCELLED']);
   for (const rec of records) {
-    if (!rec?.rideId || pendingBids[rec.rideId]) continue;
+    if (!rec?.rideId) continue;
+    const local = pendingBids[rec.rideId];
+    if (local) {
+      // The server knows this bid ended; a local card still "waiting on
+      // rider" is stale. Anything else about a known card stays as is.
+      if (!local.outcome && TERMINAL.has(rec.status)) {
+        if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
+        pendingBids[rec.rideId] = {
+          ...local,
+          outcome: rec.status === 'LOST' ? 'lost' : rec.status === 'EXPIRED' ? 'expired' : 'withdrawn',
+          resolvedAt: rec.resolvedAt ?? new Date(now).toISOString(),
+        };
+      }
+      continue;
+    }
     if (prev.currentRide?.rideId === rec.rideId) continue;
     const createdMs = Date.parse(rec.createdAt);
     if (!Number.isFinite(createdMs) || now - createdMs > BID_BACKFILL_WINDOW_MS) continue;
@@ -388,14 +405,14 @@ export function hydrateBidRecords(
         acceptedAt: rec.resolvedAt ?? rec.createdAt,
         agreedFareNgn: rec.ride.agreedFareNgn ?? rec.amountNgn,
       };
-    } else if (rec.status === 'EXPIRED' || rec.status === 'LOST') {
+    } else if (TERMINAL.has(rec.status)) {
       const resolvedMs = rec.resolvedAt ? Date.parse(rec.resolvedAt) : createdMs;
       if (now - resolvedMs > RESOLVED_BID_LINGER_MS) continue;
       bid = {
         offer,
         amountNgn: rec.amountNgn,
         sentAt: rec.createdAt,
-        outcome: rec.status === 'LOST' ? 'lost' : 'expired',
+        outcome: rec.status === 'LOST' ? 'lost' : rec.status === 'EXPIRED' ? 'expired' : 'withdrawn',
         resolvedAt: rec.resolvedAt ?? rec.createdAt,
       };
     }
@@ -781,7 +798,26 @@ export function reduceDriverSession(
         route: offer?.route ?? (sameRide ? prev.currentRide?.route : undefined),
         startedAt: getString(payload.startedAt) ?? (sameRide ? prev.currentRide?.startedAt : undefined),
         riderPaid,
+        paymentMethod:
+          getString(payload.paymentMethod) ?? offer?.paymentMethod ?? (sameRide ? prev.currentRide?.paymentMethod : undefined),
         riderPhone: getString(payload.riderPhone) ?? (sameRide ? prev.currentRide?.riderPhone : undefined),
+      },
+    };
+  }
+
+  if (type === 'ride:bid_withdrawn') {
+    // The server pulled this bid (driver went stale, is on another trip, or
+    // the bid was rejected). The card used to say "waiting on rider" for
+    // half an hour.
+    const rideId = getString(payload.rideId);
+    if (!rideId) return prev;
+    const bid = prev.pendingBids[rideId];
+    if (!bid || bid.outcome) return prev;
+    return {
+      ...prev,
+      pendingBids: {
+        ...prev.pendingBids,
+        [rideId]: { ...bid, outcome: 'withdrawn', resolvedAt: new Date(now).toISOString() },
       },
     };
   }

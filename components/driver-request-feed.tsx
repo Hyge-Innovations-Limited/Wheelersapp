@@ -141,6 +141,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     return (
       <Pressable
         key={`missed-${offer.rideId}`}
+        disabled={entry.reason === 'taken'}
         onPress={() => openDetails(offer.rideId)}
         style={({ pressed }) => [styles.card, styles.cardResolved, pressed && styles.pressed]}>
         <View style={styles.topRow}>
@@ -155,7 +156,9 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           {offer.pickup.address} → {offer.destination.address} · {formatNgn(ask)}
         </AppText>
         <AppText variant="caption" color={theme.colors.muted}>
-          Tap to view — you can still try a bid
+          {entry.reason === 'taken'
+            ? 'Another driver has this one'
+            : 'Tap to view — you can still try a bid'}
         </AppText>
       </Pressable>
     );
@@ -181,7 +184,11 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         <View key={offer.rideId} style={[styles.card, styles.cardResolved]}>
           <View style={styles.topRow}>
             <AppText variant="label" color={theme.colors.muted}>
-              {bid.outcome === 'lost' ? 'Rider chose another driver' : 'Request ended ⏱'}
+              {bid.outcome === 'lost'
+                ? 'Rider chose another driver'
+                : bid.outcome === 'withdrawn'
+                  ? 'Your offer was withdrawn'
+                  : 'Request ended ⏱'}
             </AppText>
             <Pressable onPress={() => dismissBid(offer.rideId)} style={styles.cancelChip}>
               <AppText variant="label" color={theme.colors.muted}>✕</AppText>

@@ -1,4 +1,5 @@
-import { AppState, type AppStateStatus } from 'react-native';
+import { Alert, AppState, type AppStateStatus } from 'react-native';
+import { maxBidNgn } from '@/lib/bid-limits';
 import { useAuth } from '@/lib/auth';
 import {
   createContext,
@@ -164,6 +165,9 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   const connectPromiseRef = useRef<Promise<WebSocket> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldMaintainConnectionRef = useRef(false);
+  /** The driver pressed Go Online and has not pressed Go Offline since. */
+  const wantsOnlineRef = useRef(false);
+  const lastAlertRef = useRef<{ message: string; at: number }>({ message: '', at: 0 });
   const lastOnlineCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const userRef = useRef(user);
   const sessionRef = useRef(session);
@@ -192,7 +196,20 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       if (!type || !payload) return;
 
       if (type === 'error') {
-        setError(getString(payload.message) ?? 'Driver session error.');
+        // Nothing on the driver screens rendered `error`, so a rejected bid
+        // ("finish your current trip", "request no longer open", "above the
+        // ₦500/km cap") was invisible and the bid card stayed optimistic.
+        const message = getString(payload.message) ?? 'Driver session error.';
+        setError(message);
+        const now = Date.now();
+        if (message !== lastAlertRef.current.message || now - lastAlertRef.current.at > 3_000) {
+          lastAlertRef.current = { message, at: now };
+          Alert.alert('Wheelers', message);
+        }
+        const rejectedRideId = getString(payload.rideId);
+        if (rejectedRideId) {
+          setSession((prev) => reduceDriverSession(prev, 'ride:bid_withdrawn', { rideId: rejectedRideId, reason: 'rejected' }) ?? prev);
+        }
         return;
       }
 
@@ -239,6 +256,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
       if (type === 'ride:cancelled') {
         setError('Ride was cancelled.');
+        Alert.alert('Ride cancelled', getString(payload.reason) ? `The rider cancelled: ${getString(payload.reason)}` : 'The rider cancelled this ride.');
       }
     },
     [markRideEnded],
@@ -353,8 +371,18 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
           // (or were missed) during the connection gap. Without this, a
           // network blip silently cost the driver every request in flight.
           const lastOnline = lastOnlineCoordsRef.current;
-          if (shouldMaintainConnectionRef.current && lastOnline && sessionRef.current.status !== 'offline') {
-            socket.send(JSON.stringify({ type: 'driver:online', payload: lastOnline }));
+          if (shouldMaintainConnectionRef.current && lastOnline && wantsOnlineRef.current) {
+            if (sessionRef.current.currentRide) {
+              // Mid-trip: announcing "online" put this driver back in the
+              // matching pool and flipped ON_RIDE to ONLINE. A position ping
+              // keeps them alive without re-listing them.
+              socket.send(JSON.stringify({
+                type: 'driver:gps',
+                payload: { rideId: sessionRef.current.currentRide.rideId, ...lastOnline, timestamp: new Date().toISOString() },
+              }));
+            } else {
+              socket.send(JSON.stringify({ type: 'driver:online', payload: lastOnline }));
+            }
           }
           // The gateway also re-sends ride:matched for an assigned ride on
           // connect; this REST check is the belt to that brace — it survives
@@ -375,6 +403,11 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
         socket.onerror = () => {
           clearTimeout(timeout);
+          if (connectPromiseRef.current && socketRef.current !== socket) {
+            // A newer socket is already being opened; this is the old one.
+            reject(new Error('WebSocket connection error.'));
+            return;
+          }
           connectPromiseRef.current = null;
           setConnectionState('disconnected');
           scheduleReconnect();
@@ -383,6 +416,10 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
         socket.onclose = () => {
           clearTimeout(timeout);
+          // Only the CURRENT socket's close means we are disconnected. A
+          // timed-out socket closing after its replacement opened used to
+          // null the live ref, stop GPS, and open a third, orphaned socket.
+          if (socketRef.current !== null && socketRef.current !== socket) return;
           socketRef.current = null;
           connectPromiseRef.current = null;
           setConnectionState('disconnected');
@@ -419,6 +456,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   const goOnline = useCallback(async (lat: number, lng: number) => {
     console.log('[driver-session] goOnline called with', { lat, lng });
     shouldMaintainConnectionRef.current = true;
+    wantsOnlineRef.current = true;
     lastOnlineCoordsRef.current = { lat, lng };
     try {
       await connect();
@@ -444,6 +482,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       socket.send(JSON.stringify({ type: 'driver:offline', payload: { reason: 'manual' } }));
     }
     shouldMaintainConnectionRef.current = false;
+    wantsOnlineRef.current = false;
     lastOnlineCoordsRef.current = null;
     void stopDriverLivenessUpdates();
     clearReconnectTimer();
@@ -471,6 +510,13 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       }
 
       const amountNgn = counterOfferNgn ?? offer.riderOfferNgn ?? offer.fareEstimateNgn;
+
+      // ₦500/km ceiling. The +100/+500 chips and "change bid" never checked
+      // it; the server now rejects, but the driver should hear it here.
+      const cap = maxBidNgn(offer.plannedDistanceKm);
+      if (cap !== null && amountNgn > cap) {
+        throw new Error(`The most you can bid on this trip is ₦${cap.toLocaleString('en-NG')} (₦500 per km).`);
+      }
 
       // Real ETA from live GPS (or the backend's match-time seed) — the
       // server recomputes from its own copy too, but never send the old
@@ -720,6 +766,19 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       JSON.stringify({ offers: marketOffers, pendingBids: marketBids, missedOffers: marketMissed }),
     ).catch(() => {});
   }, [marketOffers, marketBids, marketMissed]);
+
+  // A parked driver gets no GPS fixes (both platforms filter by distance),
+  // so nothing refreshed lastSeenAt and the backend dropped them from
+  // matching after 90 s, then rejected the rider's "pay" as "driver
+  // unavailable". Re-send the last known position every 30 s while online.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const coords = lastOnlineCoordsRef.current;
+      if (!shouldMaintainConnectionRef.current || !coords) return;
+      sendGps(coords.lat, coords.lng);
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [sendGps]);
 
   // Coming back from the background is exactly when a match was missed: the
   // socket is dead while the app is suspended, and the rider paid meanwhile.
