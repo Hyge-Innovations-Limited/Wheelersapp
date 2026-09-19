@@ -35,10 +35,10 @@ function formatNgn(amount: number): string {
   return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
-// Mirrors MIN_WITHDRAWAL_NGN on the backend — the payout provider refuses
-// anything smaller. Checked here too so the driver is told before they get to
-// the confirm step rather than after the request round-trips.
-const MIN_WITHDRAWAL_NGN = 5000;
+// There is deliberately NO minimum-withdrawal constant here. The app used to
+// mirror the backend's floor, and the copy went stale the day the provider
+// changed — drivers were refused withdrawals the server would have paid. The
+// server owns that rule and its message is shown as-is.
 
 
 // ── Icons ─────────────────────────────────────────────
@@ -187,13 +187,6 @@ export default function DriverWithdrawScreen() {
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) {
       Alert.alert('Invalid', 'Please enter a valid amount');
-      return;
-    }
-    if (numAmount < MIN_WITHDRAWAL_NGN) {
-      Alert.alert(
-        'Amount too low',
-        `The minimum withdrawal is ${formatNgn(MIN_WITHDRAWAL_NGN)}.`,
-      );
       return;
     }
     if (numAmount > balanceNgn) {
@@ -428,9 +421,6 @@ export default function DriverWithdrawScreen() {
 
             <AppText variant="bodySmall" color={theme.colors.muted}>
               Available: {formatNgn(balanceNgn)}
-            </AppText>
-            <AppText variant="bodySmall" color={theme.colors.muted}>
-              Minimum withdrawal: {formatNgn(MIN_WITHDRAWAL_NGN)}
             </AppText>
 
             {parseFloat(amount) > 0 && (

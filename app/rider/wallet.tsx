@@ -63,9 +63,10 @@ const walletPages = [
   },
 ] as const;
 
-// Mirrors MIN_WITHDRAWAL_NGN on the backend — the payout provider refuses
-// anything smaller, so catch it here rather than after a round-trip.
-const MIN_WITHDRAWAL_NGN = 5000;
+// There is deliberately NO minimum-withdrawal constant here. The app used to
+// mirror the backend's floor, and the copy went stale the day the provider
+// changed — riders were refused ₦4,000 withdrawals the server would have
+// paid. The server owns that rule and its message is shown as-is.
 
 function parseNgnAmount(value: string): number | null {
   const digitsOnly = value.replace(/\D/g, "");
@@ -439,14 +440,6 @@ export default function WalletScreen() {
       return;
     }
 
-    if (amountNgn < MIN_WITHDRAWAL_NGN) {
-      Alert.alert(
-        "Amount too low",
-        `The minimum withdrawal is NGN ${MIN_WITHDRAWAL_NGN.toLocaleString("en-NG")}.`,
-      );
-      return;
-    }
-
     if (amountNgn > availableWithdrawalBalanceNgn) {
       Alert.alert(
         "Insufficient balance",
@@ -504,7 +497,7 @@ export default function WalletScreen() {
       });
 
       if (!response.bankAccount.accountName || !response.bankAccount.bankName) {
-        throw new Error("Pouch could not verify the bank account name.");
+        throw new Error("We could not verify that bank account name. Check the number and bank.");
       }
 
       setVerifiedWithdrawAccount({
@@ -536,14 +529,6 @@ export default function WalletScreen() {
       Alert.alert(
         "Withdrawal details missing",
         "Verify the bank account again before proceeding.",
-      );
-      return;
-    }
-
-    if (amountNgn < MIN_WITHDRAWAL_NGN) {
-      Alert.alert(
-        "Amount too low",
-        `The minimum withdrawal is NGN ${MIN_WITHDRAWAL_NGN.toLocaleString("en-NG")}.`,
       );
       return;
     }
@@ -692,7 +677,6 @@ export default function WalletScreen() {
         <SectionHeader
           actionLabel="Rider home"
           onActionPress={() => router.replace("/rider")}
-          // subtitle="Fund your wallet in Naira through Pouch onramp."
           title="Wallet"
           titleVariant="h1"
         />
@@ -864,7 +848,7 @@ export default function WalletScreen() {
               <TextInput
                 keyboardType="number-pad"
                 onChangeText={handleWithdrawAmountChange}
-                placeholder="5,000"
+                placeholder="0"
                 placeholderTextColor="#B5ACA4"
                 style={styles.input}
                 value={withdrawAmount}
