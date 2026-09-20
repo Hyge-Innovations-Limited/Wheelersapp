@@ -373,6 +373,12 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
           // network blip silently cost the driver every request in flight.
           const lastOnline = lastOnlineCoordsRef.current;
           if (shouldMaintainConnectionRef.current && lastOnline && wantsOnlineRef.current) {
+            // Make sure the pocket heartbeat is running with current settings.
+            // A no-op when it already is; after an app update it replaces a
+            // task started with old options.
+            void getAccessTokenWithRetry(getAccessToken)
+              .then((token) => (token ? startDriverLivenessUpdates(token) : undefined))
+              .catch(() => undefined);
             if (sessionRef.current.currentRide) {
               // Mid-trip: announcing "online" put this driver back in the
               // matching pool and flipped ON_RIDE to ONLINE. A position ping

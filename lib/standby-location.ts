@@ -3,7 +3,7 @@
  * OFF shift, so Wheelers can tell them about a rider close by.
  *
  * Strictly opt-in (Settings → Nearby ride alerts) and deliberately coarse:
- * kilometre-level accuracy, one fix every ten minutes or 500 m. It posts to
+ * kilometre-level accuracy, one fix every ten minutes. It posts to
  * its own endpoint, which never marks the driver as available — going online
  * is still the driver's decision. The precise 30-second heartbeat in
  * background-location.ts takes over the moment they do, and this one pauses.
@@ -18,6 +18,9 @@ const TOKEN_KEY = 'wheelers.driver.standby.token';
 // Local mirror of the server preference, so app start and going offline can
 // decide without a network round-trip.
 const ENABLED_KEY = 'wheelers.driver.standby.enabled';
+// Same rule as background-location.ts: a running task keeps its old options.
+const OPTIONS_VERSION = '2';
+const OPTIONS_VERSION_KEY = 'wheelers.driver.standby.optionsVersion';
 
 // Same guard as background-location.ts: on a build without the native module
 // the package throws at import, so the import must be lazy.
@@ -86,12 +89,18 @@ export async function resumeStandbyIfEnabled(accessToken: string): Promise<void>
     if (!granted) return;
     await AsyncStorage.setItem(TOKEN_KEY, accessToken);
     const already = await Location.hasStartedLocationUpdatesAsync(DRIVER_STANDBY_TASK).catch(() => false);
-    if (already) return;
+    if (already) {
+      if ((await AsyncStorage.getItem(OPTIONS_VERSION_KEY)) === OPTIONS_VERSION) return;
+      await Location.stopLocationUpdatesAsync(DRIVER_STANDBY_TASK).catch(() => undefined);
+    }
+    await AsyncStorage.setItem(OPTIONS_VERSION_KEY, OPTIONS_VERSION);
     await Location.startLocationUpdatesAsync(DRIVER_STANDBY_TASK, {
       accuracy: Location.Accuracy.Low,
       timeInterval: 10 * 60_000,
-      distanceInterval: 500,
-      deferredUpdatesInterval: 10 * 60_000,
+      // 0 on purpose: Android sends nothing until the phone has moved this far,
+      // so at 500 a driver resting at home never pinged and dropped off the
+      // dispatch map after 45 minutes. Time alone paces this one.
+      distanceInterval: 0,
       pausesUpdatesAutomatically: true,
       showsBackgroundLocationIndicator: false,
       foregroundService: {

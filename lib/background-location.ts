@@ -16,6 +16,11 @@ import { postDriverLocation } from '@/lib/api';
 
 export const DRIVER_LOCATION_TASK = 'wheelers-driver-location';
 const TOKEN_KEY = 'wheelers.driver.liveness.token';
+// A running task keeps the options it was started with. Bump this whenever the
+// options below change, and the next start replaces the old task instead of
+// leaving it running with stale settings.
+const OPTIONS_VERSION = '2';
+const OPTIONS_VERSION_KEY = 'wheelers.driver.liveness.optionsVersion';
 
 // Builds compiled before expo-task-manager was added lack the native module,
 // and the package throws AT IMPORT — so the import itself must be lazy. On
@@ -64,11 +69,19 @@ export async function startDriverLivenessUpdates(accessToken: string): Promise<v
     const { granted } = await Location.getBackgroundPermissionsAsync();
     if (!granted) return; // foreground-only session; WS pings still cover it
     const already = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK).catch(() => false);
-    if (already) return;
+    if (already) {
+      if ((await AsyncStorage.getItem(OPTIONS_VERSION_KEY)) === OPTIONS_VERSION) return;
+      await Location.stopLocationUpdatesAsync(DRIVER_LOCATION_TASK).catch(() => undefined);
+    }
+    await AsyncStorage.setItem(OPTIONS_VERSION_KEY, OPTIONS_VERSION);
     await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
       accuracy: Location.Accuracy.Balanced,
       timeInterval: 30_000,
-      distanceInterval: 50,
+      // MUST stay 0. Android treats this as "no update until the phone has
+      // moved this far", so at 50 a driver PARKED waiting for a ride sent no
+      // heartbeat at all — and 90 s after the socket dropped the server,
+      // correctly, took them offline. A heartbeat has to beat standing still.
+      distanceInterval: 0,
       pausesUpdatesAutomatically: false,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
