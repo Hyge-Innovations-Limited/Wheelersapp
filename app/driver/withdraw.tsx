@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,7 @@ import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { useWalletPin } from '@/components/wallet-pin-sheet';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useResponsive } from '@/lib/responsive';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
@@ -140,6 +141,9 @@ export default function DriverWithdrawScreen() {
     ? banks.filter((b) => b.name.toLowerCase().includes(bankSearchQuery.toLowerCase()))
     : banks;
 
+  const pinAccessToken = useCallback(() => getAccessTokenWithRetry(getAccessToken), [getAccessToken]);
+  const pinGate = useWalletPin(pinAccessToken);
+
   const handleSelectBank = (bank: WithdrawalBankNetwork) => {
     setSelectedBank(bank);
     setShowBankModal(false);
@@ -198,19 +202,38 @@ export default function DriverWithdrawScreen() {
 
   const handleConfirm = async () => {
     if (!selectedBank) return;
+    // No PIN, no withdrawal. The sheet creates one the first time, and
+    // explains a lockout or a freeze instead of handing a PIN back.
+    let pin = await pinGate.ask();
+    if (!pin) return;
     setSubmitting(true);
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) throw new Error('Not authenticated');
-      const response = await createWalletWithdrawal({
-        accessToken,
-        amountNgn: parseFloat(amount),
-        bankAccount: {
-          accountNumber,
-          accountName,
-          networkId: getBankId(selectedBank),
-        },
-      });
+      let response;
+      for (;;) {
+        try {
+          response = await createWalletWithdrawal({
+            accessToken,
+            amountNgn: parseFloat(amount),
+            pin,
+            bankAccount: {
+              accountNumber,
+              accountName,
+              networkId: getBankId(selectedBank),
+            },
+          });
+          break;
+        } catch (pinError) {
+          // A wrong PIN is not a failed withdrawal: nothing was reserved.
+          // Show the server's "2 tries left" in the sheet and ask again.
+          if (!pinGate.isPinError(pinError)) throw pinError;
+          const retry = await pinGate.ask(pinError instanceof Error ? pinError.message : undefined);
+          if (!retry) return;
+          pin = retry;
+        }
+      }
+      pinGate.done();
 
       const created = response.withdrawal;
       if (created && FAILED_WITHDRAWAL_STATUSES.includes(created.status)) {
@@ -257,6 +280,7 @@ export default function DriverWithdrawScreen() {
         err instanceof Error ? err.message : 'Something went wrong. Please try again.',
       );
     } finally {
+      pinGate.done();
       setSubmitting(false);
     }
   };
@@ -558,6 +582,7 @@ export default function DriverWithdrawScreen() {
           </View>
         </View>
       </Modal>
+      {pinGate.sheet}
     </AppScreen>
   );
 }

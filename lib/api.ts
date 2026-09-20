@@ -861,6 +861,8 @@ export async function createWalletWithdrawal(input: {
   accessToken: string;
   amountNgn: number;
   idempotencyKey?: string;
+  /** The 4-digit wallet PIN. The server refuses a withdrawal without it. */
+  pin?: string;
   bankAccount: {
     accountNumber: string;
     accountName: string;
@@ -872,6 +874,7 @@ export async function createWalletWithdrawal(input: {
     {
       amountNgn: input.amountNgn,
       bankAccount: input.bankAccount,
+      pin: input.pin,
     },
     {
       accessToken: input.accessToken,
@@ -879,6 +882,57 @@ export async function createWalletWithdrawal(input: {
       fallbackError: "Could not create wallet withdrawal.",
     },
   );
+}
+
+// ── Wallet PIN ────────────────────────────────────────────────────────────
+// The server owns every rule (length, lockout, reset pause); the app only
+// asks and shows what it is told.
+
+export type WalletSecurity = {
+  hasPin: boolean;
+  /** Masked. Where a "Forgot PIN" code goes; null means a reset pauses withdrawals for 24h instead. */
+  resetEmail: string | null;
+  recoveryEmail: string | null;
+  pinLockedUntil: string | null;
+  frozenUntil: string | null;
+  frozenReason: string | null;
+  restrictedUntil: string | null;
+};
+
+export type WalletPinResetStart =
+  | { method: "email"; sentTo: string }
+  | { method: "pause"; pauseHours: number };
+
+export async function getWalletSecurity(input: { accessToken: string }): Promise<WalletSecurity> {
+  return getJson<WalletSecurity>("/wallet/security", {
+    accessToken: input.accessToken,
+    fallbackError: "Could not load your wallet security settings.",
+  });
+}
+
+export async function setWalletPin(input: { accessToken: string; pin: string }): Promise<{ ok: true }> {
+  return postJson<{ ok: true }>("/wallet/pin", { pin: input.pin }, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not set your wallet PIN.",
+  });
+}
+
+export async function startWalletPinReset(input: { accessToken: string }): Promise<WalletPinResetStart> {
+  return postJson<WalletPinResetStart>("/wallet/pin/reset/start", {}, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not start the PIN reset.",
+  });
+}
+
+export async function completeWalletPinReset(input: {
+  accessToken: string;
+  newPin: string;
+  code?: string;
+}): Promise<{ ok: true; frozenUntil: string | null; restrictedUntil: string | null }> {
+  return postJson("/wallet/pin/reset/complete", { newPin: input.newPin, code: input.code }, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not reset your wallet PIN.",
+  });
 }
 
 export async function getWalletWithdrawal(input: {

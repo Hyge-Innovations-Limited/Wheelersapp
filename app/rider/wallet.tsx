@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +21,7 @@ import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
 import { AppScreen } from "@/components/app-screen";
 import { AppText } from "@/components/app-text";
+import { useWalletPin } from "@/components/wallet-pin-sheet";
 import { SectionHeader } from "@/components/SectionHeader";
 import { WalletBalanceCard } from "@/components/WalletBalanceCard";
 import { KeyboardShiftView } from "@/components/keyboard-shift-view";
@@ -91,6 +92,8 @@ function formatWalletCurrencyAmount(currency: string, amount: number): string {
 export default function WalletScreen() {
   const router = useRouter();
   const { getAccessToken, isReady } = useAuth();
+  const pinAccessToken = useCallback(() => getAccessTokenWithRetry(getAccessToken), [getAccessToken]);
+  const pinGate = useWalletPin(pinAccessToken);
   const insets = useSafeAreaInsets();
   const {
     overview,
@@ -560,27 +563,60 @@ export default function WalletScreen() {
     }
 
     setWithdrawConfirmVisible(false);
-    setBlockingLoader({
+    // Two modals cannot be on screen at once: let the confirm sheet finish
+    // closing before the PIN sheet opens.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    // No PIN, no withdrawal. The sheet creates one the first time, and
+    // explains a lockout or a freeze instead of handing a PIN back.
+    let pin = await pinGate.ask();
+    if (!pin) {
+      setWithdrawConfirmVisible(true);
+      return;
+    }
+    pinGate.done();
+
+    const sendingLoader = {
       title: "Sending withdrawal",
       message: "Submitting your withdrawal request now.",
-    });
+    };
+    setBlockingLoader(sendingLoader);
     setCreatingWithdrawal(true);
 
     try {
-      const response = await createWalletWithdrawal({
-        accessToken,
-        idempotencyKey:
-          withdrawalIdempotencyKeyRef.current ??
-          (withdrawalIdempotencyKeyRef.current = createIdempotencyKey(
-            "wallet-withdrawal",
-          )),
-        amountNgn,
-        bankAccount: {
-          accountNumber: verifiedWithdrawAccount.accountNumber,
-          accountName: verifiedWithdrawAccount.accountName,
-          networkId: verifiedWithdrawAccount.networkId,
-        },
-      });
+      let response;
+      for (;;) {
+        try {
+          response = await createWalletWithdrawal({
+            accessToken,
+            pin,
+            idempotencyKey:
+              withdrawalIdempotencyKeyRef.current ??
+              (withdrawalIdempotencyKeyRef.current = createIdempotencyKey(
+                "wallet-withdrawal",
+              )),
+            amountNgn,
+            bankAccount: {
+              accountNumber: verifiedWithdrawAccount.accountNumber,
+              accountName: verifiedWithdrawAccount.accountName,
+              networkId: verifiedWithdrawAccount.networkId,
+            },
+          });
+          break;
+        } catch (pinError) {
+          // A wrong PIN is not a failed withdrawal: nothing was reserved.
+          if (!pinGate.isPinError(pinError)) throw pinError;
+          setBlockingLoader(null);
+          const retry = await pinGate.ask(pinError instanceof Error ? pinError.message : undefined);
+          if (!retry) {
+            setWithdrawConfirmVisible(true);
+            return;
+          }
+          pin = retry;
+          pinGate.done();
+          setBlockingLoader(sendingLoader);
+        }
+      }
 
       const created = response.withdrawal;
       if (created && FAILED_WITHDRAWAL_STATUSES.includes(created.status)) {
@@ -1110,6 +1146,7 @@ export default function WalletScreen() {
           </AppText>
         </Animated.View>
       ) : null}
+      {pinGate.sheet}
     </>
   );
 }
