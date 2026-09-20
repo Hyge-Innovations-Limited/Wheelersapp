@@ -1698,6 +1698,44 @@ export async function getDriverBids(input: {
 }
 
 /** Background liveness heartbeat — keeps a pocketed driver alive in matching. */
+/** "Nearby ride alerts": may Wheelers see a rough position while the driver is off shift? */
+export type DriverStandby = {
+  enabled: boolean;
+  consentAt: string | null;
+  lastSentAt: string | null;
+};
+
+export async function getDriverStandby(input: { accessToken: string }): Promise<DriverStandby> {
+  return getJson<DriverStandby>("/drivers/me/standby", {
+    accessToken: input.accessToken,
+    fallbackError: "Could not load nearby ride alerts.",
+  });
+}
+
+/** Switching it off also erases the off-shift position the server holds. */
+export async function setDriverStandby(input: {
+  accessToken: string;
+  enabled: boolean;
+}): Promise<DriverStandby> {
+  return requestJson<DriverStandby>("PUT", "/drivers/me/standby", {
+    accessToken: input.accessToken,
+    body: { enabled: input.enabled },
+    fallbackError: "Could not update nearby ride alerts.",
+  });
+}
+
+/** Throws ApiError with code STANDBY_OFF when the driver has not opted in. */
+export async function postDriverStandbyLocation(input: {
+  accessToken: string;
+  lat: number;
+  lng: number;
+}): Promise<void> {
+  await postJson("/drivers/me/standby-location", { lat: input.lat, lng: input.lng }, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not update location.",
+  });
+}
+
 export async function postDriverLocation(input: {
   accessToken: string;
   lat: number;

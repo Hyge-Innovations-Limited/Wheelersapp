@@ -23,6 +23,7 @@ import {
 } from '@/lib/api';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { startDriverLivenessUpdates, stopDriverLivenessUpdates } from '@/lib/background-location';
+import { pauseStandbyUpdates, resumeStandbyIfEnabled } from '@/lib/standby-location';
 import {
   applyActiveRideSnapshot,
   defaultDriverSession,
@@ -465,7 +466,9 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       console.log('[driver-session] driver:online sent');
       // The pocket heartbeat: keeps this driver alive in matching when the
       // app backgrounds and the socket dies. Best-effort by design.
-      void getAccessTokenWithRetry(getAccessToken)
+      // The rough off-shift updates stop first so the two never run together.
+      void pauseStandbyUpdates()
+        .then(() => getAccessTokenWithRetry(getAccessToken))
         .then((token) => (token ? startDriverLivenessUpdates(token) : undefined))
         .catch(() => undefined);
       setSession((prev) => ({ ...prev, status: prev.currentRide ? prev.status : 'online' }));
@@ -484,7 +487,12 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     shouldMaintainConnectionRef.current = false;
     wantsOnlineRef.current = false;
     lastOnlineCoordsRef.current = null;
-    void stopDriverLivenessUpdates();
+    // Off shift: hand over to "nearby ride alerts" — a no-op unless the driver
+    // switched it on in Settings.
+    void stopDriverLivenessUpdates()
+      .then(() => getAccessTokenWithRetry(getAccessToken))
+      .then((token) => (token ? resumeStandbyIfEnabled(token) : undefined))
+      .catch(() => undefined);
     clearReconnectTimer();
     socketRef.current = null;
     if (socket) socket.close();
@@ -492,7 +500,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     setConnectionState('disconnected');
     setSession(defaultDriverSession);
     setError(null);
-  }, [clearReconnectTimer]);
+  }, [clearReconnectTimer, getAccessToken]);
 
   const acceptRide = useCallback(
     async (rideId: string, counterOfferNgn?: number, origin?: { lat: number; lng: number }) => {

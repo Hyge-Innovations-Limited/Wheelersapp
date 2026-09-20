@@ -15,8 +15,8 @@
       "bundleIdentifier": "com.timmy133.wheelers",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Wheelers uses your location to show nearby rides and ride requests, power trip navigation, and keep trip tracking accurate.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Wheelers uses your location in the background while you are online or on a trip so ride matching, live tracking, and safety tools keep working.",
-        "NSLocationAlwaysUsageDescription": "Wheelers uses your location in the background while you are online or on a trip so live tracking and safety monitoring keep working.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Wheelers uses your location in the background while you are online or on a trip so ride matching, live tracking, and safety tools keep working. Drivers who switch on Nearby ride alerts also share an approximate location while offline, so Wheelers can tell them about riders close by.",
+        "NSLocationAlwaysUsageDescription": "Wheelers uses your location in the background while you are online or on a trip so live tracking and safety monitoring keep working. Drivers who switch on Nearby ride alerts also share an approximate location while offline, so Wheelers can tell them about riders close by.",
         "UIBackgroundModes": [
           "location",
           "remote-notification"
@@ -91,8 +91,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Wheelers Rides uses your location at all times during rides so live tracking, safety tools, and trip progress stay accurate.",
-          "locationAlwaysPermission": "Wheelers Rides uses your location in the background during rides so trip progress and safety monitoring keep working.",
+          "locationAlwaysAndWhenInUsePermission": "Wheelers Rides uses your location at all times during rides so live tracking, safety tools, and trip progress stay accurate. Drivers who switch on Nearby ride alerts also share an approximate location while offline, so Wheelers can tell them about riders close by.",
+          "locationAlwaysPermission": "Wheelers Rides uses your location in the background during rides so trip progress and safety monitoring keep working. Drivers who switch on Nearby ride alerts also share an approximate location while offline, so Wheelers can tell them about riders close by.",
           "locationWhenInUsePermission": "Wheelers Rides uses your location to set pickups, find rides, and keep trip tracking accurate.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,

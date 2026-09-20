@@ -7,6 +7,7 @@ import MapView, { Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
+import { useNearbyAlerts } from '@/components/nearby-alerts';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getDriverStats, getDriverEarnings, type DriverStatsResponse } from '@/lib/api';
@@ -195,6 +196,7 @@ export default function DriverHomeScreen() {
   }, [currentLocation]);
 
   const isOnline = session.status !== 'offline';
+  const nearbyAlerts = useNearbyAlerts(getAccessToken, isOnline);
 
   // An honest read on silence: how long since anything happened. Fifteen
   // quiet minutes means the driver is probably parked outside demand — say
@@ -266,6 +268,9 @@ export default function DriverHomeScreen() {
           return;
         }
         await goOffline();
+        // The end of a shift is the one moment this question makes sense.
+        // Asked once, ever; after that it lives in Settings.
+        setTimeout(() => void nearbyAlerts.offerOnce(), 900);
       } else {
         if (!currentLocation) {
           Alert.alert('Location unavailable', 'We need your location to go online. Please enable location services.');
@@ -294,6 +299,7 @@ export default function DriverHomeScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
+      {nearbyAlerts.sheet}
 
       {/* Full-screen map */}
       <MapView

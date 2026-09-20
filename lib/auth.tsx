@@ -14,6 +14,8 @@ import {
   type AccessTokenGetter,
 } from "@/lib/access-token";
 import { logoutAccount } from "@/lib/api";
+import { stopDriverLivenessUpdates } from "@/lib/background-location";
+import { disableStandby } from "@/lib/standby-location";
 import { clearStoredAuthState } from "@/lib/auth-state";
 
 interface AuthContextValue {
@@ -61,6 +63,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Location first: a signed-out phone must not keep reporting where it is.
+    await Promise.all([stopDriverLivenessUpdates(), disableStandby()]).catch(() => undefined);
     // Tell the backend to blacklist this token
     try {
       const token = await getStoredLocalAccessToken();

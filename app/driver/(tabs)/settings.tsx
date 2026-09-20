@@ -5,6 +5,7 @@ import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { useNearbyAlerts } from '@/components/nearby-alerts';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { deleteAccount } from '@/lib/api';
@@ -18,6 +19,7 @@ import {
   setDriverFilters,
   subscribeDriverFilters,
 } from '@/lib/driver-filters';
+import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
@@ -109,6 +111,8 @@ export default function DriverSettingsScreen() {
   }, []);
   const { getAccessToken, logout } = useAuth();
   const { isDark, toggleTheme } = useAppTheme();
+  const { session } = useDriverSession();
+  const nearbyAlerts = useNearbyAlerts(getAccessToken, session.status !== 'offline');
   const responsive = useResponsive();
 
   const handleLogout = () => {
@@ -321,6 +325,41 @@ export default function DriverSettingsScreen() {
         </View>
       </View>
 
+      {/* ── Nearby ride alerts: off-shift location, strictly opt-in ── */}
+      {nearbyAlerts.supported ? (
+        <View style={styles.section}>
+          <AppText
+            variant="label"
+            color={theme.colors.muted}
+            style={[styles.sectionLabel, { fontSize: responsive.font(10) }]}
+            numberOfLines={1}>
+            LOCATION
+          </AppText>
+          <View style={[styles.card, { backgroundColor: cardBg }]}>
+            <View style={[styles.menuItem, menuItemStyle]}>
+              <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: nearbyAlerts.enabled ? theme.colors.orangeLight : subtleBg }]}>
+                <AppText variant="label" color={nearbyAlerts.enabled ? theme.colors.orange : theme.colors.muted}>📍</AppText>
+              </View>
+              <View style={styles.menuInfo}>
+                <AppText variant="bodyMedium">Nearby ride alerts</AppText>
+                <AppText variant="bodySmall" color={theme.colors.muted}>
+                  {nearbyAlerts.enabled
+                    ? "On — we see your rough location while you're offline so we can tell you about riders close by"
+                    : "Off — we only see your location while you're online"}
+                </AppText>
+              </View>
+              <Switch
+                value={nearbyAlerts.enabled}
+                onValueChange={nearbyAlerts.toggle}
+                disabled={nearbyAlerts.busy}
+                trackColor={{ false: theme.colors.borderLight, true: theme.colors.orange }}
+                thumbColor={theme.colors.white}
+              />
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       {/* ── Developer section (dev builds only) ── */}
       {isMockLocationAvailable() ? (
         <View style={styles.section}>
@@ -415,6 +454,7 @@ export default function DriverSettingsScreen() {
           Wheelers v{APP_VERSION}
         </AppText>
       </View>
+      {nearbyAlerts.sheet}
     </AppScreen>
   );
 }

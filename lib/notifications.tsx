@@ -1,6 +1,7 @@
 import { useAuth } from "@/lib/auth";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
+import { router, type Href } from "expo-router";
 import { Alert, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -207,6 +208,15 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
     const subscription = Notifications.addNotificationReceivedListener(() => {
       void refreshNotifications();
     });
+    // A "ride near you" nudge from dispatch: bring the driver to the home
+    // screen, where the Go online button is. Everything else keeps the
+    // default behaviour of simply opening the app.
+    const tapSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+      if (isDriverApp && data?.type === "dispatch_nudge") {
+        router.navigate("/driver/(tabs)/home" as Href);
+      }
+    });
 
     void (async () => {
       try {
@@ -237,6 +247,7 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
     return () => {
       cancelled = true;
       subscription.remove();
+      tapSubscription.remove();
     };
   }, [getAccessToken, isReady, refreshNotifications, registerDeviceToken, user]);
 
