@@ -80,6 +80,15 @@ function ThemedLayout() {
         backgroundColor={isDark ? theme.colors.black : theme.colors.offWhite}
       />
       <Stack
+        // ONE splash per launch. The native splash comes down when the first real
+        // screen has finished arriving — not when navigation to it merely starts,
+        // which left the JS splash route showing through for the length of the slide.
+        screenListeners={({ route }) => ({
+          transitionEnd: (event) => {
+            if (event.data.closing || route.name === "index" || route.name === "splash") return;
+            void SplashScreen.hideAsync().catch(() => undefined);
+          },
+        })}
         screenOptions={{
           headerShown: false,
           contentStyle: {

@@ -27,6 +27,9 @@ type SplashRoute = VariantPublicRoute | AuthenticatedRoute;
  */
 const MIN_SPLASH_MS = 900;
 
+/** Far longer than any transition: by then the root layout has long since hidden the splash. */
+const SPLASH_SAFETY_NET_MS = 2500;
+
 /**
  * ONE splash, always. The JS screen continues the native frame it was handed
  * and nothing is drawn over it.
@@ -57,13 +60,13 @@ export default function SplashScreen() {
 
   function go(href: SplashRoute) {
     router.replace(href);
-    // The native splash comes down only now, with the destination already
-    // mounted underneath it. Hiding it any earlier uncovers this JS screen,
-    // whose frame is NOT pixel-identical to the baked one — that handoff is
-    // what read as a second splash.
-    requestAnimationFrame(() => {
-      void NativeSplash.hideAsync().catch(() => undefined);
-    });
+    // The native splash is NOT hidden here. replace() only starts the journey:
+    // the destination is still mounting and sliding in for a few hundred ms,
+    // and hiding a frame later uncovered this JS screen underneath it — whose
+    // frame is not pixel-identical to the baked one — as a second splash. The
+    // root layout hides it when the destination's transition has ENDED. This
+    // is only the net under that: a launch must never sit on a splash forever.
+    setTimeout(() => void NativeSplash.hideAsync().catch(() => undefined), SPLASH_SAFETY_NET_MS);
   }
 
   function navigate(href: SplashRoute) {
