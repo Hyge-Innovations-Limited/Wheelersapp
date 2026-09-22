@@ -3,7 +3,7 @@
     "name": "Wheelers",
     "slug": "wheelers",
     "owner": "timmy122",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "wheelersapp",
@@ -23,7 +23,7 @@
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "26"
+      "buildNumber": "27"
     },
     "android": {
       "backgroundColor": "#FEFAEF",
