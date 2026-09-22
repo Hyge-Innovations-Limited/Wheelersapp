@@ -32,6 +32,18 @@ export type RideOffer = {
    * screen that reads fareEstimateNgn shows a stale price forever.
    */
   riderOfferNgn?: number;
+  /**
+   * The lowest bid the server will accept on this trip. Without it the app
+   * could only guess, and a bid under the floor was typed, sent and bounced —
+   * by which time the search had often closed.
+   */
+  minOfferNgn?: number;
+  /**
+   * This driver is still carrying a passenger: they were matched because the
+   * pickup is near their drop-off. The card says so, and the distances above
+   * are measured from that drop-off, not from where the car is now.
+   */
+  afterCurrentTrip?: boolean;
   plannedDistanceKm?: number;
   plannedDurationSeconds?: number;
   /**
@@ -645,6 +657,8 @@ export function reduceDriverSession(
       stops: parseWaypointList(payload.stops),
       fareEstimateNgn: getNumber(payload.fareEstimateNgn) ?? 0,
       riderOfferNgn: getNumber(payload.riderOfferNgn),
+      minOfferNgn: getNumber(payload.minOfferNgn),
+      afterCurrentTrip: payload.afterCurrentTrip === true,
       plannedDistanceKm: getNumber(payload.plannedDistanceKm),
       plannedDurationSeconds: getNumber(payload.plannedDurationSeconds),
       pickupDistanceKm: getNumber(payload.pickupDistanceKm),

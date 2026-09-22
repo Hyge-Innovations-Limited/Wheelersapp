@@ -15,6 +15,7 @@ import { GoogleMapView } from '@/components/GoogleMapView';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { useDriverSession } from '@/lib/driver-session';
 import { toUserMessage } from '@/lib/error-messages';
+import { haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
 import { useCourseBearing, useLiveRoute } from '@/lib/use-live-route';
 import { useResponsive } from '@/lib/responsive';
@@ -33,6 +34,9 @@ function formatElapsed(seconds: number): string {
   const mmss = `${mins}:${String(rem).padStart(2, '0')}`;
   return hrs > 0 ? `${hrs}:${String(mins).padStart(2, '0')}:${String(rem).padStart(2, '0')}` : mmss;
 }
+
+/** Inside this, a driver is at the drop-off and ending the trip needs no question. */
+const END_TRIP_NEAR_KM = 0.3;
 
 export default function DriverActiveTripScreen() {
   const router = useRouter();
@@ -140,12 +144,34 @@ export default function DriverActiveTripScreen() {
     ? Math.min(1, liveDistanceKm / plannedDistanceKm)
     : 0;
 
-  const handleEndRide = async () => {
+  const endRide = async () => {
     try {
       await endTrip(ride.rideId);
     } catch (err) {
       Alert.alert('Could not end this ride', toUserMessage(err, 'Please try again in a moment.'));
     }
+  };
+
+  const handleEndRide = () => {
+    // Ending early is sometimes right — a blocked street, a rider who wants out
+    // here — so this asks rather than refuses. But the fare is settled on this
+    // tap, and a rider dropped short of where they paid to reach has no way
+    // back, so the distance is said out loud first.
+    const awayKm = currentLocation
+      ? haversineKm(currentLocation.lat, currentLocation.lng, ride.destination.lat, ride.destination.lng)
+      : null;
+    if (awayKm === null || awayKm <= END_TRIP_NEAR_KM) {
+      void endRide();
+      return;
+    }
+    Alert.alert(
+      'You are not at the drop-off yet',
+      `You are about ${awayKm < 10 ? awayKm.toFixed(1) : Math.round(awayKm)} km from ${ride.destination.address}. Ending now completes the trip and charges the rider the full fare.`,
+      [
+        { text: 'Keep driving', style: 'cancel' },
+        { text: 'End anyway', style: 'destructive', onPress: () => void endRide() },
+      ],
+    );
   };
 
   return (

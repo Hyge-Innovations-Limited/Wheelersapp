@@ -123,6 +123,10 @@ export default function IncomingRequestScreen() {
   const keyboardHeight = useKeyboardHeight();
   const offer = session.currentOffer;
   const maxBid = maxBidNgn(offer?.plannedDistanceKm);
+  // The server's own floor for this trip, sent with the offer. Checking it here
+  // is the difference between a bid that bounces (and a search that closes
+  // while the driver re-types) and one that never leaves the phone.
+  const minBid = offer?.minOfferNgn ?? null;
   const [countdown, setCountdown] = useState(0);
   const [bidMode, setBidMode] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
@@ -325,6 +329,13 @@ export default function IncomingRequestScreen() {
     const amount = parseInt(bidAmount, 10);
     if (!amount || amount < 100) {
       Alert.alert('Invalid amount', 'Enter a valid bid amount.');
+      return;
+    }
+    if (minBid !== null && amount < minBid) {
+      Alert.alert(
+        'Bid too low',
+        `The least you can bid on this trip is ${formatNgn(minBid)}.`,
+      );
       return;
     }
     // Rider-priced marketplace: a driver may bid up, but only to ₦500/km.
@@ -738,9 +749,14 @@ export default function IncomingRequestScreen() {
                   onSubmitEditing={handleSubmitBid}
                 />
               </View>
-              {maxBid !== null && (
+              {(minBid !== null || maxBid !== null) && (
                 <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
-                  {`Max bid ${formatNgn(maxBid)} · ₦500/km`}
+                  {[
+                    minBid !== null ? `Min ${formatNgn(minBid)}` : null,
+                    maxBid !== null ? `max ${formatNgn(maxBid)} · ₦500/km` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </AppText>
               )}
               <View style={styles.bidActions}>

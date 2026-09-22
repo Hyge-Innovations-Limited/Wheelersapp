@@ -316,6 +316,11 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               {offer.paymentMethod === 'CASH' ? '💵 cash' : '💰 wallet'}
             </AppText>
           </View>
+          {offer.afterCurrentTrip ? (
+            <AppText variant="caption" color={theme.colors.orange} style={styles.queuedTag}>
+              NEXT RIDE · PICKS UP NEAR YOUR DROP-OFF
+            </AppText>
+          ) : null}
           <AppText variant="body" numberOfLines={1}>{offer.pickup.address}</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
             → {offer.destination.address}
@@ -375,6 +380,12 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
 }
 
 const styles = StyleSheet.create({
+  // A request offered mid-trip: the driver must know it is a QUEUE, not a job
+  // to abandon their rider for.
+  queuedTag: {
+    marginTop: 6,
+    letterSpacing: 0.4,
+  },
   scroll: {
     maxHeight: 380,
   },
