@@ -26,14 +26,7 @@ function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
-/**
- * What THIS offer pays per kilometre of trip — the number a driver actually
- * weighs a job by. Null when the trip length is unknown.
- */
-function perKm(amountNgn: number, plannedDistanceKm: number | undefined): string | null {
-  if (!plannedDistanceKm || plannedDistanceKm <= 0) return null;
-  return `${formatNgn(amountNgn / plannedDistanceKm)}/km`;
-}
+
 
 function countdown(toMs: number, now: number): string | null {
   const remaining = Math.floor((toMs - now) / 1000);
@@ -301,9 +294,11 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               <AppText variant="h2" color={stale ? theme.colors.muted : theme.colors.orange}>
                 {formatNgn(riderAsk)}
               </AppText>
-              {perKm(riderAsk, offer.plannedDistanceKm) ? (
+              {/* The base rate, as the server sends it with the offer — never a
+                  number typed here, so the card can never disagree with pricing. */}
+              {offer.ratePerKmNgn ? (
                 <AppText variant="bodySmall" color={theme.colors.muted}>
-                  {perKm(riderAsk, offer.plannedDistanceKm)}
+                  {`${formatNgn(offer.ratePerKmNgn)}/km`}
                 </AppText>
               ) : null}
             </View>

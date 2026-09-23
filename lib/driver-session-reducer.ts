@@ -38,6 +38,8 @@ export type RideOffer = {
    * by which time the search had often closed.
    */
   minOfferNgn?: number;
+  /** The base rate per km this fare was built on — shown on the card as sent, never typed into the app. */
+  ratePerKmNgn?: number;
   /**
    * This driver is still carrying a passenger: they were matched because the
    * pickup is near their drop-off. The card says so, and the distances above
@@ -658,6 +660,7 @@ export function reduceDriverSession(
       fareEstimateNgn: getNumber(payload.fareEstimateNgn) ?? 0,
       riderOfferNgn: getNumber(payload.riderOfferNgn),
       minOfferNgn: getNumber(payload.minOfferNgn),
+      ratePerKmNgn: getNumber(payload.ratePerKmNgn),
       afterCurrentTrip: payload.afterCurrentTrip === true,
       plannedDistanceKm: getNumber(payload.plannedDistanceKm),
       plannedDurationSeconds: getNumber(payload.plannedDurationSeconds),
