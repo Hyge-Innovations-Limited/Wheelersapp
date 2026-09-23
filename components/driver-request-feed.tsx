@@ -26,6 +26,15 @@ function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
+/**
+ * What THIS offer pays per kilometre of trip — the number a driver actually
+ * weighs a job by. Null when the trip length is unknown.
+ */
+function perKm(amountNgn: number, plannedDistanceKm: number | undefined): string | null {
+  if (!plannedDistanceKm || plannedDistanceKm <= 0) return null;
+  return `${formatNgn(amountNgn / plannedDistanceKm)}/km`;
+}
+
 function countdown(toMs: number, now: number): string | null {
   const remaining = Math.floor((toMs - now) / 1000);
   if (remaining <= 0) return null;
@@ -288,9 +297,16 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         style={[styles.card, stale ? styles.cardStale : styles.cardRequest]}>
         <Pressable onPress={() => openDetails(offer.rideId)}>
           <View style={styles.topRow}>
-            <AppText variant="h2" color={stale ? theme.colors.muted : theme.colors.orange}>
-              {formatNgn(riderAsk)}
-            </AppText>
+            <View>
+              <AppText variant="h2" color={stale ? theme.colors.muted : theme.colors.orange}>
+                {formatNgn(riderAsk)}
+              </AppText>
+              {perKm(riderAsk, offer.plannedDistanceKm) ? (
+                <AppText variant="bodySmall" color={theme.colors.muted}>
+                  {perKm(riderAsk, offer.plannedDistanceKm)}
+                </AppText>
+              ) : null}
+            </View>
             <View style={styles.metaRight}>
               {stale ? (
                 <AppText variant="caption" color={theme.colors.muted}>
