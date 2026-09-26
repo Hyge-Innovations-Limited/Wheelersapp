@@ -24,7 +24,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
-import { bidCeilingNgn } from '@/lib/bid-limits';
+import { bidCeilingNgn, suggestedBidsNgn } from '@/lib/bid-limits';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
@@ -39,8 +39,6 @@ const DISMISS_THRESHOLD = 120;
 
 const VAT_RATE = 0.075;
 
-/** Urgency countdown shown on a fresh request — advisory, not a deadline. */
-const URGENCY_WINDOW_S = 15;
 const STATE_LEVY_NGN = 30;
 
 function formatNgn(amount: number): string {
@@ -125,7 +123,6 @@ export default function IncomingRequestScreen() {
   // No band on a driver's bid: below the rider's price, at it or above it, the rider
   // decides. The one check is a typo guard, ten times the rider's price.
   const maxBid = bidCeilingNgn(offer?.riderOfferNgn ?? offer?.fareEstimateNgn);
-  const [countdown, setCountdown] = useState(0);
   const [bidMode, setBidMode] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
   const [lastBidNgn, setLastBidNgn] = useState<number | null>(null);
@@ -134,7 +131,6 @@ export default function IncomingRequestScreen() {
   useEffect(() => {
     bidSentRef.current = bidSent;
   }, [bidSent]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bidInputRef = useRef<TextInput>(null);
   const sheetScrollRef = useRef<ScrollView>(null);
 
@@ -196,30 +192,6 @@ export default function IncomingRequestScreen() {
     setSeatBidAmount('');
   }, [offer?.rideId]);
 
-  useEffect(() => {
-    if (!offer?.expiresAt) return;
-    const expiresMs = new Date(offer.expiresAt).getTime();
-    // A short urgency window, not a deadline: the countdown nudges the driver
-    // to answer fast, but when it hits zero the ride stays on screen and the
-    // buttons keep working — the request is open until a driver is actually
-    // accepted (the `!offer` effect below removes it when that happens).
-    const urgencyEndMs = Math.min(Date.now() + URGENCY_WINDOW_S * 1000, expiresMs);
-
-    const tick = () => {
-      const remaining = Math.max(0, Math.round((urgencyEndMs - Date.now()) / 1000));
-      setCountdown(remaining);
-      if (remaining <= 0 && timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-
-    tick();
-    timerRef.current = setInterval(tick, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [offer?.expiresAt, offer?.rideId]);
 
   // The alert rings on the home list now — the driver is looking at the
   // request, so stop it.
@@ -322,9 +294,10 @@ export default function IncomingRequestScreen() {
     requestAnimationFrame(() => bidInputRef.current?.focus());
   };
 
-  const handleSubmitBid = async () => {
+  const handleSubmitBid = () => handleSubmitBidAt(parseInt(bidAmount, 10));
+
+  const handleSubmitBidAt = async (amount: number) => {
     if (!offer || bidSent) return;
-    const amount = parseInt(bidAmount, 10);
     if (!amount || amount < 100) {
       Alert.alert('Invalid amount', 'Enter a valid bid amount.');
       return;
@@ -500,26 +473,11 @@ export default function IncomingRequestScreen() {
               <AppText variant="h2">{isGroupRide ? 'Shared ride' : 'Ride request'}</AppText>
             </View>
             <View style={styles.timerBadge}>
-              {countdown > 0 ? (
-                <AppText variant="monoLarge" color={countdown <= 5 ? theme.colors.danger : theme.colors.black}>
-                  {countdown}s
-                </AppText>
-              ) : (
-                <AppText variant="monoSmall" color={theme.colors.muted}>
-                  STILL OPEN
-                </AppText>
-              )}
-            </View>
-          </View>
-
-          {/* Timer done ≠ ride gone — make that explicit so drivers still bid. */}
-          {countdown <= 0 && !bidSent && (
-            <View style={styles.stillOpenNotice}>
-              <AppText variant="bodySmall" color={theme.colors.muted}>
-                Timer&apos;s up but the ride is still open — you can bid until a driver is accepted.
+              <AppText variant="monoSmall" color={theme.colors.muted}>
+                OPEN
               </AppText>
             </View>
-          )}
+          </View>
 
           {/* Per-seat negotiation: each rider set their own price — answer each. */}
           {isGroupRide && offer.groupMembers && offer.groupMembers.length > 0 && (
@@ -754,9 +712,24 @@ export default function IncomingRequestScreen() {
               </View>
             </View>
           ) : (
-            <View style={styles.actions}>
-              <AppButton title="Accept" onPress={handleAccept} style={styles.acceptBtn} />
-              <AppButton title="Bid" variant="inverse" onPress={handleBidPress} style={styles.bidBtn} />
+            <View>
+              {/* One tap: the rider's price, or a suggested price. "Other amount" opens the box. */}
+              <View style={styles.actions}>
+                <AppButton title={`Accept ${formatNgn(activeFare)}`} onPress={handleAccept} style={styles.acceptBtn} />
+              </View>
+              <View style={styles.suggestionRow}>
+                {suggestedBidsNgn(activeFare).map((amount) => (
+                  <Pressable
+                    key={amount}
+                    onPress={() => { setBidAmount(String(amount)); void handleSubmitBidAt(amount); }}
+                    style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}>
+                    <AppText variant="label">{formatNgn(amount)}</AppText>
+                  </Pressable>
+                ))}
+                <Pressable onPress={handleBidPress} style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}>
+                  <AppText variant="label" color={theme.colors.muted}>Other amount</AppText>
+                </Pressable>
+              </View>
             </View>
           )}
 
@@ -1105,6 +1078,22 @@ const styles = StyleSheet.create({
     flex: 2,
     minWidth: 0,
     flexShrink: 1,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+  },
+  suggestionChip: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.sm,
+    borderWidth: 1.5,
+    borderColor: theme.colors.black,
+    backgroundColor: theme.colors.white,
   },
   bidBtn: {
     flex: 1,

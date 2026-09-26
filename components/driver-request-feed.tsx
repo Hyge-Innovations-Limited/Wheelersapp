@@ -4,12 +4,13 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import {
-  bidDeadlineMs,
   isOfferStale,
+  RING_WINDOW_MS,
   type MissedOffer,
   type PendingBid,
   type RideOffer,
 } from '@/lib/driver-session-reducer';
+import { suggestedBidsNgn } from '@/lib/bid-limits';
 import { useDriverSession } from '@/lib/driver-session';
 import {
   getDriverFilters,
@@ -34,15 +35,18 @@ function countdown(toMs: number, now: number): string | null {
   return `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
 }
 
-const BID_INCREMENTS = [100, 200, 500];
-
 /**
  * The driver's job feed, inDrive-style: every ride is ONE card for its whole
- * life. A new request shows the rider's price with Accept / bid chips right
- * on the card; once answered it becomes the bid card ("waiting ⏳"), a rider
- * counter updates that same card, and timeout/decline removes it. The same
- * ride never appears twice, and nothing on screen outlives its auction.
+ * life. A new request shows the rider's price with Accept and two suggested
+ * prices right on the card; once answered it lives on the Active tab as the
+ * bid card, a rider counter updates that same card, and timeout/decline
+ * removes it. The same ride never appears twice.
+ *
+ * Home is a doorbell: a request sits there for 30 seconds (the ring window),
+ * then leaves — it is still open for its whole 30-minute auction on Active,
+ * with the time left. Bids never sit on Home; Active is where they live.
  */
+const HOME_CARD_WINDOW_MS = RING_WINDOW_MS;
 export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean } = {}) {
   const router = useRouter();
   const { session, acceptRide, selectOffer, dismissBid, dismissMissedOffer } = useDriverSession();
@@ -53,7 +57,6 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
   }, []);
   const { currentLocation } = useAppLocation();
   const [now, setNow] = useState(() => Date.now());
-  const [bidOpenFor, setBidOpenFor] = useState<string | null>(null);
   const [busyRideId, setBusyRideId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,15 +66,10 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
 
   const bids = Object.values(session.pendingBids)
     .filter((bid) => {
-      // Home's overlay carries only the LIVE auction: requests in-window and
-      // bids the clock is still running on (or already accepted — a trip is
-      // about to start). Everything past its window — 'waiting on rider'
-      // holdouts and grey terminal stories — lives on the Active tab only.
+      // Home shows a bid only once it is a trip about to start. Every open bid,
+      // with its time left, and every grey story lives on the Active tab.
       if (fullHeight) return true;
-      if (bid.acceptedAt) return true;
-      if (bid.outcome) return false;
-      const clockMs = new Date(bid.offer.bidsCloseAt ?? bid.offer.expiresAt).getTime();
-      return !Number.isFinite(clockMs) || clockMs > now;
+      return Boolean(bid.acceptedAt);
     })
     .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
   const answered = new Set(bids.map((bid) => bid.offer.rideId));
@@ -87,9 +85,9 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
       }
       return true;
     })
-    // Home's overlay shows only fresh requests; Active also keeps the stale
-    // ones — past their window, greyed, but biddable until the ride is taken.
-    .filter((offer) => fullHeight || !isOfferStale(offer, now))
+    // Home shows a request for 30 seconds, then it moves on; Active keeps every
+    // open one — and the stale ones, greyed, biddable until the ride is taken.
+    .filter((offer) => fullHeight || (!isOfferStale(offer, now) && now - (offer.receivedAtMs ?? now) < HOME_CARD_WINDOW_MS))
     .sort((a, b) => {
       const staleDiff = Number(isOfferStale(a, now)) - Number(isOfferStale(b, now));
       if (staleDiff !== 0) return staleDiff;
@@ -107,7 +105,6 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     try {
       void stopRideRequestSound();
       await acceptRide(offer.rideId, amountNgn, currentLocation ?? undefined);
-      setBidOpenFor(null);
     } catch (err) {
       Alert.alert('Could not send bid', err instanceof Error ? err.message : 'Please try again.');
     } finally {
@@ -148,7 +145,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         style={({ pressed }) => [styles.card, styles.cardResolved, pressed && styles.pressed]}>
         <View style={styles.topRow}>
           <AppText variant="label" color={theme.colors.muted}>
-            {entry.reason === 'taken' ? 'Taken by another driver' : 'Expired — not answered ⏱'}
+            {entry.reason === 'taken' ? 'Taken by another driver' : 'Expired — not answered'}
           </AppText>
           <Pressable onPress={() => dismissMissedOffer(offer.rideId)} style={styles.cancelChip}>
             <AppText variant="label" color={theme.colors.muted}>✕</AppText>
@@ -190,7 +187,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                 ? 'Rider chose another driver'
                 : bid.outcome === 'withdrawn'
                   ? 'Your offer was withdrawn'
-                  : 'Request ended ⏱'}
+                  : 'Request ended'}
             </AppText>
             <Pressable onPress={() => dismissBid(offer.rideId)} style={styles.cancelChip}>
               <AppText variant="label" color={theme.colors.muted}>✕</AppText>
@@ -215,13 +212,13 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         <View style={styles.topRow}>
           <AppText variant="h3" color={accepted ? theme.colors.orange : theme.colors.green}>
             {accepted
-              ? bid.riderPaid ? '✅ Rider paid' : '✅ Accepted'
+              ? bid.riderPaid ? 'Rider paid' : 'Accepted'
               : countered
                 ? `Rider offers ${formatNgn(riderAsk)}`
                 : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
           {!accepted && timeLeft ? (
-            <AppText variant="mono" color={theme.colors.muted}>⏳ {timeLeft}</AppText>
+            <AppText variant="mono" color={theme.colors.muted}>{timeLeft} left</AppText>
           ) : !accepted && !bid.outcome ? (
             <AppText variant="caption" color={theme.colors.muted}>open · waiting on rider</AppText>
           ) : null}
@@ -240,13 +237,13 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               style={({ pressed }) => [styles.acceptBtn, pressed && styles.pressed]}>
               <AppText variant="label" color={theme.colors.white}>Accept {formatNgn(riderAsk)}</AppText>
             </Pressable>
-            {BID_INCREMENTS.slice(0, 2).map((step) => (
+            {suggestedBidsNgn(riderAsk).map((amount) => (
               <Pressable
-                key={step}
+                key={amount}
                 disabled={busyRideId === offer.rideId}
-                onPress={() => void sendBid(offer, riderAsk + step)}
+                onPress={() => void sendBid(offer, amount)}
                 style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-                <AppText variant="label">+{step}</AppText>
+                <AppText variant="label">{formatNgn(amount)}</AppText>
               </Pressable>
             ))}
           </View>
@@ -282,7 +279,6 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     const expiresMs = new Date(offer.expiresAt).getTime();
     const stale = isOfferStale(offer, now);
     const timeLeft = !stale && Number.isFinite(expiresMs) ? countdown(expiresMs, now) : null;
-    const bidOpen = bidOpenFor === offer.rideId;
 
     return (
       <View
@@ -308,23 +304,24 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                   window ended · open until taken
                 </AppText>
               ) : null}
-              {timeLeft ? <AppText variant="mono" color={theme.colors.muted}>⏳ {timeLeft}</AppText> : null}
+              {fullHeight && timeLeft ? <AppText variant="mono" color={theme.colors.muted}>{timeLeft} left</AppText> : null}
               <AppText variant="bodySmall" color={theme.colors.muted}>
                 {km === null ? '' : `${km < 10 ? km.toFixed(1) : Math.round(km)} km away`}
-                {offer.plannedDistanceKm ? ` · ${offer.plannedDistanceKm.toFixed(1)} km trip` : ''}
+                {offer.plannedDistanceKm ? ` · ${offer.plannedDistanceKm.toFixed(1)} km` : ''}
+                {offer.plannedDurationSeconds ? ` · ~${Math.max(1, Math.round(offer.plannedDurationSeconds / 60))} min trip` : ''}
               </AppText>
             </View>
           </View>
           <View style={styles.personRow}>
             <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1} style={styles.personText}>
               {offer.riderName ?? 'Rider'}
-              {offer.riderRating !== undefined ? ` ⭐${offer.riderRating.toFixed(1)}` : ''}
+              {offer.riderRating !== undefined ? ` · ${offer.riderRating.toFixed(1)} rating` : ''}
               {offer.riderTripCount !== undefined
                 ? ` · ${offer.riderTripCount} ride${offer.riderTripCount === 1 ? '' : 's'}`
                 : ''}
             </AppText>
             <AppText variant="caption" color={theme.colors.muted}>
-              {offer.paymentMethod === 'CASH' ? '💵 cash' : '💰 wallet'}
+              {offer.paymentMethod === 'CASH' ? 'cash' : 'wallet'}
             </AppText>
           </View>
           {offer.afterCurrentTrip ? (
@@ -348,27 +345,9 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               <AppText variant="label" color={theme.colors.white}>View seats</AppText>
             </Pressable>
           </View>
-        ) : bidOpen ? (
-          <View style={styles.actionsRow}>
-            {BID_INCREMENTS.map((step) => (
-              <Pressable
-                key={step}
-                disabled={busyRideId === offer.rideId}
-                onPress={() => void sendBid(offer, riderAsk + step)}
-                style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-                <AppText variant="label">+{step}</AppText>
-              </Pressable>
-            ))}
-            <Pressable
-              onPress={() => openDetails(offer.rideId)}
-              style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-              <AppText variant="label" color={theme.colors.muted}>Custom…</AppText>
-            </Pressable>
-            <Pressable onPress={() => setBidOpenFor(null)} style={styles.cancelChip}>
-              <AppText variant="label" color={theme.colors.muted}>✕</AppText>
-            </Pressable>
-          </View>
         ) : (
+          // Accept at the rider's price, or one of two suggested prices — one tap either way.
+          // "Other" opens the request, where any amount can be typed.
           <View style={styles.actionsRow}>
             <Pressable
               disabled={busyRideId === offer.rideId}
@@ -378,10 +357,19 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                 Accept {formatNgn(riderAsk)}
               </AppText>
             </Pressable>
+            {suggestedBidsNgn(riderAsk).map((amount) => (
+              <Pressable
+                key={amount}
+                disabled={busyRideId === offer.rideId}
+                onPress={() => void sendBid(offer, amount)}
+                style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                <AppText variant="label">{formatNgn(amount)}</AppText>
+              </Pressable>
+            ))}
             <Pressable
-              onPress={() => setBidOpenFor(offer.rideId)}
-              style={({ pressed }) => [styles.bidBtn, pressed && styles.pressed]}>
-              <AppText variant="label">Your price</AppText>
+              onPress={() => openDetails(offer.rideId)}
+              style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+              <AppText variant="label" color={theme.colors.muted}>Other</AppText>
             </Pressable>
           </View>
         )}
