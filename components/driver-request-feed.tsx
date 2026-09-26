@@ -333,13 +333,11 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               NEXT RIDE · PICKS UP NEAR YOUR DROP-OFF
             </AppText>
           ) : null}
-          <View style={styles.routeBlock}>
-            <AppText variant="bodyMedium" numberOfLines={1}>{offer.pickup.address}</AppText>
-            <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
-              → {offer.destination.address}
-              {offer.isGroupRide ? `  · group · ${offer.riderCount ?? 2} riders` : ''}
-            </AppText>
-          </View>
+          <AppText variant="body" numberOfLines={1}>{offer.pickup.address}</AppText>
+          <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
+            → {offer.destination.address}
+            {offer.isGroupRide ? `  · group · ${offer.riderCount ?? 2} riders` : ''}
+          </AppText>
         </Pressable>
 
         {/* Group rides negotiate per seat — that lives on the details screen. */}
@@ -412,10 +410,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     borderWidth: theme.borders.thick,
     borderColor: theme.colors.black,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    gap: 6,
     ...theme.shadows.card,
   },
   cardRequest: {
@@ -467,19 +465,10 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     marginTop: 2,
   },
-  routeBlock: {
-    marginTop: theme.spacing.sm,
-    gap: theme.spacing.xs,
-  },
-  // A rule between the request and the ways to answer it, then the buttons with air around them.
   actionsBlock: {
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.xs,
-    paddingTop: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.borderLight,
+    marginTop: 4,
   },
-
   // The three suggested prices share the width equally; the number is the whole chip.
   priceRow: {
     flexDirection: 'row',
