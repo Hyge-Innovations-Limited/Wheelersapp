@@ -37,7 +37,7 @@ function countdown(toMs: number, now: number): string | null {
 
 /**
  * The driver's job feed, inDrive-style: every ride is ONE card for its whole
- * life. A new request shows the rider's price with Accept and two suggested
+ * life. A new request shows the rider's price with Accept and three suggested
  * prices right on the card; once answered it lives on the Active tab as the
  * bid card, a rider counter updates that same card, and timeout/decline
  * removes it. The same ride never appears twice.
@@ -230,22 +230,26 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         {accepted ? (
           <AppText variant="bodySmall" color={theme.colors.muted}>Starting your trip…</AppText>
         ) : countered ? (
-          <View style={styles.actionsRow}>
+          <View style={styles.actionsBlock}>
             <Pressable
               disabled={busyRideId === offer.rideId}
               onPress={() => void sendBid(offer, riderAsk)}
               style={({ pressed }) => [styles.acceptBtn, pressed && styles.pressed]}>
-              <AppText variant="label" color={theme.colors.white}>Accept {formatNgn(riderAsk)}</AppText>
+              <AppText variant="h3" color={theme.colors.white}>Accept {formatNgn(riderAsk)}</AppText>
             </Pressable>
-            {suggestedBidsNgn(riderAsk).map((amount) => (
-              <Pressable
-                key={amount}
-                disabled={busyRideId === offer.rideId}
-                onPress={() => void sendBid(offer, amount)}
-                style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-                <AppText variant="label">{formatNgn(amount)}</AppText>
-              </Pressable>
-            ))}
+            <View style={styles.priceRow}>
+              {suggestedBidsNgn(riderAsk).map((amount) => (
+                <Pressable
+                  key={amount}
+                  disabled={busyRideId === offer.rideId}
+                  onPress={() => void sendBid(offer, amount)}
+                  style={({ pressed }) => [styles.priceChip, pressed && styles.pressed]}>
+                  <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
+                    {formatNgn(amount)}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
           </View>
         ) : (
           <View style={styles.actionsRow}>
@@ -346,36 +350,41 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             </Pressable>
           </View>
         ) : (
-          // Accept at the rider's price, or one of two suggested prices — one tap either way.
-          // "Other" opens the request, where any amount can be typed.
-          <View style={styles.actionsRow}>
+          // Accept at the rider's price, or one of three suggested prices — one tap either way.
+          // Three rows, so nothing runs off the card: Accept on its own, the three prices
+          // side by side at equal width, then the quiet ways out.
+          <View style={styles.actionsBlock}>
             <Pressable
               disabled={busyRideId === offer.rideId}
               onPress={() => void sendBid(offer, riderAsk)}
               style={({ pressed }) => [styles.acceptBtn, pressed && styles.pressed]}>
-              <AppText variant="label" color={theme.colors.white}>
+              <AppText variant="h3" color={theme.colors.white}>
                 Accept {formatNgn(riderAsk)}
               </AppText>
             </Pressable>
-            {suggestedBidsNgn(riderAsk).map((amount) => (
-              <Pressable
-                key={amount}
-                disabled={busyRideId === offer.rideId}
-                onPress={() => void sendBid(offer, amount)}
-                style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-                <AppText variant="label">{formatNgn(amount)}</AppText>
+            <View style={styles.priceRow}>
+              {suggestedBidsNgn(riderAsk).map((amount) => (
+                <Pressable
+                  key={amount}
+                  disabled={busyRideId === offer.rideId}
+                  onPress={() => void sendBid(offer, amount)}
+                  style={({ pressed }) => [styles.priceChip, pressed && styles.pressed]}>
+                  <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
+                    {formatNgn(amount)}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.quietRow}>
+              <Pressable onPress={() => openDetails(offer.rideId)} style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
+                <AppText variant="label" color={theme.colors.muted}>Other amount</AppText>
               </Pressable>
-            ))}
-            <Pressable
-              onPress={() => openDetails(offer.rideId)}
-              style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-              <AppText variant="label" color={theme.colors.muted}>Other</AppText>
-            </Pressable>
-            <Pressable
-              onPress={() => { void stopRideRequestSound(); void rejectRide(offer.rideId).catch(() => undefined); }}
-              style={({ pressed }) => [styles.cancelChip, pressed && styles.pressed]}>
-              <AppText variant="label" color={theme.colors.muted}>Skip</AppText>
-            </Pressable>
+              <Pressable
+                onPress={() => { void stopRideRequestSound(); void rejectRide(offer.rideId).catch(() => undefined); }}
+                style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
+                <AppText variant="label" color={theme.colors.muted}>Skip</AppText>
+              </Pressable>
+            </View>
           </View>
         )}
       </View>
@@ -456,11 +465,42 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     marginTop: 2,
   },
-  acceptBtn: {
-    flexGrow: 1,
+  actionsBlock: {
+    gap: theme.spacing.sm,
+    marginTop: 4,
+  },
+  // The three suggested prices share the width equally; the number is the whole chip.
+  priceRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  priceChip: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 48,
+    paddingHorizontal: theme.spacing.xs,
+    borderRadius: theme.radii.sm,
+    borderWidth: theme.borders.thick,
+    borderColor: theme.colors.black,
+    backgroundColor: theme.colors.white,
+  },
+  quietRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  quietBtn: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xs,
+  },
+  acceptBtn: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,

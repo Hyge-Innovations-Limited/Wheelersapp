@@ -332,9 +332,8 @@ export default function IncomingRequestScreen() {
   // The rider's live number, not the original estimate — a counter-offer only
   // moves riderOfferNgn, so reading fareEstimateNgn froze the price on screen.
   const activeFare = lastBidNgn ?? offer.riderOfferNgn ?? offer.fareEstimateNgn;
-  const totalCharged = activeFare;
-  const fees = rideFees(activeFare);
-  const driverPayout = fees.driverPayoutNgn;
+  // One number, not the itemised fees: what lands in the driver's wallet at this price.
+  const driverPayout = rideFees(activeFare).driverPayoutNgn;
   const distanceKm = offer.plannedDistanceKm
     ? `${offer.plannedDistanceKm.toFixed(1)} km`
     : '--';
@@ -630,29 +629,10 @@ export default function IncomingRequestScreen() {
             </View>
           </View>
 
-          {/* Fare breakdown */}
-          <View style={styles.fareBreakdown}>
-            <View style={styles.fareLineRow}>
-              <AppText variant="bodySmall" color={theme.colors.muted}>Rider pays</AppText>
-              <AppText variant="bodySmall" color={theme.colors.muted}>{formatNgn(totalCharged)}</AppText>
-            </View>
-            <View style={styles.fareLineRow}>
-              <AppText variant="bodySmall" color={theme.colors.muted}>Fees (4%)</AppText>
-              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(fees.platformFeeNgn)}</AppText>
-            </View>
-            <View style={styles.fareLineRow}>
-              <AppText variant="bodySmall" color={theme.colors.muted}>Service fee</AppText>
-              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(fees.serviceFeeNgn)}</AppText>
-            </View>
-            <View style={styles.fareLineRow}>
-              <AppText variant="bodySmall" color={theme.colors.muted}>State levy</AppText>
-              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(fees.stateLevyNgn)}</AppText>
-            </View>
-            <View style={styles.fareDivider} />
-            <View style={styles.fareLineRow}>
-              <AppText variant="label">You earn</AppText>
-              <AppText variant="label" color={theme.colors.green}>{formatNgn(driverPayout)}</AppText>
-            </View>
+          {/* What the driver takes home at this price — one line, no ledger. */}
+          <View style={styles.earnRow}>
+            <AppText variant="label" color={theme.colors.muted}>You earn</AppText>
+            <AppText variant="h3" color={theme.colors.green}>{formatNgn(driverPayout)}</AppText>
           </View>
 
           {/* Actions — per-seat groups negotiate above; a lump-sum accept has
@@ -721,19 +701,22 @@ export default function IncomingRequestScreen() {
               <View style={styles.actions}>
                 <AppButton title={`Accept ${formatNgn(activeFare)}`} onPress={handleAccept} style={styles.acceptBtn} />
               </View>
+              <AppText variant="caption" color={theme.colors.muted} style={styles.suggestionHint}>OR BID HIGHER</AppText>
               <View style={styles.suggestionRow}>
                 {suggestedBidsNgn(activeFare).map((amount) => (
                   <Pressable
                     key={amount}
                     onPress={() => { setBidAmount(String(amount)); void handleSubmitBidAt(amount); }}
                     style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}>
-                    <AppText variant="label">{formatNgn(amount)}</AppText>
+                    <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
+                      {formatNgn(amount)}
+                    </AppText>
                   </Pressable>
                 ))}
-                <Pressable onPress={handleBidPress} style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}>
-                  <AppText variant="label" color={theme.colors.muted}>Other amount</AppText>
-                </Pressable>
               </View>
+              <Pressable onPress={handleBidPress} style={({ pressed }) => [styles.otherAmountBtn, pressed && { opacity: 0.7 }]}>
+                <AppText variant="label" color={theme.colors.muted}>Other amount</AppText>
+              </Pressable>
             </View>
           )}
 
@@ -1031,24 +1014,18 @@ const styles = StyleSheet.create({
     ...theme.shadows.subtle,
   },
 
-  // Fare breakdown
-  fareBreakdown: {
+  // What the driver earns — one row
+  earnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: theme.colors.white,
     borderWidth: theme.borders.thick,
     borderColor: theme.colors.black,
     borderRadius: theme.radii.sm,
-    padding: theme.spacing.md,
-    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     ...theme.shadows.subtle,
-  },
-  fareLineRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  fareDivider: {
-    height: 1,
-    backgroundColor: theme.colors.borderLight,
-    marginVertical: 2,
   },
 
   // Actions
@@ -1083,20 +1060,37 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexShrink: 1,
   },
+  suggestionHint: {
+    marginTop: theme.spacing.sm,
+    marginBottom: 6,
+    letterSpacing: 0.6,
+  },
+  // Three prices, equal width, the number filling each chip.
   suggestionRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
   },
   suggestionChip: {
-    minHeight: 44,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xs,
+    borderRadius: theme.radii.sm,
+    borderWidth: theme.borders.thick,
+    borderColor: theme.colors.black,
+    backgroundColor: theme.colors.white,
+  },
+  otherAmountBtn: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    marginTop: theme.spacing.sm,
     borderRadius: theme.radii.sm,
     borderWidth: 1.5,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   bidBtn: {
