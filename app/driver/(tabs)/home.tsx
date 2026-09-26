@@ -366,7 +366,7 @@ export default function DriverHomeScreen() {
             style={({ pressed }) => [styles.pendingBidCard, pressed && styles.pendingBidPressed]}>
             <View style={styles.pendingBidRow}>
               <AppText variant="label" color={theme.colors.green}>
-                🚗 Trip in progress · {formatNgn(currentRide.fareNgn)}
+                Trip in progress · {formatNgn(currentRide.fareNgn)}
                 {currentRide.riderPaid ? ' · paid' : ''}
               </AppText>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>

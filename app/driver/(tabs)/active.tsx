@@ -59,7 +59,7 @@ export default function DriverActiveScreen() {
           style={({ pressed }) => [styles.tripCard, pressed && styles.pressed]}>
           <View style={styles.tripCopy}>
             <AppText variant="label" color={theme.colors.green}>
-              🚗 Trip in progress · {formatNgn(currentRide.fareNgn)}
+              Trip in progress · {formatNgn(currentRide.fareNgn)}
               {currentRide.riderPaid ? ' · paid' : ''}
             </AppText>
             <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>

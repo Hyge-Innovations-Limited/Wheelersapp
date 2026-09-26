@@ -40,3 +40,22 @@ export function suggestedBidsNgn(riderOfferNgn: number): number[] {
   }
   return out;
 }
+
+/**
+ * How far one tap of +/- moves a bid. A fixed ₦200 is a shrug on a ₦25,000 ride and a
+ * leap on a ₦900 one, so the step follows the price: about 2% of it, snapped to a round
+ * naira figure — ₦100 on small fares, ₦500 around ₦25,000, ₦1,000 above ₦50,000.
+ */
+export function bidStepNgn(priceNgn: number): number {
+  if (!Number.isFinite(priceNgn) || priceNgn <= 0) return 100;
+  const raw = priceNgn * 0.02;
+  const steps = [100, 200, 500, 1000, 2000, 5000];
+  for (const step of steps) if (raw <= step) return step;
+  return steps[steps.length - 1];
+}
+
+/** The four nudges around a price: two down, two up, in that price's step. */
+export function bidNudgesNgn(priceNgn: number): number[] {
+  const step = bidStepNgn(priceNgn);
+  return [-2 * step, -step, step, 2 * step];
+}

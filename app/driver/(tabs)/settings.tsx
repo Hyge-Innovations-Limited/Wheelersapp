@@ -310,7 +310,7 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: filters.maxPickupKm ? theme.colors.orangeLight : subtleBg }]}>
-              <AppText variant="label" color={filters.maxPickupKm ? theme.colors.orange : theme.colors.muted}>📍</AppText>
+              <AppText variant="label" color={filters.maxPickupKm ? theme.colors.orange : theme.colors.muted}>◎</AppText>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Pickup distance</AppText>
@@ -338,7 +338,7 @@ export default function DriverSettingsScreen() {
           <View style={[styles.card, { backgroundColor: cardBg }]}>
             <View style={[styles.menuItem, menuItemStyle]}>
               <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: nearbyAlerts.enabled ? theme.colors.orangeLight : subtleBg }]}>
-                <AppText variant="label" color={nearbyAlerts.enabled ? theme.colors.orange : theme.colors.muted}>📍</AppText>
+                <AppText variant="label" color={nearbyAlerts.enabled ? theme.colors.orange : theme.colors.muted}>◎</AppText>
               </View>
               <View style={styles.menuInfo}>
                 <AppText variant="bodyMedium">Nearby ride alerts</AppText>
@@ -377,7 +377,7 @@ export default function DriverSettingsScreen() {
               style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
             >
               <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: mockLocation ? theme.colors.orangeLight : subtleBg }]}>
-                <AppText variant="label" color={mockLocation ? theme.colors.orange : theme.colors.muted}>📍</AppText>
+                <AppText variant="label" color={mockLocation ? theme.colors.orange : theme.colors.muted}>◎</AppText>
               </View>
               <View style={styles.menuInfo}>
                 <AppText variant="bodyMedium">Mock location</AppText>

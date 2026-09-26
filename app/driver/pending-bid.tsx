@@ -9,10 +9,9 @@ import { AppText } from '@/components/app-text';
 import { BID_LIFETIME_MS } from '@/lib/driver-session-reducer';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
+import { bidNudgesNgn } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
-const VAT_RATE = 0.075;
-const STATE_LEVY_NGN = 30;
 
 /** How often to ask the backend about a bid the rider has accepted but whose
  *  trip hasn't materialised on this phone yet. */
@@ -108,8 +107,6 @@ export default function PendingBidScreen() {
 
   const { offer } = bid;
   const fare = bid.agreedFareNgn ?? bid.amountNgn;
-  const vat = Math.round(fare * VAT_RATE);
-  const payout = fare - vat - STATE_LEVY_NGN;
   const riderOffer = offer.riderOfferNgn ?? offer.fareEstimateNgn;
 
   const sendNewBid = async (amountNgn: number) => {
@@ -158,26 +155,26 @@ export default function PendingBidScreen() {
 
       {/* Status — the one line the driver opened this page for. */}
       <View style={[styles.statusCard, accepted ? styles.statusAccepted : styles.statusWaiting]}>
-        <AppText variant="label" color={accepted ? theme.colors.orange : theme.colors.green}>
+        <AppText variant="h3" color={accepted ? theme.colors.orange : theme.colors.green}>
           {accepted
             ? bid.riderPaid
-              ? '✅ Rider accepted and paid'
-              : '✅ Rider accepted your bid'
-            : '⏳ Waiting for the rider'}
+              ? 'Rider accepted and paid'
+              : 'Rider accepted your bid'
+            : `Your bid: ${formatNgn(bid.amountNgn)}`}
         </AppText>
         <AppText variant="bodySmall" color={theme.colors.muted}>
           {accepted
             ? tripIsThisRide
               ? 'Your trip is ready.'
-              : 'Setting up your trip — this usually takes a few seconds.'
-            : 'The rider is looking at bids — you can leave this page; we will alert you when they decide.'}
+              : 'Setting up your trip. This usually takes a few seconds.'
+            : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
         </AppText>
         {!accepted ? (() => {
           const closesMs = new Date(bid.counteredAt ?? bid.sentAt).getTime() + BID_LIFETIME_MS - 30_000;
           const left = Math.max(0, Math.floor((closesMs - now) / 1000));
           return (
             <AppText variant="mono" color={left < 30 ? theme.colors.danger : theme.colors.muted}>
-              ⏳ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')} until this search ends
+              {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')} until this search ends
             </AppText>
           );
         })() : null}
@@ -233,20 +230,6 @@ export default function PendingBidScreen() {
           <AppText variant="body">{accepted ? 'Agreed fare' : 'Your bid'}</AppText>
           <AppText variant="h3" color={theme.colors.orange}>{formatNgn(fare)}</AppText>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.lineRow}>
-          <AppText variant="bodySmall" color={theme.colors.muted}>VAT (7.5%)</AppText>
-          <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(vat)}</AppText>
-        </View>
-        <View style={styles.lineRow}>
-          <AppText variant="bodySmall" color={theme.colors.muted}>State levy</AppText>
-          <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(STATE_LEVY_NGN)}</AppText>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.lineRow}>
-          <AppText variant="label">You earn</AppText>
-          <AppText variant="label" color={theme.colors.green}>{formatNgn(payout)}</AppText>
-        </View>
       </View>
 
       {/* Change the bid — a bid is a negotiation, not a commitment. */}
@@ -277,12 +260,12 @@ export default function PendingBidScreen() {
                 />
               </View>
               <View style={styles.chipRow}>
-                {[-200, -100, 100, 200].map((step) => (
+                {bidNudgesNgn(Number(editAmount) || bid.amountNgn).map((step) => (
                   <Pressable
                     key={step}
                     onPress={() => setEditAmount(String(Math.max(0, (Number(editAmount) || bid.amountNgn) + step)))}
                     style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}>
-                    <AppText variant="label">{step > 0 ? `+${step}` : step}</AppText>
+                    <AppText variant="label">{step > 0 ? `+${step.toLocaleString()}` : `-${Math.abs(step).toLocaleString()}`}</AppText>
                   </Pressable>
                 ))}
               </View>
