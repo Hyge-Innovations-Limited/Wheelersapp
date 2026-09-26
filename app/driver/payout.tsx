@@ -11,11 +11,9 @@ import { FloatingView } from '@/components/motion';
 import { SectionHeader } from '@/components/SectionHeader';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
+import { rideFees } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
-const VAT_RATE = 0.075; // 7.5%
-const STATE_LEVY_NGN = 30; // ₦30 flat
-const SERVICE_FEE_NGN = 200; // ₦200 flat — deducted from fare
 
 function formatNgn(amount: number): string {
   return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
@@ -29,11 +27,11 @@ export default function DriverPayoutScreen() {
   const ride = session.currentRide;
 
   const grossFare = ride?.completedFareNgn ?? ride?.fareNgn ?? 0;
-  const serviceFeeNgn = SERVICE_FEE_NGN;
-  const vatNgn = Math.round(grossFare * VAT_RATE * 100) / 100;
-  const stateLevyNgn = STATE_LEVY_NGN;
-  const totalDeductions = vatNgn + stateLevyNgn + serviceFeeNgn;
-  const finalPayout = grossFare - totalDeductions;
+  const fees = rideFees(grossFare);
+  const serviceFeeNgn = fees.serviceFeeNgn;
+  const platformFeeNgn = fees.platformFeeNgn;
+  const stateLevyNgn = fees.stateLevyNgn;
+  const finalPayout = fees.driverPayoutNgn;
 
   const handleNextRide = () => {
     clearCompleted();
@@ -89,8 +87,8 @@ export default function DriverPayoutScreen() {
         />
         <SummaryRow
           color={theme.colors.danger}
-          label="VAT (7.5%)"
-          value={`-${formatNgn(vatNgn)}`}
+          label="Fees (4%)"
+          value={`-${formatNgn(platformFeeNgn)}`}
         />
         <SummaryRow
           color={theme.colors.danger}

@@ -14,20 +14,7 @@ export function bidCeilingNgn(riderOfferNgn: number | undefined | null): number 
   return Math.max(MIN_FARE_NGN, Math.round(riderOfferNgn) * DRIVER_BID_TYPO_MULTIPLE);
 }
 
-/**
- * What a card suggests instead of a typed bid: a quarter and a half above the rider's
- * price, rounded to ₦500. The rider's own price is the Accept button, so it is not here.
- */
-export function suggestedBidsNgn(riderOfferNgn: number): number[] {
-  if (!Number.isFinite(riderOfferNgn) || riderOfferNgn <= 0) return [];
-  const round500 = (n: number) => Math.max(500, Math.round(n / 500) * 500);
-  const out: number[] = [];
-  for (const factor of [1.25, 1.5]) {
-    const amount = round500(riderOfferNgn * factor);
-    if (amount > riderOfferNgn && !out.includes(amount)) out.push(amount);
-  }
-  return out;
-}
+export { suggestedBidsNgn } from '@/lib/ride-fees';
 
 /** @deprecated the ₦500/km ceiling is gone; kept for callers not yet moved to bidCeilingNgn. */
 export const MAX_RATE_PER_KM_NGN = 500;

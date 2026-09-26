@@ -24,7 +24,8 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
-import { bidCeilingNgn, suggestedBidsNgn } from '@/lib/bid-limits';
+import { bidCeilingNgn } from '@/lib/bid-limits';
+import { rideFees, suggestedBidsNgn } from '@/lib/ride-fees';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
@@ -37,9 +38,8 @@ import { theme } from '@/theme';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 120;
 
-const VAT_RATE = 0.075;
+// Fees mirror the server: see lib/ride-fees.ts.
 
-const STATE_LEVY_NGN = 30;
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -333,8 +333,8 @@ export default function IncomingRequestScreen() {
   // moves riderOfferNgn, so reading fareEstimateNgn froze the price on screen.
   const activeFare = lastBidNgn ?? offer.riderOfferNgn ?? offer.fareEstimateNgn;
   const totalCharged = activeFare;
-  const vatAmount = Math.round(activeFare * VAT_RATE);
-  const driverPayout = activeFare - vatAmount - STATE_LEVY_NGN;
+  const fees = rideFees(activeFare);
+  const driverPayout = fees.driverPayoutNgn;
   const distanceKm = offer.plannedDistanceKm
     ? `${offer.plannedDistanceKm.toFixed(1)} km`
     : '--';
@@ -637,12 +637,16 @@ export default function IncomingRequestScreen() {
               <AppText variant="bodySmall" color={theme.colors.muted}>{formatNgn(totalCharged)}</AppText>
             </View>
             <View style={styles.fareLineRow}>
-              <AppText variant="bodySmall" color={theme.colors.muted}>VAT (7.5%)</AppText>
-              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(vatAmount)}</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>Fees (4%)</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(fees.platformFeeNgn)}</AppText>
+            </View>
+            <View style={styles.fareLineRow}>
+              <AppText variant="bodySmall" color={theme.colors.muted}>Service fee</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(fees.serviceFeeNgn)}</AppText>
             </View>
             <View style={styles.fareLineRow}>
               <AppText variant="bodySmall" color={theme.colors.muted}>State levy</AppText>
-              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(STATE_LEVY_NGN)}</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>-{formatNgn(fees.stateLevyNgn)}</AppText>
             </View>
             <View style={styles.fareDivider} />
             <View style={styles.fareLineRow}>

@@ -10,7 +10,7 @@ import {
   type PendingBid,
   type RideOffer,
 } from '@/lib/driver-session-reducer';
-import { suggestedBidsNgn } from '@/lib/bid-limits';
+import { suggestedBidsNgn } from '@/lib/ride-fees';
 import { useDriverSession } from '@/lib/driver-session';
 import {
   getDriverFilters,
@@ -49,7 +49,7 @@ function countdown(toMs: number, now: number): string | null {
 const HOME_CARD_WINDOW_MS = RING_WINDOW_MS;
 export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean } = {}) {
   const router = useRouter();
-  const { session, acceptRide, selectOffer, dismissBid, dismissMissedOffer } = useDriverSession();
+  const { session, acceptRide, rejectRide, selectOffer, dismissBid, dismissMissedOffer } = useDriverSession();
   const [filters, setFilters] = useState<DriverFilters>(getDriverFilters());
   useEffect(() => {
     void loadDriverFilters().then(setFilters);
@@ -370,6 +370,11 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               onPress={() => openDetails(offer.rideId)}
               style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
               <AppText variant="label" color={theme.colors.muted}>Other</AppText>
+            </Pressable>
+            <Pressable
+              onPress={() => { void stopRideRequestSound(); void rejectRide(offer.rideId).catch(() => undefined); }}
+              style={({ pressed }) => [styles.cancelChip, pressed && styles.pressed]}>
+              <AppText variant="label" color={theme.colors.muted}>Skip</AppText>
             </Pressable>
           </View>
         )}
