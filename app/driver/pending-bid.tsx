@@ -170,8 +170,20 @@ export default function PendingBidScreen() {
             : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
         </AppText>
         {!accepted ? (() => {
-          const closesMs = new Date(bid.counteredAt ?? bid.sentAt).getTime() + BID_LIFETIME_MS - 30_000;
+          // The server's clock for this search, the same one the request card counted down.
+          // Counting from the driver's own bid time overstated it by however long they took to bid.
+          const serverCloseMs = new Date(offer.bidsCloseAt ?? offer.expiresAt).getTime();
+          const closesMs = Number.isFinite(serverCloseMs)
+            ? serverCloseMs
+            : new Date(bid.counteredAt ?? bid.sentAt).getTime() + BID_LIFETIME_MS - 30_000;
           const left = Math.max(0, Math.floor((closesMs - now) / 1000));
+          if (left === 0) {
+            return (
+              <AppText variant="label" color={theme.colors.muted} style={styles.countdown}>
+                The search window has ended. Your bid stays open until the rider decides.
+              </AppText>
+            );
+          }
           return (
             <AppText variant="monoLarge" color={left < 30 ? theme.colors.danger : theme.colors.black} style={styles.countdown}>
               {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')} until this search ends
