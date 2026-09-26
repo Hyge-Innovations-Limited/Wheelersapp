@@ -1,5 +1,5 @@
 import { Alert, AppState, type AppStateStatus } from 'react-native';
-import { maxBidNgn } from '@/lib/bid-limits';
+import { bidCeilingNgn } from '@/lib/bid-limits';
 import { useAuth } from '@/lib/auth';
 import {
   createContext,
@@ -525,11 +525,10 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
       const amountNgn = counterOfferNgn ?? offer.riderOfferNgn ?? offer.fareEstimateNgn;
 
-      // ₦500/km ceiling. The +100/+500 chips and "change bid" never checked
-      // it; the server now rejects, but the driver should hear it here.
-      const cap = maxBidNgn(offer.plannedDistanceKm);
+      // No band on a bid — only a typo guard, ten times the rider's price, matching the server.
+      const cap = bidCeilingNgn(offer.riderOfferNgn ?? offer.fareEstimateNgn);
       if (cap !== null && amountNgn > cap) {
-        throw new Error(`The most you can bid on this trip is ₦${cap.toLocaleString('en-NG')} (₦500 per km).`);
+        throw new Error(`That is more than ten times the rider's price — check the amount.`);
       }
 
       // Real ETA from live GPS (or the backend's match-time seed) — the

@@ -1,15 +1,21 @@
 /**
- * The driver's side of the fare band.
+ * The driver's side of the price: there is no band. A driver may bid below the
+ * rider's price, at it, or above it — the rider decides. The one refusal is a
+ * bid so far above the rider's price that it can only be a typo (ten times).
  *
- * Wheelers is rider-priced: the rider names the fare, and a driver may haggle
- * upward only as far as ₦500/km. The server enforces this on every bid — these
- * values exist so the driver sees the cap while typing instead of getting a
- * rejection after they hit submit.
- *
- * Mirrors packages/config/src/pricing.ts in the backend; keep them in step.
+ * Mirrors validateDriverOffer in packages/config/src/pricing.ts; keep them in step.
  */
-export const MAX_RATE_PER_KM_NGN = 500;
 export const MIN_FARE_NGN = 2500;
+export const DRIVER_BID_TYPO_MULTIPLE = 10;
+
+/** The most a driver can send on a trip: a typo guard, not a ceiling. Null when the rider's price is unknown. */
+export function bidCeilingNgn(riderOfferNgn: number | undefined | null): number | null {
+  if (riderOfferNgn === undefined || riderOfferNgn === null || !Number.isFinite(riderOfferNgn) || riderOfferNgn <= 0) return null;
+  return Math.max(MIN_FARE_NGN, Math.round(riderOfferNgn) * DRIVER_BID_TYPO_MULTIPLE);
+}
+
+/** @deprecated the ₦500/km ceiling is gone; kept for callers not yet moved to bidCeilingNgn. */
+export const MAX_RATE_PER_KM_NGN = 500;
 const FARE_ROUNDING_INCREMENT = 100;
 
 /**

@@ -24,7 +24,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
-import { maxBidNgn } from '@/lib/bid-limits';
+import { bidCeilingNgn } from '@/lib/bid-limits';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
@@ -122,11 +122,9 @@ export default function IncomingRequestScreen() {
   const responsive = useResponsive();
   const keyboardHeight = useKeyboardHeight();
   const offer = session.currentOffer;
-  const maxBid = maxBidNgn(offer?.plannedDistanceKm);
-  // The server's own floor for this trip, sent with the offer. Checking it here
-  // is the difference between a bid that bounces (and a search that closes
-  // while the driver re-types) and one that never leaves the phone.
-  const minBid = offer?.minOfferNgn ?? null;
+  // No band on a driver's bid: below the rider's price, at it or above it, the rider
+  // decides. The one check is a typo guard, ten times the rider's price.
+  const maxBid = bidCeilingNgn(offer?.riderOfferNgn ?? offer?.fareEstimateNgn);
   const [countdown, setCountdown] = useState(0);
   const [bidMode, setBidMode] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
@@ -331,18 +329,10 @@ export default function IncomingRequestScreen() {
       Alert.alert('Invalid amount', 'Enter a valid bid amount.');
       return;
     }
-    if (minBid !== null && amount < minBid) {
-      Alert.alert(
-        'Bid too low',
-        `The least you can bid on this trip is ${formatNgn(minBid)}.`,
-      );
-      return;
-    }
-    // Rider-priced marketplace: a driver may bid up, but only to ₦500/km.
     if (maxBid !== null && amount > maxBid) {
       Alert.alert(
-        'Bid too high',
-        `The most you can bid on this trip is ${formatNgn(maxBid)} (₦500 per km).`,
+        'Is that right?',
+        `That is more than ten times the rider's price. Check the amount and try again.`,
       );
       return;
     }
@@ -749,16 +739,9 @@ export default function IncomingRequestScreen() {
                   onSubmitEditing={handleSubmitBid}
                 />
               </View>
-              {(minBid !== null || maxBid !== null) && (
-                <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
-                  {[
-                    minBid !== null ? `Min ${formatNgn(minBid)}` : null,
-                    maxBid !== null ? `max ${formatNgn(maxBid)} · ₦500/km` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </AppText>
-              )}
+              <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
+                Any amount. The rider picks.
+              </AppText>
               <View style={styles.bidActions}>
                 <Pressable onPress={handleCancelBid} style={styles.bidCancelBtn}>
                   <AppText variant="label" color={theme.colors.muted}>Cancel</AppText>
