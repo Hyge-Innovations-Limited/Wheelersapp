@@ -173,7 +173,7 @@ export default function PendingBidScreen() {
           const closesMs = new Date(bid.counteredAt ?? bid.sentAt).getTime() + BID_LIFETIME_MS - 30_000;
           const left = Math.max(0, Math.floor((closesMs - now) / 1000));
           return (
-            <AppText variant="mono" color={left < 30 ? theme.colors.danger : theme.colors.muted}>
+            <AppText variant="monoLarge" color={left < 30 ? theme.colors.danger : theme.colors.black} style={styles.countdown}>
               {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')} until this search ends
             </AppText>
           );
@@ -317,6 +317,10 @@ const styles = StyleSheet.create({
   header: {
     gap: theme.spacing.xs,
     marginBottom: theme.spacing.lg,
+  },
+  // The clock is the one number on this page that changes; it reads at a glance.
+  countdown: {
+    marginTop: 4,
   },
   statusCard: {
     gap: theme.spacing.xs,

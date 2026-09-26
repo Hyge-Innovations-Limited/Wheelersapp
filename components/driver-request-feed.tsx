@@ -218,7 +218,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                 : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
           {!accepted && timeLeft ? (
-            <AppText variant="mono" color={theme.colors.muted}>{timeLeft} left</AppText>
+            <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText>
           ) : !accepted && !bid.outcome ? (
             <AppText variant="caption" color={theme.colors.muted}>open · waiting on rider</AppText>
           ) : null}
@@ -308,7 +308,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                   window ended · open until taken
                 </AppText>
               ) : null}
-              {fullHeight && timeLeft ? <AppText variant="mono" color={theme.colors.muted}>{timeLeft} left</AppText> : null}
+              {fullHeight && timeLeft ? <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText> : null}
               <AppText variant="bodySmall" color={theme.colors.muted}>
                 {km === null ? '' : `${km < 10 ? km.toFixed(1) : Math.round(km)} km away`}
                 {offer.plannedDistanceKm ? ` · ${offer.plannedDistanceKm.toFixed(1)} km` : ''}
