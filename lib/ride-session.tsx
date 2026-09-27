@@ -30,6 +30,8 @@ import {
 import { resolvePlaceQuery } from '@/lib/google-places';
 import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } from '@/lib/ride-route';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
+import { isDriverApp } from '@/lib/app-variant';
+import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 
 type RideConnectionState = 'disconnected' | 'connecting' | 'connected';
 type RideStatus =
@@ -148,7 +150,6 @@ type ResolvedRoute = {
 
 const accessTokenRetryAttempts = 6;
 const accessTokenRetryDelayMs = 250;
-const reconnectDelayMs = 1500;
 
 function buildRideSessionConnectionError(wsBaseUrl: string): Error {
   return new Error(
@@ -340,6 +341,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<WebSocket | null>(null);
   const connectPromiseRef = useRef<Promise<WebSocket> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Waits 1s, 2s, 4s ... up to 30s between attempts, each scattered at random.
+  const backoffRef = useRef(createReconnectBackoff());
   const shouldMaintainConnectionRef = useRef(false);
   const currentRideRef = useRef<RiderRideState | null>(null);
   const userRef = useRef(user);
@@ -719,7 +722,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       }
 
       void connect().catch(() => undefined);
-    }, reconnectDelayMs);
+    }, backoffRef.current.nextDelayMs());
   }, []);
 
   const connect = useCallback(async (): Promise<WebSocket> => {
@@ -766,6 +769,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
         socket.onopen = () => {
           settled = true;
+          backoffRef.current.opened();
           setConnectionState('connected');
           setError(null);
           resolve(socket);
@@ -1131,6 +1135,14 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    // One socket per user. The driver app has its own session (driver-session),
+    // and it carries everything a driver needs; opening this one as well gave
+    // every online driver two sockets, and the server twice the work. A rider
+    // screen that does send something here still connects on demand.
+    if (isDriverApp) {
+      shouldMaintainConnectionRef.current = false;
+      return;
+    }
     if (!isBackendConfigured() || !isReady || !user) {
       shouldMaintainConnectionRef.current = false;
       clearReconnectTimer();
@@ -1147,6 +1159,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     }
 
     shouldMaintainConnectionRef.current = true;
+    backoffRef.current.reset();
     void connect().catch(() => {
       // Silent retry — don't show connection errors to the rider
       // scheduleReconnect is already called in socket.onerror/onclose

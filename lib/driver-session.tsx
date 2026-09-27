@@ -39,6 +39,7 @@ import {
   type DriverSessionState,
   type GroupSeat,
 } from '@/lib/driver-session-reducer';
+import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { estimateEtaSeconds, haversineKm } from '@/lib/geo';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
 
@@ -116,7 +117,6 @@ type GatewayMessage = {
   payload?: Record<string, unknown>;
 };
 
-const reconnectDelayMs = 1500;
 
 /**
  * How long a ride the driver just finished (or cancelled) stays off-limits to
@@ -165,6 +165,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<WebSocket | null>(null);
   const connectPromiseRef = useRef<Promise<WebSocket> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Waits 1s, 2s, 4s ... up to 30s between attempts, each scattered at random.
+  const backoffRef = useRef(createReconnectBackoff());
   const shouldMaintainConnectionRef = useRef(false);
   /** The driver pressed Go Online and has not pressed Go Offline since. */
   const wantsOnlineRef = useRef(false);
@@ -271,7 +273,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       reconnectTimerRef.current = null;
       if (!shouldMaintainConnectionRef.current || !userRef.current) return;
       void connect().catch(() => undefined);
-    }, reconnectDelayMs);
+    }, backoffRef.current.nextDelayMs());
   }, []);
 
   const syncActiveRide = useCallback(async (): Promise<boolean> => {
@@ -363,6 +365,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
         socket.onopen = () => {
           clearTimeout(timeout);
+          backoffRef.current.opened();
           socketRef.current = socket;
           connectPromiseRef.current = null;
           setConnectionState('connected');
@@ -465,6 +468,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     shouldMaintainConnectionRef.current = true;
     wantsOnlineRef.current = true;
     lastOnlineCoordsRef.current = { lat, lng };
+    // Going online is the driver asking, not a retry: connect now, from the first step.
+    backoffRef.current.reset();
     try {
       await connect();
       console.log('[driver-session] connected, sending driver:online');
