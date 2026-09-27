@@ -68,6 +68,14 @@ module.exports = () => ({
       enabled: true,
       checkAutomatically: "ON_LOAD",
       fallbackToCacheTimeout: 0,
+      // The channel the app asks for updates on. EAS builds get it from the
+      // eas.json profile; a build made here with scripts/ios-release.sh does
+      // NOT, and an app with no channel is served nothing (iOS 1.0.1 build 27
+      // never saw an update for exactly this reason). Baked in so every build,
+      // however it is made, listens on its variant's production channel.
+      requestHeaders: {
+        "expo-channel-name": isDriverApp ? "production-driver" : "production-rider",
+      },
     },
     runtimeVersion: "1.0.0",
     plugins: withVariantGoogleScheme(appJson.expo.plugins ?? []),
