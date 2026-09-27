@@ -11,6 +11,23 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# xcodebuild needs a full Xcode, not the Command Line Tools. If the Mac's
+# default developer directory is the CLT, find Xcode ourselves (Applications,
+# then Downloads) rather than fail at the archive step after a long prebuild.
+if [ -z "${DEVELOPER_DIR:-}" ] && [[ "$(xcode-select -p 2>/dev/null)" == *CommandLineTools* ]]; then
+  for candidate in /Applications/Xcode.app "$HOME/Downloads/Xcode.app"; do
+    if [ -d "$candidate/Contents/Developer" ]; then
+      export DEVELOPER_DIR="$candidate/Contents/Developer"
+      echo "Using Xcode at $candidate (the default developer directory is the Command Line Tools)"
+      break
+    fi
+  done
+  if [ -z "${DEVELOPER_DIR:-}" ]; then
+    echo "No Xcode found. Install it, or run: sudo xcode-select -s /Applications/Xcode.app" >&2
+    exit 1
+  fi
+fi
+
 TEAM=N3F7PRGY83
 PROFILE='*[expo] com.timmy133.wheelers.driver AppStore 2026-08-18T19:18:32.891Z'
 build="$(node -p 'require("./app.json").expo.ios.buildNumber')"
