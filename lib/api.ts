@@ -186,6 +186,7 @@ function buildRideEstimateCacheKey(input: {
 
 export interface RiderHistoryRide {
   id: string;
+  tripId?: string | null;
   status: "COMPLETED" | "CANCELLED";
   pickupAddress: string;
   destAddress: string;
@@ -1409,6 +1410,7 @@ export interface DriverEarningsResponse {
 
 export interface DriverHistoryRide {
   id: string;
+  tripId?: string | null;
   status: string;
   pickupAddress: string;
   destAddress: string;
@@ -1610,6 +1612,8 @@ export async function deleteAccount(input: {
  */
 export interface DriverActiveRide {
   rideId: string;
+  /** The short trip ID, e.g. WH-01234. Absent on servers older than it. */
+  tripId?: string | null;
   riderId: string;
   driverId: string | null;
   rideStatus:

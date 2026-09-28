@@ -89,6 +89,8 @@ export type GroupSeat = {
 
 export type DriverRide = {
   rideId: string;
+  /** The short trip ID people use, e.g. WH-01234. */
+  tripId?: string;
   riderId: string;
   pickup: RideEstimateWaypoint;
   destination: RideEstimateWaypoint;
@@ -477,6 +479,7 @@ const TRIP_STATUS_RANK: Record<DriverStatus, number> = {
 function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
   return {
     rideId: ride.rideId,
+    tripId: ride.tripId ?? undefined,
     riderId: ride.riderId,
     pickup: ride.pickup,
     destination: ride.destination,
@@ -795,6 +798,7 @@ export function reduceDriverSession(
       currentRide: {
         ...(sameRide ? prev.currentRide : null),
         rideId,
+        tripId: getString(payload.tripId) ?? (sameRide ? prev.currentRide?.tripId : undefined),
         riderId,
         pickup,
         destination,

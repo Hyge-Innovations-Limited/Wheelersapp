@@ -93,7 +93,8 @@ function mapRideItem(ride: RiderHistoryRide): RiderHistoryListItem {
   return {
     id: ride.id,
     title: `${shortenAddress(ride.pickupAddress)} to ${shortenAddress(ride.destAddress)}`,
-    meta: formatWhen(ride.completedAt ?? ride.cancelledAt ?? ride.createdAt),
+    // The trip ID first: what the rider quotes if they need help with this trip.
+    meta: [ride.tripId, formatWhen(ride.completedAt ?? ride.cancelledAt ?? ride.createdAt)].filter(Boolean).join(" · "),
     fare: formatFare(ride),
     statusLabel: mapStatusLabel(ride),
     icon: mapIcon(ride),

@@ -222,7 +222,9 @@ export default function DriverActiveTripScreen() {
         pointerEvents="box-none">
         <View style={styles.liveBadge}>
           <View style={styles.liveDot} />
-          <AppText variant="monoSmall" color={theme.colors.offWhite}>LIVE</AppText>
+          <AppText variant="monoSmall" color={theme.colors.offWhite}>
+            {ride.tripId ? `LIVE · ${ride.tripId}` : 'LIVE'}
+          </AppText>
         </View>
         <EmergencyButton role="DRIVER" rideId={ride.rideId} compact />
       </View>

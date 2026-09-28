@@ -241,7 +241,7 @@ export default function DriverHistoryScreen() {
                   </View>
                   <View style={styles.rideBottom}>
                     <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
-                      {formatDate(date)}
+                      {ride.tripId ? `${ride.tripId} · ${formatDate(date)}` : formatDate(date)}
                     </AppText>
                     <View
                       style={[styles.dot, { backgroundColor: statusColor(ride.status) }]}
