@@ -39,6 +39,7 @@ import {
   verifyWithdrawalBankAccount,
   waitForWithdrawalOutcome,
 } from "@/lib/api";
+import { minWithdrawalOf, withdrawalBreakdown, withdrawalFeeOf } from "@/lib/withdrawal-fee";
 import { useWalletOverview } from "@/lib/wallet-overview";
 import { theme } from "@/theme";
 
@@ -344,6 +345,9 @@ export default function WalletScreen() {
   };
 
   const availableWithdrawalBalanceNgn = overview?.balanceNgn ?? 0;
+  // Wheelers' fee on every withdrawal, taken from the amount, as the server states it.
+  const withdrawalFeeNgn = withdrawalFeeOf(overview);
+  const minWithdrawalNgn = minWithdrawalOf(overview);
 
   const loadWithdrawalBankNetworks = async (query?: string) => {
     const normalizedQuery = query?.trim().toLowerCase() ?? "";
@@ -439,6 +443,14 @@ export default function WalletScreen() {
       Alert.alert(
         "Amount required",
         "Enter the amount you want to withdraw in Naira.",
+      );
+      return;
+    }
+
+    if (minWithdrawalNgn > 0 && amountNgn < minWithdrawalNgn) {
+      Alert.alert(
+        "Amount too small",
+        `The least you can withdraw is NGN ${minWithdrawalNgn.toLocaleString("en-NG")}, including the NGN ${withdrawalFeeNgn.toLocaleString("en-NG")} withdrawal fee.`,
       );
       return;
     }
@@ -647,11 +659,15 @@ export default function WalletScreen() {
       resetWithdrawalFlow();
       withdrawalIdempotencyKeyRef.current = null;
 
-      const amountLabel = `NGN ${amountNgn.toLocaleString("en-NG")}`;
+      // What the bank gets: the server's figure when it gives one, else the amount less the fee.
+      const received =
+        response?.withdrawal?.payoutNgn ??
+        withdrawalBreakdown(amountNgn, withdrawalFeeNgn).receiveNgn;
+      const amountLabel = `NGN ${received.toLocaleString("en-NG")}`;
       showToast(
         outcome?.status === "SETTLED"
-          ? `Withdrawal of ${amountLabel} sent to your bank.`
-          : `Withdrawal of ${amountLabel} is processing — we'll update your wallet once the bank confirms.`,
+          ? `${amountLabel} sent to your bank.`
+          : `${amountLabel} is on its way — we'll update your wallet once the bank confirms.`,
       );
     } catch (error) {
       setWithdrawConfirmVisible(true);
@@ -889,6 +905,14 @@ export default function WalletScreen() {
                 style={styles.input}
                 value={withdrawAmount}
               />
+              {withdrawalFeeNgn > 0 && parseNgnAmount(withdrawAmount) ? (
+                <AppText variant="bodySmall" color={theme.colors.muted}>
+                  {`NGN ${withdrawalFeeNgn.toLocaleString("en-NG")} withdrawal fee · you receive NGN ${withdrawalBreakdown(
+                    parseNgnAmount(withdrawAmount) ?? 0,
+                    withdrawalFeeNgn,
+                  ).receiveNgn.toLocaleString("en-NG")}`}
+                </AppText>
+              ) : null}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -1066,11 +1090,11 @@ export default function WalletScreen() {
 
             <View style={styles.widgetHero}>
               <AppText variant="bodySmall" color={theme.colors.muted}>
-                Withdrawal amount
+                You receive
               </AppText>
               <AppText variant="display">
                 {displayedWithdrawAmount
-                  ? `NGN ${displayedWithdrawAmount.toLocaleString("en-NG")}`
+                  ? `NGN ${withdrawalBreakdown(displayedWithdrawAmount, withdrawalFeeNgn).receiveNgn.toLocaleString("en-NG")}`
                   : "Pending"}
               </AppText>
             </View>
@@ -1079,6 +1103,18 @@ export default function WalletScreen() {
               backgroundColor={theme.colors.white}
               style={styles.paymentDetailsCard}
             >
+              {displayedWithdrawAmount ? (
+                <InstructionRow
+                  label="Amount"
+                  value={`NGN ${displayedWithdrawAmount.toLocaleString("en-NG")}`}
+                />
+              ) : null}
+              {withdrawalFeeNgn > 0 ? (
+                <InstructionRow
+                  label="Withdrawal fee"
+                  value={`− NGN ${withdrawalFeeNgn.toLocaleString("en-NG")}`}
+                />
+              ) : null}
               <InstructionRow
                 label="Bank Name"
                 value={verifiedWithdrawAccount?.bankName ?? "Pending"}

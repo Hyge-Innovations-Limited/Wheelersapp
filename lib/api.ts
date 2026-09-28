@@ -307,6 +307,10 @@ export interface WalletOverviewResponse {
   balanceNgn: number;
   lockedNgn: number;
   updatedAt: string;
+  /** Wheelers' fee on every withdrawal, taken from the amount. Absent on servers older than the fee. */
+  withdrawalFeeNgn?: number;
+  /** The least that can be withdrawn, fee included. */
+  minWithdrawalNgn?: number;
 }
 
 export interface WalletTransaction {
@@ -328,7 +332,11 @@ export interface WalletTransactionsResponse {
 export interface WalletWithdrawal {
   id: string;
   status: string;
+  /** What left the wallet. */
   amountNgn: number;
+  /** Wheelers' withdrawal fee, and what the bank receives. */
+  feeNgn?: number;
+  payoutNgn?: number;
   bankAccount: {
     accountNumber: string;
     accountName: string | null;

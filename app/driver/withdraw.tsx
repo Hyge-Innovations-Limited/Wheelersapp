@@ -27,6 +27,7 @@ import {
   waitForWithdrawalOutcome,
   type WithdrawalBankNetwork,
 } from '@/lib/api';
+import { minWithdrawalOf, withdrawalBreakdown, withdrawalFeeOf } from '@/lib/withdrawal-fee';
 import { useAuth } from '@/lib/auth';
 import { useAppTheme } from '@/lib/theme-context';
 import { invalidateWalletCache, useWalletOverview } from '@/lib/wallet-overview';
@@ -104,6 +105,8 @@ export default function DriverWithdrawScreen() {
   const responsive = useResponsive();
   const keyboardHeight = useKeyboardHeight();
   const balanceNgn = overview?.balanceNgn ?? 0;
+  const feeNgn = withdrawalFeeOf(overview);
+  const minNgn = minWithdrawalOf(overview);
 
   const [step, setStep] = useState<Step>('bank');
   const [banks, setBanks] = useState<WithdrawalBankNetwork[]>([]);
@@ -197,6 +200,10 @@ export default function DriverWithdrawScreen() {
       Alert.alert('Insufficient balance', `Your available balance is ${formatNgn(balanceNgn)}`);
       return;
     }
+    if (minNgn > 0 && numAmount < minNgn) {
+      Alert.alert('Amount too small', `The least you can withdraw is ${formatNgn(minNgn)}, including the ${formatNgn(feeNgn)} withdrawal fee.`);
+      return;
+    }
     setStep('confirm');
   };
 
@@ -260,10 +267,13 @@ export default function DriverWithdrawScreen() {
         return;
       }
 
+      // What the bank gets: the server's figure when it gives one, else the amount less the fee.
+      const received = created?.payoutNgn ?? withdrawalBreakdown(parseFloat(amount), feeNgn).receiveNgn;
+
       if (outcome?.status === 'SETTLED') {
         Alert.alert(
           'Withdrawal sent',
-          `${formatNgn(parseFloat(amount))} has been sent to ${accountName} at ${selectedBank.name}`,
+          `${formatNgn(received)} has been sent to ${accountName} at ${selectedBank.name}`,
           [{ text: 'Done', onPress: () => router.back() }],
         );
         return;
@@ -271,7 +281,7 @@ export default function DriverWithdrawScreen() {
 
       Alert.alert(
         'Withdrawal processing',
-        `${formatNgn(parseFloat(amount))} is on its way to ${accountName} at ${selectedBank.name}. We'll update your wallet once the bank confirms.`,
+        `${formatNgn(received)} is on its way to ${accountName} at ${selectedBank.name}. We'll update your wallet once the bank confirms.`,
         [{ text: 'Done', onPress: () => router.back() }],
       );
     } catch (err) {
@@ -447,6 +457,21 @@ export default function DriverWithdrawScreen() {
               Available: {formatNgn(balanceNgn)}
             </AppText>
 
+            {feeNgn > 0 && parseFloat(amount) > 0 ? (
+              <View style={[styles.feeCard, isDark && { backgroundColor: theme.colors.darkSurface, borderColor: theme.colors.darkBorder }]}>
+                <View style={styles.feeRow}>
+                  <AppText variant="bodySmall" color={theme.colors.muted}>Withdrawal fee</AppText>
+                  <AppText variant="bodySmall">− {formatNgn(feeNgn)}</AppText>
+                </View>
+                <View style={[styles.feeRow, styles.feeTotalRow]}>
+                  <AppText variant="bodyMedium">You receive</AppText>
+                  <AppText variant="bodyMedium" style={styles.feeTotal}>
+                    {formatNgn(withdrawalBreakdown(parseFloat(amount), feeNgn).receiveNgn)}
+                  </AppText>
+                </View>
+              </View>
+            ) : null}
+
             {parseFloat(amount) > 0 && (
               <Pressable
                 onPress={handleAmountNext}
@@ -485,6 +510,24 @@ export default function DriverWithdrawScreen() {
               <View style={styles.confirmDivider} />
               <View style={styles.confirmRow}>
                 <AppText variant="bodySmall" color={theme.colors.muted} style={styles.confirmLabel}>Amount</AppText>
+                <AppText variant="bodyMedium" style={styles.confirmValue} numberOfLines={1}>
+                  {formatNgn(parseFloat(amount))}
+                </AppText>
+              </View>
+              {feeNgn > 0 ? (
+                <>
+                  <View style={styles.confirmDivider} />
+                  <View style={styles.confirmRow}>
+                    <AppText variant="bodySmall" color={theme.colors.muted} style={styles.confirmLabel}>Withdrawal fee</AppText>
+                    <AppText variant="bodyMedium" style={styles.confirmValue} numberOfLines={1}>
+                      − {formatNgn(feeNgn)}
+                    </AppText>
+                  </View>
+                </>
+              ) : null}
+              <View style={styles.confirmDivider} />
+              <View style={styles.confirmRow}>
+                <AppText variant="bodySmall" color={theme.colors.muted} style={styles.confirmLabel}>You receive</AppText>
                 <AppText
                   variant="h2"
                   color={theme.colors.orange}
@@ -492,7 +535,7 @@ export default function DriverWithdrawScreen() {
                   adjustsFontSizeToFit
                   minimumFontScale={0.7}
                   numberOfLines={1}>
-                  {formatNgn(parseFloat(amount))}
+                  {formatNgn(withdrawalBreakdown(parseFloat(amount), feeNgn).receiveNgn)}
                 </AppText>
               </View>
             </View>
@@ -750,6 +793,27 @@ const styles = StyleSheet.create({
     borderWidth: theme.borders.thick,
     borderColor: theme.colors.black,
     ...theme.shadows.card,
+  },
+  feeCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  feeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  feeTotalRow: {
+    paddingTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.borderLight,
+  },
+  feeTotal: {
+    fontWeight: '700',
   },
   confirmRow: {
     flexDirection: 'row',
