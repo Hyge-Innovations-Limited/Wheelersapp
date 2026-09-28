@@ -6,8 +6,7 @@ import { AppScreen } from '@/components/app-screen';
 import { AppCard } from '@/components/app-card';
 import { AppText } from '@/components/app-text';
 import { DriverBidsList } from '@/components/driver-bids-list';
-import { useAuth } from '@/lib/auth';
-import { getAccessTokenWithRetry } from '@/lib/access-token';
+import { useCachedQuery } from '@/lib/cached-query';
 import {
   getDriverBids,
   getDriverRideHistory,
@@ -69,7 +68,6 @@ function statusColor(status: string): string {
 }
 
 export default function DriverHistoryScreen() {
-  const { getAccessToken } = useAuth();
   const { isDark } = useAppTheme();
   const responsive = useResponsive();
   // `?tab=bids` deep-links straight to the bids list (from the home card).
@@ -79,45 +77,33 @@ export default function DriverHistoryScreen() {
   useEffect(() => {
     if (isTab(requestedTab)) setActiveTab(requestedTab);
   }, [requestedTab]);
-  const [rides, setRides] = useState<DriverHistoryRide[]>([]);
   const [rideFilter, setRideFilter] = useState<RideFilter>('all');
-  const [bids, setBids] = useState<DriverBidRecord[]>([]);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [loadingRides, setLoadingRides] = useState(true);
-  const [loadingTxns, setLoadingTxns] = useState(true);
+  // Shown at once from the last copy; fetched again after a minute, and when a trip ends.
+  const ridesQuery = useCachedQuery<DriverHistoryRide[]>({
+    key: 'driver-history.rides',
+    fetcher: (accessToken) => getDriverRideHistory({ accessToken, limit: 30 }).then((r) => r.items),
+  });
+  const txnsQuery = useCachedQuery<WalletTransaction[]>({
+    key: 'wallet.transactions',
+    fetcher: (accessToken) => getWalletTransactions({ accessToken, limit: 30 }).then((r) => r.items),
+  });
+  // Bids are best-effort: an older backend without the route must not blank the rest.
+  const bidsQuery = useCachedQuery<DriverBidRecord[]>({
+    key: 'driver-history.bids',
+    fetcher: (accessToken) => getDriverBids({ accessToken, limit: 50 }).then((r) => r.items).catch(() => [] as DriverBidRecord[]),
+  });
+  const rides = ridesQuery.data ?? [];
+  const transactions = txnsQuery.data ?? [];
+  const bids = bidsQuery.data ?? [];
+  const loadingRides = ridesQuery.loading;
+  const loadingTxns = txnsQuery.loading;
   const [refreshing, setRefreshing] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) return;
-      const [rideData, txnData, bidData] = await Promise.all([
-        getDriverRideHistory({ accessToken, limit: 30 }),
-        getWalletTransactions({ accessToken, limit: 30 }),
-        // Bids are best-effort: an older backend without the route must not
-        // blank the rides and transactions beside it.
-        getDriverBids({ accessToken, limit: 50 }).catch(() => ({ items: [] as DriverBidRecord[] })),
-      ]);
-      setRides(rideData.items);
-      setTransactions(txnData.items);
-      setBids(bidData.items);
-    } catch {
-      // non-blocking
-    } finally {
-      setLoadingRides(false);
-      setLoadingTxns(false);
-    }
-  }, [getAccessToken]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([ridesQuery.refresh(), txnsQuery.refresh(), bidsQuery.refresh()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [ridesQuery, txnsQuery, bidsQuery]);
 
   const loading = activeTab === 'transactions' ? loadingTxns : loadingRides;
   const filteredRides = rides.filter((ride) => matchesRideFilter(ride.status, rideFilter));

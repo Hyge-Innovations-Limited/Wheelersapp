@@ -1,5 +1,5 @@
 import { Href, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { ActivityIndicator, Platform, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
@@ -7,8 +7,6 @@ import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
-import { useAuth } from '@/lib/auth';
-import { getAccessTokenWithRetry } from '@/lib/access-token';
 import {
   getDriverEarnings,
   provisionVirtualAccount,
@@ -18,6 +16,7 @@ import {
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
 import { invalidateWalletCache, useWalletOverview } from '@/lib/wallet-overview';
+import { useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
 
 function formatNgn(amount: number): string {
@@ -67,53 +66,40 @@ function ArrowUpIcon({ size = 20 }: { size?: number }) {
 
 export default function DriverWalletTabScreen() {
   const router = useRouter();
-  const { getAccessToken } = useAuth();
   const { isDark } = useAppTheme();
   const responsive = useResponsive();
   const { overview } = useWalletOverview();
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [earnings, setEarnings] = useState<DriverEarningsResponse | null>(null);
-  const [loadingEarnings, setLoadingEarnings] = useState(true);
-  const [account, setAccount] = useState<ProvisionVirtualAccountResponse | null>(null);
-  const [accountError, setAccountError] = useState<string | null>(null);
-  const [loadingAccount, setLoadingAccount] = useState(true);
+  // Today's earnings: shown at once from the last copy, fetched again after a minute.
+  const earningsQuery = useCachedQuery<DriverEarningsResponse>({
+    key: 'earnings.today',
+    fetcher: (accessToken) => getDriverEarnings({ accessToken, period: 'today' }),
+    staleMs: 60_000,
+  });
+  // The driver's own deposit account never changes once opened: kept in secure
+  // storage and checked once a day, not asked for on every visit.
+  const accountQuery = useCachedQuery<ProvisionVirtualAccountResponse>({
+    key: 'wallet.deposit-account',
+    fetcher: (accessToken) => provisionVirtualAccount({ accessToken }),
+    staleMs: 24 * 60 * 60 * 1000,
+    storage: 'secure',
+  });
+  const earnings = earningsQuery.data;
+  const loadingEarnings = earningsQuery.loading;
+  const account = accountQuery.data;
+  const loadingAccount = accountQuery.loading;
+  const accountError = account ? null : accountQuery.error && 'Account not found. Pull to refresh to try again.';
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    const accessToken = await getAccessTokenWithRetry(getAccessToken);
-    if (!accessToken) return;
-    const [earningsRes, accountRes] = await Promise.allSettled([
-      getDriverEarnings({ accessToken, period: 'today' }),
-      provisionVirtualAccount({ accessToken }),
-    ]);
-    if (earningsRes.status === 'fulfilled') setEarnings(earningsRes.value);
-    if (accountRes.status === 'fulfilled') {
-      setAccount(accountRes.value);
-      setAccountError(null);
-    } else {
-      setAccountError(
-        accountRes.reason instanceof Error
-          ? accountRes.reason.message
-          : 'Account not found. Pull to refresh to try again.',
-      );
-    }
-    setLoadingEarnings(false);
-    setLoadingAccount(false);
-  }, [getAccessToken]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     // The balance card reads the cached overview — a pull-to-refresh that
     // skipped it left stale money on screen after a withdrawal.
     invalidateWalletCache();
-    await fetchData();
+    await Promise.all([earningsQuery.refresh(), accountQuery.refresh()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [earningsQuery, accountQuery]);
 
   const balanceNgn = overview?.balanceNgn ?? 0;
   const lockedNgn = overview?.lockedNgn ?? 0;

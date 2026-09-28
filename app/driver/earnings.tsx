@@ -1,13 +1,12 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Svg, { Line, Path, Polyline } from 'react-native-svg';
 
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
-import { useAuth } from '@/lib/auth';
-import { getAccessTokenWithRetry } from '@/lib/access-token';
+import { useCachedQuery } from '@/lib/cached-query';
 import { getDriverEarnings, type DriverEarningsResponse } from '@/lib/api';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
@@ -54,37 +53,23 @@ function EarningIcon({ size = 18 }: { size?: number }) {
 
 export default function DriverEarningsScreen() {
   const router = useRouter();
-  const { getAccessToken } = useAuth();
   const { isDark } = useAppTheme();
   const responsive = useResponsive();
   const [activePeriod, setActivePeriod] = useState<Period>('today');
-  const [earnings, setEarnings] = useState<DriverEarningsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Each period is its own copy: switching tabs shows the last figures at once.
+  const earningsQuery = useCachedQuery<DriverEarningsResponse>({
+    key: `earnings.${activePeriod}`,
+    fetcher: (accessToken) => getDriverEarnings({ accessToken, period: activePeriod }),
+  });
+  const earnings = earningsQuery.data;
+  const loading = earningsQuery.loading;
   const [refreshing, setRefreshing] = useState(false);
-
-  const fetchEarnings = useCallback(async (period: Period) => {
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) return;
-      const data = await getDriverEarnings({ accessToken, period });
-      setEarnings(data);
-    } catch {
-      // non-blocking
-    } finally {
-      setLoading(false);
-    }
-  }, [getAccessToken]);
-
-  useEffect(() => {
-    setLoading(true);
-    void fetchEarnings(activePeriod);
-  }, [fetchEarnings, activePeriod]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchEarnings(activePeriod);
+    await earningsQuery.refresh();
     setRefreshing(false);
-  }, [fetchEarnings, activePeriod]);
+  }, [earningsQuery]);
 
   const totalEarnings = earnings?.totalEarningsNgn ?? 0;
   const rideCount = earnings?.rideCount ?? 0;

@@ -31,6 +31,7 @@ import { minWithdrawalOf, withdrawalBreakdown, withdrawalFeeOf } from '@/lib/wit
 import { useAuth } from '@/lib/auth';
 import { useAppTheme } from '@/lib/theme-context';
 import { invalidateWalletCache, useWalletOverview } from '@/lib/wallet-overview';
+import { useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
 
 function formatNgn(amount: number): string {
@@ -109,9 +110,18 @@ export default function DriverWithdrawScreen() {
   const minNgn = minWithdrawalOf(overview);
 
   const [step, setStep] = useState<Step>('bank');
-  const [banks, setBanks] = useState<WithdrawalBankNetwork[]>([]);
-  const [banksLoading, setBanksLoading] = useState(true);
+  // The bank list hardly changes: kept on the phone for a week, not fetched on every open.
+  const bankList = useCachedQuery<WithdrawalBankNetwork[]>({
+    key: 'banks',
+    fetcher: (accessToken) => getWithdrawalBankNetworks({ accessToken }).then((res) => res.items),
+    staleMs: 7 * 24 * 60 * 60 * 1000,
+  });
+  const banks = bankList.data ?? [];
+  const banksLoading = bankList.loading;
   const [selectedBank, setSelectedBank] = useState<WithdrawalBankNetwork | null>(null);
+  /** The account the last withdrawal went to is in use: nothing to pick, nothing to verify. */
+  const [usingSaved, setUsingSaved] = useState(false);
+  const savedApplied = useRef(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -123,22 +133,27 @@ export default function DriverWithdrawScreen() {
   const accountRef = useRef<TextInput>(null);
   const amountRef = useRef<TextInput>(null);
 
-  // Fetch banks on mount
+  // One step: open on the amount, to the account the last withdrawal went to.
+  // "Change" goes back to picking a bank. Applied once, and never over a
+  // choice the driver has started making.
+  const saved = overview?.payoutAccount ?? null;
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken || cancelled) return;
-      try {
-        const res = await getWithdrawalBankNetworks({ accessToken });
-        if (!cancelled) setBanks(res.items);
-      } catch {
-        // Will show empty list — user can retry by closing/reopening
-      }
-      if (!cancelled) setBanksLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [getAccessToken]);
+    if (!saved || savedApplied.current || selectedBank || step !== 'bank') return;
+    savedApplied.current = true;
+    setSelectedBank({ id: saved.networkId, uuid: saved.networkId, name: saved.bankName, code: null, country: 'NG', accountNumberType: null, type: null });
+    setAccountNumber(saved.accountNumber);
+    setAccountName(saved.accountName);
+    setUsingSaved(true);
+    setStep('amount');
+  }, [saved, selectedBank, step]);
+
+  const changeAccount = () => {
+    setUsingSaved(false);
+    setSelectedBank(null);
+    setAccountNumber('');
+    setAccountName('');
+    setStep('bank');
+  };
 
   const filteredBanks = bankSearchQuery
     ? banks.filter((b) => b.name.toLowerCase().includes(bankSearchQuery.toLowerCase()))
@@ -301,7 +316,9 @@ export default function DriverWithdrawScreen() {
     } else if (step === 'account') {
       setStep('bank');
     } else if (step === 'amount') {
-      setStep('account');
+      // From the saved account there is no account step behind this one.
+      if (usingSaved) router.back();
+      else setStep('account');
     } else {
       setStep('amount');
     }
@@ -423,9 +440,14 @@ export default function DriverWithdrawScreen() {
         {step === 'amount' && (
           <View style={styles.stepContent}>
             <View style={styles.bankChip}>
-              <AppText variant="bodySmall" color={theme.colors.muted}>
-                {selectedBank?.name} — {accountNumber}
+              <AppText variant="bodySmall" color={theme.colors.muted} style={styles.flex} numberOfLines={1}>
+                {selectedBank?.name} — {usingSaved ? `•••• ${accountNumber.slice(-4)}` : accountNumber}
               </AppText>
+              {usingSaved ? (
+                <Pressable onPress={changeAccount} hitSlop={10}>
+                  <AppText variant="bodySmall" color={theme.colors.orange}>Change</AppText>
+                </Pressable>
+              ) : null}
             </View>
             <View style={styles.resolvedName}>
               <CheckIcon />

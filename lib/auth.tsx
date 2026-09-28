@@ -14,6 +14,7 @@ import {
   type AccessTokenGetter,
 } from "@/lib/access-token";
 import { logoutAccount } from "@/lib/api";
+import { clearCachedQueries } from "@/lib/cache-store";
 import { stopDriverLivenessUpdates } from "@/lib/background-location";
 import { disableStandby } from "@/lib/standby-location";
 import { clearStoredAuthState } from "@/lib/auth-state";
@@ -76,6 +77,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     await clearStoredLocalAccessToken();
     await clearStoredAuthState();
+    // Balances, account numbers, trips: nothing of theirs stays on the phone.
+    await clearCachedQueries();
     setHasToken(false);
   }, []);
 

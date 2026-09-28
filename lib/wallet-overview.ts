@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
-import { getAccessTokenWithRetry } from "@/lib/access-token";
-import { useAuth } from "@/lib/auth";
 import {
   getWalletOverview,
   isBackendConfigured,
   type WalletOverviewResponse,
 } from "@/lib/api";
+import { invalidateCached, useCachedQuery } from "@/lib/cached-query";
 
 type UseWalletOverviewResult = {
   overview: WalletOverviewResponse | null;
@@ -15,112 +14,43 @@ type UseWalletOverviewResult = {
   refresh: () => Promise<void>;
 };
 
-let cachedWalletOverview: WalletOverviewResponse | null = null;
-let cachedWalletOverviewAt = 0;
-const WALLET_CACHE_TTL_MS = 30_000;
-
-// Listeners for external cache invalidation (e.g. from WebSocket wallet:updated events)
-type WalletChangeListener = () => void;
-const walletChangeListeners = new Set<WalletChangeListener>();
-
 /**
- * Call this from the WS handler when a `wallet:updated` event arrives.
- * It invalidates the cache and notifies all mounted `useWalletOverview` hooks.
+ * The balance, the withdrawal fee, and the account the last withdrawal went
+ * to. Shown at once from the last copy (kept in the phone's secure storage:
+ * it holds an account number), fetched again when it is 30 seconds old, when
+ * the app comes back, and the moment the server says the wallet changed.
  */
-export function invalidateWalletCache(): void {
-  cachedWalletOverviewAt = 0;
-  for (const listener of walletChangeListeners) {
-    listener();
-  }
-}
-
 export function useWalletOverview(): UseWalletOverviewResult {
-  const { getAccessToken, isReady, user } = useAuth();
-  const [overview, setOverview] = useState<WalletOverviewResponse | null>(
-    () => cachedWalletOverview,
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (): Promise<void> => {
-    if (!isBackendConfigured() || !isReady || !user) {
-      setOverview(null);
-      setIsLoading(false);
-      return;
-    }
-
-    // Return cached if fresh
-    if (
-      cachedWalletOverview &&
-      Date.now() - cachedWalletOverviewAt < WALLET_CACHE_TTL_MS
-    ) {
-      setOverview(cachedWalletOverview);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) {
-        throw new Error("Could not get an access token for wallet overview.");
-      }
-
-      const response = await getWalletOverview({ accessToken });
-      cachedWalletOverview = response;
-      cachedWalletOverviewAt = Date.now();
-      setOverview(response);
-    } catch (loadError) {
-      setOverview(cachedWalletOverview);
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Could not load wallet overview.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getAccessToken, isReady, user]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // Auto-refresh when wallet cache is externally invalidated (e.g. WS wallet:updated)
-  useEffect(() => {
-    const listener = () => void load();
-    walletChangeListeners.add(listener);
-    return () => { walletChangeListeners.delete(listener); };
-  }, [load]);
-
+  const query = useCachedQuery<WalletOverviewResponse>({
+    key: "wallet.overview",
+    fetcher: (accessToken) => getWalletOverview({ accessToken }),
+    staleMs: 30_000,
+    storage: "secure",
+    enabled: isBackendConfigured(),
+  });
+  const { refresh } = query;
   return {
-    overview,
-    isLoading,
-    error,
-    refresh: load,
+    overview: query.data,
+    isLoading: query.loading,
+    error: query.error,
+    refresh: useCallback(() => refresh(), [refresh]),
   };
 }
 
+/**
+ * The wallet changed (a wallet:updated event, a withdrawal, a pull to
+ * refresh): every screen showing it fetches it again now.
+ */
+export function invalidateWalletCache(): void {
+  invalidateCached("wallet");
+}
+
+/**
+ * Kept for the splash screen. The last copy is on the phone now, so the home
+ * screen shows it at once without a head start.
+ */
 export async function prefetchWalletOverview(
-  getAccessToken: () => Promise<string | null | undefined>,
+  _getAccessToken: () => Promise<string | null | undefined>,
 ): Promise<void> {
-  if (!isBackendConfigured()) return;
-  if (
-    cachedWalletOverview &&
-    Date.now() - cachedWalletOverviewAt < WALLET_CACHE_TTL_MS
-  ) {
-    return;
-  }
-
-  try {
-    const accessToken = await getAccessTokenWithRetry(getAccessToken);
-    if (!accessToken) return;
-
-    const response = await getWalletOverview({ accessToken });
-    cachedWalletOverview = response;
-    cachedWalletOverviewAt = Date.now();
-  } catch {
-    // Silent — home screen will retry
-  }
+  return;
 }

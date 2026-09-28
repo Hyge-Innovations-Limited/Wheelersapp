@@ -312,6 +312,16 @@ export interface WalletOverviewResponse {
   withdrawalFeeNgn?: number;
   /** The least that can be withdrawn, fee included. */
   minWithdrawalNgn?: number;
+  /** Where the last withdrawal went: the account a new one goes to unless changed. Older servers leave it out. */
+  payoutAccount?: SavedPayoutAccount | null;
+}
+
+export interface SavedPayoutAccount {
+  networkId: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  lastUsedAt: string;
 }
 
 export interface WalletTransaction {

@@ -42,6 +42,7 @@ import {
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { estimateEtaSeconds, haversineKm } from '@/lib/geo';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
+import { invalidateCached } from '@/lib/cache-store';
 
 /** Where the live market snapshot survives JS reloads. */
 const MARKET_STORAGE_KEY = 'wheelers.driver.market.v1';
@@ -182,6 +183,10 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   const markRideEnded = useCallback((rideId: string | undefined) => {
     if (!rideId) return;
     recentlyEndedRef.current.set(rideId, Date.now());
+    // A trip ended: today's earnings, the history and the stats all changed.
+    invalidateCached('earnings');
+    invalidateCached('driver-history');
+    invalidateCached('driver');
   }, []);
 
   useEffect(() => {

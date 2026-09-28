@@ -6,9 +6,8 @@ import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
-import { useAuth } from '@/lib/auth';
-import { getAccessTokenWithRetry } from '@/lib/access-token';
-import { getDriverStats, getDriverEarnings } from '@/lib/api';
+import { useCachedQuery } from '@/lib/cached-query';
+import { getDriverStats, getDriverEarnings, type DriverEarningsResponse, type DriverStatsResponse } from '@/lib/api';
 import { useQuestBadge } from '@/lib/quest-badge-context';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
@@ -93,47 +92,33 @@ function formatNgn(amount: number): string {
 // ── Component ──────────────────────────────────────────
 
 export default function DriverQuestsScreen() {
-  const { getAccessToken } = useAuth();
   const { isDark } = useAppTheme();
   const responsive = useResponsive();
   const { reportCompletedCount, markSeen } = useQuestBadge();
   const [refreshing, setRefreshing] = useState(false);
-  const [todayRides, setTodayRides] = useState(0);
-  const [totalRides, setTotalRides] = useState(0);
-  const [rating, setRating] = useState(0);
-  const [todayEarnings, setTodayEarnings] = useState(0);
+  const statsQuery = useCachedQuery<DriverStatsResponse>({
+    key: 'driver.stats',
+    fetcher: (accessToken) => getDriverStats({ accessToken }),
+  });
+  const earningsQuery = useCachedQuery<DriverEarningsResponse>({
+    key: 'earnings.today',
+    fetcher: (accessToken) => getDriverEarnings({ accessToken, period: 'today' }),
+  });
+  const todayRides = earningsQuery.data?.rideCount ?? 0;
+  const totalRides = statsQuery.data?.totalRides ?? 0;
+  const rating = statsQuery.data?.rating ?? 0;
+  const todayEarnings = earningsQuery.data?.totalEarningsNgn ?? 0;
 
   // Clear badge when user views this screen
   useEffect(() => {
     markSeen();
   }, [markSeen]);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) return;
-      const [stats, earnings] = await Promise.all([
-        getDriverStats({ accessToken }),
-        getDriverEarnings({ accessToken, period: 'today' }),
-      ]);
-      setTodayRides(earnings.rideCount);
-      setTotalRides(stats.totalRides);
-      setRating(stats.rating);
-      setTodayEarnings(earnings.totalEarningsNgn);
-    } catch {
-      // non-blocking
-    }
-  }, [getAccessToken]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([statsQuery.refresh(), earningsQuery.refresh()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [statsQuery, earningsQuery]);
 
   // Build quests based on real data
   const quests: Quest[] = [
