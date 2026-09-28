@@ -9,6 +9,7 @@ import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import { StatusPill } from '@/components/StatusPill';
+import { TripChatButton } from '@/components/TripChatButton';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
@@ -22,7 +23,7 @@ function formatNgn(amount: number): string {
 
 export default function DriverArrivedScreen() {
   const router = useRouter();
-  const { session, startTrip, cancelTrip } = useDriverSession();
+  const { session, startTrip, cancelTrip, chatMessages, sendChatMessage } = useDriverSession();
   const responsive = useResponsive();
   const ride = session.currentRide;
 
@@ -143,18 +144,28 @@ export default function DriverArrivedScreen() {
           </View>
         </View>
 
-        {ride.riderPhone ? (
-          <View style={styles.phoneRow}>
-            <Pressable style={[styles.callButton, { minHeight: actionHeight }]} onPress={handleCallRider}>
-              <AppText variant="label">Call rider</AppText>
-            </Pressable>
-            <Pressable style={[styles.copyButton, { minHeight: actionHeight }]} onPress={handleCopyPhone}>
-              <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
-                {copied ? 'Copied!' : ride.riderPhone}
-              </AppText>
-            </Pressable>
-          </View>
-        ) : null}
+        <View style={styles.phoneRow}>
+          <TripChatButton
+            rideId={ride.rideId}
+            role="DRIVER"
+            messages={chatMessages}
+            onSend={sendChatMessage}
+            otherName={ride.riderName}
+            style={{ minHeight: actionHeight }}
+          />
+          {ride.riderPhone ? (
+            <>
+              <Pressable style={[styles.callButton, { minHeight: actionHeight }]} onPress={handleCallRider}>
+                <AppText variant="label">Call rider</AppText>
+              </Pressable>
+              <Pressable style={[styles.copyButton, { minHeight: actionHeight }]} onPress={handleCopyPhone}>
+                <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
+                  {copied ? 'Copied!' : ride.riderPhone}
+                </AppText>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
       </AppCard>
 
       {/* Wait timer */}

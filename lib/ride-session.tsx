@@ -111,6 +111,8 @@ export type RideChatMessage = {
   senderId: string;
   senderRole: 'RIDER' | 'DRIVER';
   content: string;
+  /** "call": "Missed call", "Call · 3:12", written by the server. */
+  kind?: 'text' | 'call';
   createdAt: string;
 };
 
@@ -667,6 +669,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           senderId,
           senderRole,
           content,
+          kind: getString(payload.kind) === 'call' ? 'call' : 'text',
           createdAt: createdAt ?? new Date().toISOString(),
         };
         setChatMessages((prev) => {

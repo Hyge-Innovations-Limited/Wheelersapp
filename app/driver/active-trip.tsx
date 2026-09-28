@@ -12,6 +12,7 @@ import { AppText } from '@/components/app-text';
 import { CourseArrowMarker } from '@/components/course-arrow-marker';
 import { EmergencyButton } from '@/components/emergency-button';
 import { GoogleMapView } from '@/components/GoogleMapView';
+import { TripChatButton } from '@/components/TripChatButton';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { useDriverSession } from '@/lib/driver-session';
 import { toUserMessage } from '@/lib/error-messages';
@@ -40,7 +41,7 @@ const END_TRIP_NEAR_KM = 0.3;
 
 export default function DriverActiveTripScreen() {
   const router = useRouter();
-  const { session, endTrip, sendGps } = useDriverSession();
+  const { session, endTrip, sendGps, chatMessages, sendChatMessage } = useDriverSession();
   const { currentLocation } = useAppLocation();
   const responsive = useResponsive();
   const insets = useSafeAreaInsets();
@@ -226,7 +227,16 @@ export default function DriverActiveTripScreen() {
             {ride.tripId ? `LIVE · ${ride.tripId}` : 'LIVE'}
           </AppText>
         </View>
-        <EmergencyButton role="DRIVER" rideId={ride.rideId} compact />
+        <View style={styles.topActions}>
+          <TripChatButton
+            rideId={ride.rideId}
+            role="DRIVER"
+            messages={chatMessages}
+            onSend={sendChatMessage}
+            otherName={ride.riderName}
+          />
+          <EmergencyButton role="DRIVER" rideId={ride.rideId} compact />
+        </View>
       </View>
 
       {/* Compact trip panel */}
@@ -288,6 +298,11 @@ export default function DriverActiveTripScreen() {
 }
 
 const styles = StyleSheet.create({
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
   screen: {
     flex: 1,
     backgroundColor: theme.colors.mapBase,

@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useMemo, useRef } from "react";
+import { StyleSheet, View } from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
@@ -11,7 +11,7 @@ import { EmergencyButton } from "@/components/emergency-button";
 import { BackArrow } from "@/components/back-arrow";
 import { LiveMap } from "@/components/live-map";
 import { MetricCard } from "@/components/MetricCard";
-import { RideChat } from "@/components/RideChat";
+import { TripChatButton } from "@/components/TripChatButton";
 import { RideMovementBar } from "@/components/RideMovementBar";
 import { StatusPill } from "@/components/StatusPill";
 import { TripProgressBar } from "@/components/TripProgressBar";
@@ -47,7 +47,6 @@ export default function RiderActiveTripScreen() {
     [params.itinerary],
   );
   const { cancelRide, currentRide, chatMessages, sendChatMessage } = useRideSession();
-  const [chatOpen, setChatOpen] = useState(false);
   const itinerary = currentRide?.itinerary ?? fallbackItinerary;
   const routeRows = useMemo(() => getRideRouteRows(itinerary), [itinerary]);
   const extraStops = getAdditionalStopCount(itinerary);
@@ -282,20 +281,16 @@ export default function RiderActiveTripScreen() {
         ) : null}
       </View>
 
-      {currentRide && (currentRide.status === "active" || currentRide.status === "matched") && (
-        <Pressable style={styles.chatFab} onPress={() => setChatOpen(true)}>
-          <AppText style={styles.chatFabIcon}>💬</AppText>
-        </Pressable>
-      )}
-
-      {currentRide && (
-        <RideChat
-          visible={chatOpen}
-          onClose={() => setChatOpen(false)}
+      {/* Open from the match until 30 minutes after the trip; the server says when it has closed. */}
+      {currentRide && (currentRide.status === "active" || currentRide.status === "matched" || currentRide.status === "completed") && (
+        <TripChatButton
           rideId={currentRide.rideId}
-          realtimeMessages={chatMessages}
+          role="RIDER"
+          messages={chatMessages}
           onSend={sendChatMessage}
-          userRole="RIDER"
+          otherName={currentRide.driver?.driverName}
+          variant="fab"
+          style={styles.chatFab}
         />
       )}
     </AppScreen>
@@ -437,8 +432,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     ...theme.shadows.card,
-  },
-  chatFabIcon: {
-    fontSize: 24,
   },
 });

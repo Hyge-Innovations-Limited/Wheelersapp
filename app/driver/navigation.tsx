@@ -12,6 +12,7 @@ import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import { GoogleMapView } from '@/components/GoogleMapView';
 import { StatusPill } from '@/components/StatusPill';
+import { TripChatButton } from '@/components/TripChatButton';
 import { useDriverSession } from '@/lib/driver-session';
 import { estimateEtaMinutes, haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
@@ -26,7 +27,7 @@ function formatNgn(amount: number): string {
 
 export default function DriverNavigationScreen() {
   const router = useRouter();
-  const { session, arriveAtPickup, cancelTrip, sendGps } = useDriverSession();
+  const { session, arriveAtPickup, cancelTrip, sendGps, chatMessages, sendChatMessage } = useDriverSession();
   const { currentLocation } = useAppLocation();
   const responsive = useResponsive();
   const ride = session.currentRide;
@@ -246,14 +247,24 @@ export default function DriverNavigationScreen() {
               ) : null}
             </View>
           </View>
-          {ride.riderPhone ? (
-            <Pressable
-              style={styles.callButton}
-              onPress={() => Linking.openURL(`tel:${ride.riderPhone}`)}
-            >
-              <AppText variant="label">Call rider</AppText>
-            </Pressable>
-          ) : null}
+          <View style={styles.contactRow}>
+            <TripChatButton
+              rideId={ride.rideId}
+              role="DRIVER"
+              messages={chatMessages}
+              onSend={sendChatMessage}
+              otherName={ride.riderName}
+              style={styles.contactButton}
+            />
+            {ride.riderPhone ? (
+              <Pressable
+                style={[styles.callButton, styles.contactButton]}
+                onPress={() => Linking.openURL(`tel:${ride.riderPhone}`)}
+              >
+                <AppText variant="label">Call rider</AppText>
+              </Pressable>
+            ) : null}
+          </View>
         </AppCard>
 
         <AppButton title="I've arrived" onPress={handleArrived} />
@@ -268,6 +279,13 @@ export default function DriverNavigationScreen() {
 }
 
 const styles = StyleSheet.create({
+  contactRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  contactButton: {
+    flex: 1,
+  },
   container: {
     flexGrow: 1,
     paddingHorizontal: 0,

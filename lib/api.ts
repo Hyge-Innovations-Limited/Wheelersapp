@@ -1550,12 +1550,17 @@ export interface ChatMessageResponse {
   senderId: string;
   senderRole: "RIDER" | "DRIVER";
   content: string;
+  /** "call": a line the server writes when a call ends ("Missed call"). Older servers leave it out. */
+  kind?: "text" | "call";
   createdAt: string;
 }
 
 export interface ChatMessagesResponse {
   items: ChatMessageResponse[];
   nextCursor: string | null;
+  /** Whether the chat still takes messages: until 30 minutes after the trip. Older servers leave it out. */
+  open?: boolean;
+  closesAt?: string | null;
 }
 
 export async function getRideChatMessages(input: {
@@ -1635,6 +1640,8 @@ export interface DriverActiveRide {
   riderOfferNgn: number | null;
   riderPaid: boolean;
   riderPhone: string | null;
+  /** The rider's first name. Older servers leave it out. */
+  riderName?: string | null;
   matchedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;

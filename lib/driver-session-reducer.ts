@@ -108,6 +108,8 @@ export type DriverRide = {
   /** WALLET or CASH — a cash fare is collected in the car, not credited. */
   paymentMethod?: string;
   riderPhone?: string;
+  /** The rider's first name, for "Chat with Ada". Older servers leave it out. */
+  riderName?: string;
   liveDistanceKm?: number;
 };
 
@@ -488,6 +490,7 @@ function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
     startedAt: ride.startedAt ?? undefined,
     riderPaid: ride.riderPaid,
     riderPhone: ride.riderPhone ?? undefined,
+    riderName: ride.riderName ?? undefined,
   };
 }
 
@@ -632,6 +635,7 @@ export function applyActiveRideSnapshot(
             fareNgn: snapshot.fareNgn || prev.currentRide.fareNgn,
             riderPaid: prev.currentRide.riderPaid || snapshot.riderPaid,
             riderPhone: prev.currentRide.riderPhone ?? snapshot.riderPhone,
+            riderName: prev.currentRide.riderName ?? snapshot.riderName,
             startedAt: prev.currentRide.startedAt ?? snapshot.startedAt,
           }
         : snapshot,
@@ -822,6 +826,7 @@ export function reduceDriverSession(
         paymentMethod:
           getString(payload.paymentMethod) ?? offer?.paymentMethod ?? (sameRide ? prev.currentRide?.paymentMethod : undefined),
         riderPhone: getString(payload.riderPhone) ?? (sameRide ? prev.currentRide?.riderPhone : undefined),
+        riderName: getString(payload.riderName) ?? (sameRide ? prev.currentRide?.riderName : undefined),
       },
     };
   }

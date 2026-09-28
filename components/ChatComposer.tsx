@@ -7,21 +7,33 @@ type ChatComposerProps = {
   value: string;
   onChangeText: (text: string) => void;
   onSend?: () => void;
+  /** Off when the chat has closed. */
+  editable?: boolean;
+  placeholder?: string;
+  maxLength?: number;
 };
 
-export function ChatComposer({ value, onChangeText, onSend }: ChatComposerProps) {
+export function ChatComposer({ value, onChangeText, onSend, editable = true, placeholder = 'Type a message...', maxLength = 1000 }: ChatComposerProps) {
+  const canSend = editable && value.trim().length > 0;
   return (
     <View style={styles.wrap}>
-      <View style={styles.inputWrap}>
+      <View style={[styles.inputWrap, !editable && styles.inputOff]}>
         <TextInput
+          editable={editable}
+          maxLength={maxLength}
+          multiline
           onChangeText={onChangeText}
-          placeholder="Type a message..."
+          placeholder={placeholder}
           placeholderTextColor="#C9C1BA"
           style={styles.input}
           value={value}
         />
       </View>
-      <Pressable onPress={onSend} style={styles.sendButton}>
+      <Pressable
+        accessibilityLabel="Send"
+        disabled={!canSend}
+        onPress={onSend}
+        style={[styles.sendButton, !canSend && styles.sendOff]}>
         <AppText variant="h3" color={theme.colors.white}>
           ↗
         </AppText>
@@ -33,6 +45,7 @@ export function ChatComposer({ value, onChangeText, onSend }: ChatComposerProps)
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.gutter,
     paddingVertical: theme.spacing.md,
@@ -43,6 +56,7 @@ const styles = StyleSheet.create({
   inputWrap: {
     flex: 1,
     minHeight: 46,
+    maxHeight: 120,
     borderWidth: theme.borders.thick,
     borderColor: theme.colors.black,
     borderRadius: theme.radii.sm,
@@ -50,12 +64,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...theme.shadows.card,
   },
+  inputOff: {
+    backgroundColor: theme.colors.offWhite,
+  },
   input: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     fontFamily: theme.fonts.body,
-    fontSize: 13,
+    fontSize: 15,
     color: theme.colors.black,
+    maxHeight: 116,
   },
   sendButton: {
     width: 46,
@@ -67,5 +85,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.shadows.card,
+  },
+  sendOff: {
+    opacity: 0.45,
   },
 });

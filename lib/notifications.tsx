@@ -6,6 +6,7 @@ import { Alert, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { isDriverApp } from "@/lib/app-variant";
+import { isTripChatOpen, requestOpenTripChat } from "@/lib/trip-chat";
 
 import {
   createContext,
@@ -71,12 +72,17 @@ const defaultValue: NotificationsContextValue = {
 const NotificationsContext = createContext<NotificationsContextValue>(defaultValue);
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    // A message for the chat already on screen: it is right there, no banner.
+    const data = notification.request.content.data as Record<string, unknown> | undefined;
+    const quiet = data?.type === "chat:message" && typeof data.rideId === "string" && isTripChatOpen(data.rideId);
+    return {
+      shouldPlaySound: !quiet,
+      shouldSetBadge: false,
+      shouldShowBanner: !quiet,
+      shouldShowList: !quiet,
+    };
+  },
 });
 
 export function AppNotificationsProvider({ children }: { children: ReactNode }) {
@@ -215,6 +221,13 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
       const data = response.notification.request.content.data as Record<string, unknown> | undefined;
       if (isDriverApp && data?.type === "dispatch_nudge") {
         router.navigate("/driver/(tabs)/home" as Href);
+      }
+      // A chat message or a missed call: open that trip's chat. If no trip
+      // screen is showing, go to the trip; the chat opens when it appears.
+      if ((data?.type === "chat:message" || data?.type === "call:missed") && typeof data.rideId === "string") {
+        if (!requestOpenTripChat(data.rideId)) {
+          router.navigate((isDriverApp ? "/driver/(tabs)/active" : "/rider/active-trip") as Href);
+        }
       }
     });
 

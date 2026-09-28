@@ -145,6 +145,19 @@ test('ride:matched for a ride this phone never saw is rebuilt from the payload r
   assert.equal(s.currentRide.destination.address, DEST.address);
 });
 
+test("the rider's first name comes with the match, for the chat's title, and survives a resync that lacks it", () => {
+  let s = reduceDriverSession(online(), 'ride:matched', {
+    rideId: 'ride-7', riderId: 'rider-7', pickup: PICKUP, destination: DEST,
+    agreedFareNgn: 3000, rideStatus: 'DRIVER_ASSIGNED', riderName: 'Ada',
+  }, NOW);
+  assert.equal(s.currentRide.riderName, 'Ada');
+  s = reduceDriverSession(s, 'ride:matched', {
+    rideId: 'ride-7', riderId: 'rider-7', pickup: PICKUP, destination: DEST,
+    agreedFareNgn: 3000, rideStatus: 'DRIVER_EN_ROUTE', resync: true,
+  }, NOW);
+  assert.equal(s.currentRide.riderName, 'Ada', 'an older server leaves it out; the name stays');
+});
+
 test('ride:matched with no route and no memory of the ride is ignored, not crashed', () => {
   const before = online();
   const s = reduceDriverSession(before, 'ride:matched', { rideId: 'ghost', riderId: 'r' }, NOW);
