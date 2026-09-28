@@ -63,6 +63,13 @@ module.exports = () => ({
     // tying the two would strand every phone still on the old version (all of
     // Android, today) without updates. Bump the runtime only when a build
     // changes something native.
+    //
+    // One deliberate exception: Live call added native modules (WebRTC, the
+    // in-call audio manager) WITHOUT a bump. The JavaScript checks for them
+    // before loading them (lib/live-call/native.ts), so an older build that
+    // gets the same update runs it safely, just without the Call button, and
+    // keeps receiving updates. Anything native that the JS cannot check for
+    // first still needs a bump.
     updates: {
       url: `https://u.expo.dev/${appJson.expo.extra.eas.projectId}`,
       enabled: true,

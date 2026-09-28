@@ -30,6 +30,7 @@ import {
 import { resolvePlaceQuery } from '@/lib/google-places';
 import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } from '@/lib/ride-route';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
+import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { isDriverApp } from '@/lib/app-variant';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 
@@ -136,6 +137,8 @@ type RideSessionContextValue = {
   /** Rate the driver of the ride that just finished. */
   submitRating: (input: { rating: number; comment?: string }) => Promise<void>;
   sendChatMessage: (rideId: string, content: string) => Promise<void>;
+  /** One Live call message (call:start, call:signal…) on this session's socket. */
+  sendCallMessage: (type: string, payload: Record<string, unknown>) => Promise<void>;
   clearRide: () => void;
 };
 
@@ -194,6 +197,7 @@ const defaultContext: RideSessionContextValue = {
   sendChatMessage: async () => {
     throw new Error('Ride session is unavailable.');
   },
+  sendCallMessage: async () => { throw new Error('Not connected.'); },
   clearRide: () => undefined,
 };
 
@@ -389,6 +393,14 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       const payload = getRecord(message.payload) ?? {};
 
       if (!type) {
+        return;
+      }
+
+      // Anything about a Live call goes to the call screen, and only there. In
+      // the driver app the driver session's socket carries calls; a message
+      // arriving here too would be handled twice.
+      if (isCallMessage(type, payload)) {
+        if (!isDriverApp) emitCallEvent(type, payload);
         return;
       }
 
@@ -1133,6 +1145,13 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     [sendEnvelope],
   );
 
+  const sendCallMessage = useCallback(
+    async (type: string, payload: Record<string, unknown>): Promise<void> => {
+      await sendEnvelope(type, payload);
+    },
+    [sendEnvelope],
+  );
+
   useEffect(() => {
     userRef.current = user;
   }, [user]);
@@ -1190,6 +1209,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       cancelRide,
       submitRating,
       sendChatMessage,
+      sendCallMessage,
       clearRide,
     }),
     [
@@ -1206,6 +1226,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       error,
       requestRide,
       sendChatMessage,
+      sendCallMessage,
       updateRideRoute,
     ],
   );

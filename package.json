@@ -26,6 +26,7 @@
     "test": "node --test __tests__/*.test.mjs"
   },
   "dependencies": {
+    "@config-plugins/react-native-webrtc": "^13.0.0",
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo-google-fonts/syne": "^0.4.2",
@@ -76,6 +77,7 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-get-random-values": "~1.11.0",
+    "react-native-incall-manager": "^4.3.0",
     "react-native-maps": "1.20.1",
     "react-native-passkey": "^3.3.3",
     "react-native-passkeys": "^0.4.1",
@@ -85,6 +87,7 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "^15.15.4",
     "react-native-web": "~0.21.0",
+    "react-native-webrtc": "^124.0.8",
     "react-native-webview": "13.15.0",
     "react-native-worklets": "0.5.1"
   },

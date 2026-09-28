@@ -19,7 +19,8 @@
         "NSLocationAlwaysUsageDescription": "Wheelers uses your location in the background while you are online or on a trip so live tracking and safety monitoring keep working. Drivers who switch on Nearby ride alerts also share an approximate location while offline, so Wheelers can tell them about riders close by.",
         "UIBackgroundModes": [
           "location",
-          "remote-notification"
+          "remote-notification",
+          "audio"
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -35,7 +36,10 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "minSdkVersion": 26
+      "minSdkVersion": 26,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "output": "static",
@@ -57,8 +61,14 @@
         "expo-camera",
         {
           "cameraPermission": "Wheelers Rides needs camera access to verify your face before a group ride.",
-          "microphonePermission": false,
+          "microphonePermission": "Wheelers uses the microphone for Live calls with your driver or rider during a trip.",
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "microphonePermission": "Wheelers uses the microphone for Live calls with your driver or rider during a trip."
         }
       ],
       [

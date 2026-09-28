@@ -1,10 +1,12 @@
 import { Stack } from 'expo-router';
 import { DriverTripRouter } from '@/components/driver-trip-router';
 import { DriverSessionProvider } from '@/lib/driver-session';
+import { DriverLiveCallHost } from '@/lib/live-call/hosts';
 
 export default function DriverLayout() {
   return (
     <DriverSessionProvider>
+      <DriverLiveCallHost>
       <DriverTripRouter />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
@@ -19,6 +21,7 @@ export default function DriverLayout() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="docs" />
       </Stack>
+      </DriverLiveCallHost>
     </DriverSessionProvider>
   );
 }

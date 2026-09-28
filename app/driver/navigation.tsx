@@ -12,6 +12,7 @@ import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import { GoogleMapView } from '@/components/GoogleMapView';
 import { StatusPill } from '@/components/StatusPill';
+import { TripCallButton } from '@/components/TripCallButton';
 import { TripChatButton } from '@/components/TripChatButton';
 import { useDriverSession } from '@/lib/driver-session';
 import { estimateEtaMinutes, haversineKm } from '@/lib/geo';
@@ -256,12 +257,13 @@ export default function DriverNavigationScreen() {
               otherName={ride.riderName}
               style={styles.contactButton}
             />
+            <TripCallButton rideId={ride.rideId} otherRole="RIDER" otherName={ride.riderName} style={styles.contactButton} />
             {ride.riderPhone ? (
               <Pressable
                 style={[styles.callButton, styles.contactButton]}
                 onPress={() => Linking.openURL(`tel:${ride.riderPhone}`)}
               >
-                <AppText variant="label">Call rider</AppText>
+                <AppText variant="label">Phone</AppText>
               </Pressable>
             ) : null}
           </View>

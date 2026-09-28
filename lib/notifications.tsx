@@ -2,11 +2,13 @@ import { useAuth } from "@/lib/auth";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { router, type Href } from "expo-router";
-import { Alert, Platform } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { isDriverApp } from "@/lib/app-variant";
 import { isTripChatOpen, requestOpenTripChat } from "@/lib/trip-chat";
+import { requestCurrentCall } from "@/lib/live-call/events";
+import { liveCallSupported } from "@/lib/live-call/native";
 
 import {
   createContext,
@@ -75,7 +77,10 @@ Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     // A message for the chat already on screen: it is right there, no banner.
     const data = notification.request.content.data as Record<string, unknown> | undefined;
-    const quiet = data?.type === "chat:message" && typeof data.rideId === "string" && isTripChatOpen(data.rideId);
+    const quiet =
+      (data?.type === "chat:message" && typeof data.rideId === "string" && isTripChatOpen(data.rideId)) ||
+      // The app is open and can ring: the call screen is already up.
+      (data?.type === "call:incoming" && liveCallSupported && AppState.currentState === "active");
     return {
       shouldPlaySound: !quiet,
       shouldSetBadge: false,
@@ -221,6 +226,11 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
       const data = response.notification.request.content.data as Record<string, unknown> | undefined;
       if (isDriverApp && data?.type === "dispatch_nudge") {
         router.navigate("/driver/(tabs)/home" as Href);
+      }
+      // Someone is calling: ask for the call on that trip; the call screen opens over whatever is showing.
+      if (data?.type === "call:incoming" && typeof data.rideId === "string" && liveCallSupported) {
+        requestCurrentCall(data.rideId);
+        return;
       }
       // A chat message or a missed call: open that trip's chat. If no trip
       // screen is showing, go to the trip; the chat opens when it appears.

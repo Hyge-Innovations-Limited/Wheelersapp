@@ -43,6 +43,7 @@ import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { estimateEtaSeconds, haversineKm } from '@/lib/geo';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
 import { invalidateCached } from '@/lib/cache-store';
+import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 
 /** Where the live market snapshot survives JS reloads. */
 const MARKET_STORAGE_KEY = 'wheelers.driver.market.v1';
@@ -112,6 +113,8 @@ type DriverSessionContextValue = {
   endTrip: (rideId: string) => Promise<void>;
   sendGps: (lat: number, lng: number) => void;
   sendChatMessage: (rideId: string, content: string) => Promise<void>;
+  /** One Live call message (call:start, call:signal…) on this session's socket. */
+  sendCallMessage: (type: string, payload: Record<string, unknown>) => Promise<void>;
   clearCompleted: () => void;
 };
 
@@ -152,6 +155,7 @@ const defaultContext: DriverSessionContextValue = {
   endTrip: async () => { throw new Error('Driver session unavailable.'); },
   sendGps: () => undefined,
   sendChatMessage: async () => { throw new Error('Driver session unavailable.'); },
+  sendCallMessage: async () => { throw new Error('Not connected.'); },
   clearCompleted: () => undefined,
 };
 
@@ -204,6 +208,12 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     (message: GatewayMessage) => {
       const { type, payload } = message;
       if (!type || !payload) return;
+
+      // Anything about a Live call goes to the call screen, and only there.
+      if (isCallMessage(type, payload)) {
+        emitCallEvent(type, payload);
+        return;
+      }
 
       if (type === 'error') {
         // Nothing on the driver screens rendered `error`, so a rejected bid
@@ -684,6 +694,13 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     [sendEnvelope],
   );
 
+  const sendCallMessage = useCallback(
+    async (type: string, payload: Record<string, unknown>): Promise<void> => {
+      await sendEnvelope(type, payload);
+    },
+    [sendEnvelope],
+  );
+
   // Tapping must never delete. This used to prune expired offers on the way
   // in, so tapping a stale card removed it instead of opening it.
   const selectOffer = useCallback((rideId: string) => {
@@ -841,6 +858,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       endTrip,
       sendGps,
       sendChatMessage,
+      sendCallMessage,
       clearCompleted,
     }),
     [
@@ -865,6 +883,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       endTrip,
       sendGps,
       sendChatMessage,
+      sendCallMessage,
       clearCompleted,
     ],
   );

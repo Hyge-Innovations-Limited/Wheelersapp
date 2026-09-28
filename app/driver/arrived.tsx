@@ -9,6 +9,7 @@ import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import { StatusPill } from '@/components/StatusPill';
+import { TripCallButton } from '@/components/TripCallButton';
 import { TripChatButton } from '@/components/TripChatButton';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { useDriverSession } from '@/lib/driver-session';
@@ -153,19 +154,20 @@ export default function DriverArrivedScreen() {
             otherName={ride.riderName}
             style={{ minHeight: actionHeight }}
           />
-          {ride.riderPhone ? (
-            <>
-              <Pressable style={[styles.callButton, { minHeight: actionHeight }]} onPress={handleCallRider}>
-                <AppText variant="label">Call rider</AppText>
-              </Pressable>
-              <Pressable style={[styles.copyButton, { minHeight: actionHeight }]} onPress={handleCopyPhone}>
-                <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
-                  {copied ? 'Copied!' : ride.riderPhone}
-                </AppText>
-              </Pressable>
-            </>
-          ) : null}
+          <TripCallButton rideId={ride.rideId} otherRole="RIDER" otherName={ride.riderName} style={{ minHeight: actionHeight }} />
         </View>
+        {ride.riderPhone ? (
+          <View style={styles.phoneRow}>
+            <Pressable style={[styles.callButton, { minHeight: actionHeight }]} onPress={handleCallRider}>
+              <AppText variant="label">Phone</AppText>
+            </Pressable>
+            <Pressable style={[styles.copyButton, { minHeight: actionHeight }]} onPress={handleCopyPhone}>
+              <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
+                {copied ? 'Copied!' : ride.riderPhone}
+              </AppText>
+            </Pressable>
+          </View>
+        ) : null}
       </AppCard>
 
       {/* Wait timer */}

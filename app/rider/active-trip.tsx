@@ -11,6 +11,7 @@ import { EmergencyButton } from "@/components/emergency-button";
 import { BackArrow } from "@/components/back-arrow";
 import { LiveMap } from "@/components/live-map";
 import { MetricCard } from "@/components/MetricCard";
+import { TripCallButton } from "@/components/TripCallButton";
 import { TripChatButton } from "@/components/TripChatButton";
 import { RideMovementBar } from "@/components/RideMovementBar";
 import { StatusPill } from "@/components/StatusPill";
@@ -293,6 +294,15 @@ export default function RiderActiveTripScreen() {
           style={styles.chatFab}
         />
       )}
+      {currentRide && (currentRide.status === "active" || currentRide.status === "matched") && (
+        <TripCallButton
+          rideId={currentRide.rideId}
+          otherRole="DRIVER"
+          otherName={currentRide.driver?.driverName}
+          variant="fab"
+          style={styles.callFab}
+        />
+      )}
     </AppScreen>
   );
 }
@@ -418,6 +428,11 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     flex: 1,
+  },
+  callFab: {
+    position: "absolute",
+    bottom: 92,
+    right: theme.spacing.gutter,
   },
   chatFab: {
     position: "absolute",

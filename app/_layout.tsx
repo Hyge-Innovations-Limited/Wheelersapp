@@ -26,6 +26,8 @@ import { AppNotificationsProvider } from "@/lib/notifications";
 import { InterstateRequestsProvider } from "@/lib/interstate-requests-context";
 import { QuestBadgeProvider } from "@/lib/quest-badge-context";
 import { RideSessionProvider } from "@/lib/ride-session";
+import { isDriverApp } from "@/lib/app-variant";
+import { RiderLiveCallHost } from "@/lib/live-call/hosts";
 import { ThemeProvider, useAppTheme } from "@/lib/theme-context";
 import { useOtaUpdates } from "@/lib/ota-updates";
 import { theme } from "@/theme";
@@ -55,7 +57,8 @@ export default function RootLayout() {
                 <QuestBadgeProvider>
                   <InterstateRequestsProvider>
                   <AppLockProvider>
-                    <ThemedLayout />
+                    {/* The driver app's calls live in the driver layout, on the driver's socket. */}
+                    {isDriverApp ? <ThemedLayout /> : <RiderLiveCallHost><ThemedLayout /></RiderLiveCallHost>}
                     <AuthAppLockOverlay />
                   </AppLockProvider>
                   </InterstateRequestsProvider>

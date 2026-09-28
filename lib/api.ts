@@ -1571,6 +1571,8 @@ export interface ChatMessagesResponse {
   /** Whether the chat still takes messages: until 30 minutes after the trip. Older servers leave it out. */
   open?: boolean;
   closesAt?: string | null;
+  /** Live call is on. Older servers leave it out: no Call button. */
+  callsEnabled?: boolean;
 }
 
 export async function getRideChatMessages(input: {
