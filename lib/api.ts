@@ -1784,9 +1784,11 @@ export async function postDriverLocation(input: {
 
 export interface StellarTransferView {
   kind: "ACCOUNT_OPEN" | "TOPUP" | "FARE" | "COMMISSION" | "WITHDRAWAL" | string;
-  status: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED" | string;
+  status: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED" | "SKIPPED" | string;
   amountXlm: string;
+  /** Its naira equivalent at the rate it used. Only an equivalent: Stellar is its own ledger. */
   amountNgn: number | null;
+  rateNgnPerXlm?: number | null;
   memo: string | null;
   direction?: "in" | "out";
   txHash: string | null;
@@ -1798,13 +1800,14 @@ export interface StellarTransferView {
 export interface StellarMeResponse {
   enabled: boolean;
   network?: "testnet";
-  ngnPerXlm?: number;
+  /** The live naira value of 1 XLM; null when no price could be had. */
+  rate?: { ngnPerXlm: number; source: string; at: string } | null;
   reserveXlm?: number;
   account?: {
     publicKey: string;
     opened: boolean;
     balanceXlm: string | null;
-    balanceNgn: number | null;
+    balanceNgnEquivalent: number | null;
     explorerUrl: string;
   } | null;
   transfers?: StellarTransferView[];
@@ -1828,4 +1831,37 @@ export async function requestStellarWithdrawal(input: {
     { destination: input.destination, amountXlm: input.amountXlm },
     { accessToken: input.accessToken, fallbackError: "Could not send the withdrawal." },
   );
+}
+
+// ── The rider's active ride (restore after a restart) ─────────────────────
+
+export interface RiderActiveRideDetail {
+  id: string;
+  tripId: string | null;
+  status: string;
+  pickup: { lat: number; lng: number; address: string };
+  destination: { lat: number; lng: number; address: string };
+  stops: Array<{ type: string; address: string }>;
+  fareEstimateNgn: number | null;
+  agreedFareNgn: number | null;
+  startedAt: string | null;
+  driver: {
+    id: string;
+    userId: string;
+    name: string | null;
+    phone: string | null;
+    rating: number | null;
+    vehicleMake: string | null;
+    vehicleModel: string | null;
+    vehiclePlate: string | null;
+  } | null;
+  /** The rider's own trip code, until the driver has used it. */
+  tripCode?: string | null;
+}
+
+export async function getRiderActiveRide(input: { accessToken: string }): Promise<{ ride: RiderActiveRideDetail | null }> {
+  return getJson<{ ride: RiderActiveRideDetail | null }>("/rides/active", {
+    accessToken: input.accessToken,
+    fallbackError: "Could not load your current trip.",
+  });
 }

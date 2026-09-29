@@ -26,12 +26,14 @@ import {
   parseRideRouteSnapshot,
   type RideEstimateWaypoint,
   type RideRouteSnapshot,
+  getRiderActiveRide,
 } from '@/lib/api';
 import { resolvePlaceQuery } from '@/lib/google-places';
 import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } from '@/lib/ride-route';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { isDriverApp } from '@/lib/app-variant';
+import { restoredRideFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 
 type RideConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -362,6 +364,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     currentLocationRef.current = currentLocation;
   }, [currentLocation]);
+
+  const restoreActiveRideRef = useRef<() => Promise<void>>(async () => undefined);
 
   const setRideState = useCallback(
     (updater: RiderRideState | null | ((previous: RiderRideState | null) => RiderRideState | null)) => {
@@ -791,6 +795,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           setConnectionState('connected');
           setError(null);
           resolve(socket);
+          // Every (re)connect: pick the trip back up if the app had forgotten it (a restart),
+          // with its trip code, which the driver cannot start without.
+          void restoreActiveRideRef.current();
         };
 
         socket.onmessage = (event) => {
@@ -1158,6 +1165,27 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     userRef.current = user;
   }, [user]);
+
+  // After a restart the app has no trip; the server still does. Restore it
+  // (a trip with a driver only), or add the trip code to the one on screen.
+  restoreActiveRideRef.current = async () => {
+    if (isDriverApp || !isBackendConfigured()) return;
+    const current = currentRideRef.current;
+    if (current && (current.status !== 'matched' || current.tripCode)) return;
+    try {
+      const accessToken = await getAccessTokenWithRetry(getAccessToken);
+      if (!accessToken) return;
+      const restored = restoredRideFrom((await getRiderActiveRide({ accessToken })).ride);
+      if (!restored) return;
+      setRideState((previous) => {
+        if (!previous) return restored as RiderRideState;
+        if (previous.rideId !== restored.rideId) return previous;
+        return { ...previous, tripCode: previous.tripCode ?? restored.tripCode };
+      });
+    } catch {
+      /* the next reconnect tries again */
+    }
+  };
 
   useEffect(() => {
     // One socket per user. The driver app has its own session (driver-session),

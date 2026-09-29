@@ -12,7 +12,7 @@ import { invalidateCached, useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
 
 const KIND_LABEL: Record<string, string> = {
-  ACCOUNT_OPEN: 'Account opened',
+  ACCOUNT_OPEN: 'Account opened (test XLM from Friendbot)',
   TOPUP: 'Top-up',
   FARE: 'Trip fare',
   COMMISSION: 'Wheelers commission',
@@ -76,7 +76,7 @@ export default function DriverStellarScreen() {
         </Pressable>
         <AppText variant="h1">Stellar Testnet</AppText>
         <AppText variant="bodySmall" color={theme.colors.muted}>
-          A test copy of your Wheelers money on the Stellar test network. Test XLM has no value.
+          Your own account on the Stellar test network, separate from your Wheelers wallet. Your trips are also paid here in test XLM. Test XLM has no real value.
         </AppText>
       </View>
 
@@ -95,9 +95,9 @@ export default function DriverStellarScreen() {
         <View style={styles.card}>
           <AppText variant="bodySmall" color={theme.colors.muted}>Balance</AppText>
           <AppText variant="h1">{account.balanceXlm === null ? 'Opening…' : `${Number(account.balanceXlm).toLocaleString('en-NG', { maximumFractionDigits: 4 })} XLM`}</AppText>
-          {account.balanceNgn !== null ? (
+          {account.balanceNgnEquivalent !== null && data?.rate ? (
             <AppText variant="bodySmall" color={theme.colors.muted}>
-              ≈ ₦{account.balanceNgn.toLocaleString('en-NG')} at ₦{(data?.ngnPerXlm ?? 1000).toLocaleString('en-NG')} = 1 XLM (demo rate)
+              ≈ ₦{account.balanceNgnEquivalent.toLocaleString('en-NG')} at today&apos;s price (₦{data.rate.ngnPerXlm.toLocaleString('en-NG', { maximumFractionDigits: 2 })} per XLM). Test XLM, not your Wheelers balance.
             </AppText>
           ) : null}
           <Pressable
@@ -153,7 +153,9 @@ export default function DriverStellarScreen() {
               <View style={styles.flex}>
                 <AppText variant="bodyMedium">{KIND_LABEL[t.kind] ?? t.kind}{t.memo && t.kind !== 'TOPUP' ? ` · ${t.memo}` : ''}</AppText>
                 <AppText variant="monoSmall" color={theme.colors.muted}>
-                  {t.status === 'CONFIRMED' ? 'Confirmed ›' : t.status === 'FAILED' ? 'Failed' : 'On its way…'}
+                  {t.status === 'CONFIRMED'
+                    ? `Confirmed${t.amountNgn ? ` · ≈ ₦${t.amountNgn.toLocaleString('en-NG')}` : ''} ›`
+                    : t.status === 'FAILED' ? 'Failed' : t.status === 'SKIPPED' ? `Skipped${t.note ? `: ${t.note}` : ''}` : 'On its way…'}
                 </AppText>
               </View>
               <AppText variant="mono" color={t.direction === 'in' ? theme.colors.green : theme.colors.black}>
