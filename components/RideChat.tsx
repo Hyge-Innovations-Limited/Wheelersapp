@@ -15,7 +15,7 @@ import { ChatComposer } from '@/components/ChatComposer';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getRideChatMessages, type ChatMessageResponse } from '@/lib/api';
-import { markTripChatSeen, setOpenTripChat } from '@/lib/trip-chat';
+import { markTripChatSeen, setOpenTripChat, useTripChatClosed } from '@/lib/trip-chat';
 import { theme } from '@/theme';
 
 type ChatMsg = {
@@ -57,7 +57,10 @@ export function RideChat({
 }: RideChatProps) {
   const { getAccessToken } = useAuth();
   const [historyMessages, setHistoryMessages] = useState<ChatMsg[]>([]);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [openPerServer, setChatOpen] = useState(true);
+  // The server says the trip ended (driver app): closed now, not at the next load.
+  const closedLive = useTripChatClosed(rideId);
+  const chatOpen = openPerServer && !closedLive;
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList>(null);
@@ -195,7 +198,7 @@ export function RideChat({
         {chatOpen ? null : (
           <View style={styles.closedBanner}>
             <AppText variant="bodySmall" color={theme.colors.muted}>
-              This chat has ended. It closes 30 minutes after the trip.
+              This trip has ended, so the chat is closed.
             </AppText>
           </View>
         )}

@@ -44,6 +44,7 @@ import { estimateEtaSeconds, haversineKm } from '@/lib/geo';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
 import { invalidateCached } from '@/lib/cache-store';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
+import { markTripChatClosed } from '@/lib/trip-chat';
 
 /** Where the live market snapshot survives JS reloads. */
 const MARKET_STORAGE_KEY = 'wheelers.driver.market.v1';
@@ -255,6 +256,12 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
+        return;
+      }
+
+      // The trip ended: its chat closes on this screen at once.
+      if (type === 'chat:closed') {
+        markTripChatClosed(getString(payload.rideId));
         return;
       }
 

@@ -80,3 +80,25 @@ export function useTripChatUnread(messages: ChatLine[], rideId: string | null | 
   const since = seenAt.get(rideId) ?? 0;
   return messages.filter((m) => m.rideId === rideId && m.senderRole !== myRole && new Date(m.createdAt).getTime() > since).length;
 }
+
+/* ── closed: the trip ended, the server said so ─────────────────────────── */
+
+const closedRides = new Set<string>();
+const closedListeners = new Set<() => void>();
+
+/** The server's chat:closed: this trip's chat takes no more messages. */
+export function markTripChatClosed(rideId: string | null | undefined): void {
+  if (!rideId || closedRides.has(rideId)) return;
+  closedRides.add(rideId);
+  closedListeners.forEach((listener) => listener());
+}
+
+export function useTripChatClosed(rideId: string | null | undefined): boolean {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const listener = () => redraw((n) => n + 1);
+    closedListeners.add(listener);
+    return () => { closedListeners.delete(listener); };
+  }, []);
+  return Boolean(rideId) && closedRides.has(rideId as string);
+}

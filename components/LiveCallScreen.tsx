@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
+import { isDriverApp } from '@/lib/app-variant';
 import { useLiveCall } from '@/lib/live-call/call-session';
 import { theme } from '@/theme';
 
@@ -42,8 +43,20 @@ export function LiveCallScreen() {
   const incoming = call.direction === 'incoming' && call.phase === 'ringing';
   const ended = call.phase === 'ended';
 
+  // Drivers are often driving: a stray tap must not end the call. Declining a ringing call does not ask.
+  const confirmEnd = () => {
+    if (!isDriverApp) {
+      hangUp();
+      return;
+    }
+    Alert.alert('End call?', `Your call with ${call.otherName} will end.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'End call', style: 'destructive', onPress: hangUp },
+    ]);
+  };
+
   return (
-    <Modal animationType="fade" visible transparent={false} onRequestClose={incoming ? decline : hangUp} statusBarTranslucent>
+    <Modal animationType="fade" visible transparent={false} onRequestClose={incoming ? decline : confirmEnd} statusBarTranslucent>
       <View style={[styles.screen, { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 40 }]}>
         <View style={styles.who}>
           <View style={styles.avatar}>
@@ -62,7 +75,7 @@ export function LiveCallScreen() {
         ) : (
           <View style={styles.actions}>
             <RoundButton label={call.muted ? 'Muted' : 'Mute'} tone={call.muted ? 'on' : 'quiet'} onPress={toggleMute} glyph="🎙" />
-            <RoundButton label="End" tone="bad" onPress={hangUp} glyph="✕" />
+            <RoundButton label="End" tone="bad" onPress={confirmEnd} glyph="✕" />
             <RoundButton label="Speaker" tone={call.speaker ? 'on' : 'quiet'} onPress={toggleSpeaker} glyph="🔊" />
           </View>
         )}
