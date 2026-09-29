@@ -11,8 +11,7 @@ import {
   getDriverEarnings,
   provisionVirtualAccount,
   type DriverEarningsResponse,
-  type ProvisionVirtualAccountResponse,
-} from '@/lib/api';
+  type ProvisionVirtualAccountResponse, getStellarMe, type StellarMeResponse } from '@/lib/api';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
 import { invalidateWalletCache, useWalletOverview } from '@/lib/wallet-overview';
@@ -83,6 +82,12 @@ export default function DriverWalletTabScreen() {
     fetcher: (accessToken) => provisionVirtualAccount({ accessToken }),
     staleMs: 24 * 60 * 60 * 1000,
     storage: 'secure',
+  });
+  // Stellar Testnet: the card shows only when the server has it switched on.
+  const stellar = useCachedQuery<StellarMeResponse>({
+    key: 'stellar.me',
+    fetcher: (accessToken) => getStellarMe({ accessToken }),
+    staleMs: 60_000,
   });
   const earnings = earningsQuery.data;
   const loadingEarnings = earningsQuery.loading;
@@ -211,6 +216,26 @@ export default function DriverWalletTabScreen() {
         <ArrowUpIcon size={responsive.scale(18)} />
         <AppText variant="label" color={theme.colors.white} numberOfLines={1}>Withdraw</AppText>
       </Pressable>
+
+      {/* ── Stellar Testnet (grant demo): only when the server has it on ── */}
+      {stellar.data?.enabled ? (
+        <Pressable
+          onPress={() => router.push('/driver/stellar' as Href)}
+          style={({ pressed }) => [
+            styles.earningsCard,
+            { padding: responsive.scale(16), gap: responsive.scale(8) },
+            isDark && { backgroundColor: theme.colors.darkSurface },
+            pressed && styles.btnPressed,
+          ]}>
+          <View style={styles.earningsLeft}>
+            <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Stellar Testnet</AppText>
+            <AppText variant="h3" numberOfLines={1}>
+              {stellar.data.account?.balanceXlm ? `${Number(stellar.data.account.balanceXlm).toLocaleString('en-NG', { maximumFractionDigits: 2 })} XLM` : 'Opens with your first paid trip'}
+            </AppText>
+          </View>
+          <AppText variant="h3" color={theme.colors.orange}>›</AppText>
+        </Pressable>
+      ) : null}
 
       {/* ── Earnings quick card ── */}
       <Pressable

@@ -1779,3 +1779,53 @@ export async function postDriverLocation(input: {
     fallbackError: "Could not update location.",
   });
 }
+
+// ── Stellar Testnet (grant demo) ────────────────────────────────────────
+
+export interface StellarTransferView {
+  kind: "ACCOUNT_OPEN" | "TOPUP" | "FARE" | "COMMISSION" | "WITHDRAWAL" | string;
+  status: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED" | string;
+  amountXlm: string;
+  amountNgn: number | null;
+  memo: string | null;
+  direction?: "in" | "out";
+  txHash: string | null;
+  explorerUrl: string | null;
+  createdAt: string;
+  note: string | null;
+}
+
+export interface StellarMeResponse {
+  enabled: boolean;
+  network?: "testnet";
+  ngnPerXlm?: number;
+  reserveXlm?: number;
+  account?: {
+    publicKey: string;
+    opened: boolean;
+    balanceXlm: string | null;
+    balanceNgn: number | null;
+    explorerUrl: string;
+  } | null;
+  transfers?: StellarTransferView[];
+}
+
+/** The driver's Stellar Testnet account. `enabled: false` when the server has Stellar off (or is older). */
+export async function getStellarMe(input: { accessToken: string }): Promise<StellarMeResponse> {
+  return getJson<StellarMeResponse>("/stellar/me", {
+    accessToken: input.accessToken,
+    fallbackError: "Could not load your Stellar account.",
+  }).catch(() => ({ enabled: false }));
+}
+
+export async function requestStellarWithdrawal(input: {
+  accessToken: string;
+  destination: string;
+  amountXlm: number;
+}): Promise<{ transfer: StellarTransferView }> {
+  return postJson<{ transfer: StellarTransferView }>(
+    "/stellar/withdraw",
+    { destination: input.destination, amountXlm: input.amountXlm },
+    { accessToken: input.accessToken, fallbackError: "Could not send the withdrawal." },
+  );
+}

@@ -18,6 +18,7 @@ export default function DriverLayout() {
         <Stack.Screen name="earnings" />
         <Stack.Screen name="payout" />
         <Stack.Screen name="withdraw" />
+        <Stack.Screen name="stellar" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="docs" />
       </Stack>
