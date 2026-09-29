@@ -45,6 +45,7 @@ import { invalidateWalletCache } from '@/lib/wallet-overview';
 import { invalidateCached } from '@/lib/cache-store';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { markTripChatClosed } from '@/lib/trip-chat';
+import { emitStartResult, isTripCodeError } from '@/lib/trip-code';
 
 /** Where the live market snapshot survives JS reloads. */
 const MARKET_STORAGE_KEY = 'wheelers.driver.market.v1';
@@ -110,7 +111,8 @@ type DriverSessionContextValue = {
   /** Close the open request without rejecting it — it stays in the queue. */
   closeOffer: () => void;
   arriveAtPickup: (rideId: string) => Promise<void>;
-  startTrip: (rideId: string) => Promise<void>;
+  /** `tripCode`: the 4 digits the rider gave, when the server asks for them. */
+  startTrip: (rideId: string, tripCode?: string) => Promise<void>;
   endTrip: (rideId: string) => Promise<void>;
   sendGps: (lat: number, lng: number) => void;
   sendChatMessage: (rideId: string, content: string) => Promise<void>;
@@ -213,6 +215,28 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       // Anything about a Live call goes to the call screen, and only there.
       if (isCallMessage(type, payload)) {
         emitCallEvent(type, payload);
+        return;
+      }
+
+      // The trip code: a refusal goes to the keypad, not an alert over it.
+      if (type === 'error' && payload.requestType === 'ride:start' && isTripCodeError(payload.code)) {
+        emitStartResult({ kind: 'refused', code: payload.code as string, message: getString(payload.message) ?? 'Ask the rider for their trip code.' });
+        return;
+      }
+      if (type === 'ride:start:accepted') {
+        emitStartResult({ kind: 'started', rideId: getString(payload.rideId) });
+      }
+      // Support started the trip without the code: the Start button stops asking.
+      if (type === 'trip:code:unlocked') {
+        const unlockedRideId = getString(payload.rideId);
+        if (unlockedRideId) {
+          setSession((prev) =>
+            prev.currentRide?.rideId === unlockedRideId
+              ? { ...prev, currentRide: { ...prev.currentRide, tripCodeRequired: false } }
+              : prev,
+          );
+          emitStartResult({ kind: 'unlocked', rideId: unlockedRideId });
+        }
         return;
       }
 
@@ -648,12 +672,13 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   );
 
   const startTrip = useCallback(
-    async (rideId: string) => {
+    async (rideId: string, tripCode?: string) => {
       const ride = sessionRef.current.currentRide;
       await sendEnvelope('ride:start', {
         rideId,
         riderId: ride?.riderId ?? '',
         lockedFareNgn: ride?.fareNgn ?? 0,
+        ...(tripCode ? { tripCode } : {}),
       });
     },
     [sendEnvelope],

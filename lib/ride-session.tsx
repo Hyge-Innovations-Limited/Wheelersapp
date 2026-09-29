@@ -82,6 +82,8 @@ export type { RideOffer };
 export type RiderRideState = {
   rideId: string;
   status: RideStatus;
+  /** The 4 digits to give the driver at pickup; they cannot start the trip without them. */
+  tripCode?: string;
   itinerary: RideItinerary;
   fareEstimateNgn?: number;
   plannedDistanceKm?: number;
@@ -526,6 +528,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
                 getNumber(payload.lockedFareNgn) ?? previous.driver?.lockedFareNgn,
               driverPhone: getString(payload.driverPhone) ?? previous.driver?.driverPhone,
             },
+            tripCode: getString(payload.tripCode) ?? previous.tripCode,
           };
         });
         return;

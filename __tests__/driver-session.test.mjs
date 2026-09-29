@@ -158,6 +158,25 @@ test("the rider's first name comes with the match, for the chat's title, and sur
   assert.equal(s.currentRide.riderName, 'Ada', 'an older server leaves it out; the name stays');
 });
 
+test('Start trip asks for the trip code when the match says so; a reconnect brings the latest answer', () => {
+  let s = reduceDriverSession(online(), 'ride:matched', {
+    rideId: 'ride-8', riderId: 'rider-8', pickup: PICKUP, destination: DEST,
+    agreedFareNgn: 3000, rideStatus: 'DRIVER_ASSIGNED', tripCodeRequired: true,
+  }, NOW);
+  assert.equal(s.currentRide.tripCodeRequired, true);
+  assert.equal(JSON.stringify(s).includes('tripCode"'), false, 'the code itself never reaches the driver');
+  s = reduceDriverSession(s, 'ride:matched', {
+    rideId: 'ride-8', riderId: 'rider-8', pickup: PICKUP, destination: DEST,
+    agreedFareNgn: 3000, rideStatus: 'ARRIVED', resync: true,
+  }, NOW);
+  assert.equal(s.currentRide.tripCodeRequired, true, 'an older server leaves it out: keep what we knew');
+  s = reduceDriverSession(s, 'ride:matched', {
+    rideId: 'ride-8', riderId: 'rider-8', pickup: PICKUP, destination: DEST,
+    agreedFareNgn: 3000, rideStatus: 'ARRIVED', resync: true, tripCodeRequired: false,
+  }, NOW);
+  assert.equal(s.currentRide.tripCodeRequired, false, 'support unlocked it');
+});
+
 test('ride:matched with no route and no memory of the ride is ignored, not crashed', () => {
   const before = online();
   const s = reduceDriverSession(before, 'ride:matched', { rideId: 'ghost', riderId: 'r' }, NOW);

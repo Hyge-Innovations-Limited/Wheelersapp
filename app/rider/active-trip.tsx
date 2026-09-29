@@ -178,6 +178,17 @@ export default function RiderActiveTripScreen() {
           </AppText>
         </View>
 
+        {/* The trip code, until the trip starts: the driver cannot start without it. */}
+        {currentRide?.tripCode && currentRide.status === "matched" ? (
+          <View style={styles.tripCodeCard}>
+            <AppText variant="bodySmall" color={theme.colors.muted}>Trip code</AppText>
+            <AppText variant="h1" style={styles.tripCodeDigits}>{currentRide.tripCode}</AppText>
+            <AppText variant="bodySmall" color={theme.colors.muted}>
+              Give it to your driver when you get in. They cannot start the trip without it.
+            </AppText>
+          </View>
+        ) : null}
+
         <TripProgressBar
           progress={
             currentRide?.status === "completed"
@@ -428,6 +439,19 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     flex: 1,
+  },
+  tripCodeCard: {
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderWidth: theme.borders.thick,
+    borderColor: theme.colors.black,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.white,
+  },
+  tripCodeDigits: {
+    letterSpacing: 8,
   },
   callFab: {
     position: "absolute",

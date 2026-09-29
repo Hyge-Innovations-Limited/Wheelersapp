@@ -1654,6 +1654,8 @@ export interface DriverActiveRide {
   riderPhone: string | null;
   /** The rider's first name. Older servers leave it out. */
   riderName?: string | null;
+  /** Start trip asks for the rider's trip code. Older servers leave it out. */
+  tripCodeRequired?: boolean;
   matchedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;

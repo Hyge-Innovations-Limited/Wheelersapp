@@ -10,6 +10,8 @@ import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import { StatusPill } from '@/components/StatusPill';
 import { TripCallButton } from '@/components/TripCallButton';
+import { TripCodeSheet } from '@/components/TripCodeSheet';
+import { onStartResult } from '@/lib/trip-code';
 import { TripChatButton } from '@/components/TripChatButton';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { useDriverSession } from '@/lib/driver-session';
@@ -32,6 +34,13 @@ export default function DriverArrivedScreen() {
   const [waitProgress, setWaitProgress] = useState(0);
   const [waitSeconds, setWaitSeconds] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [codeSheetOpen, setCodeSheetOpen] = useState(false);
+
+  // The server asked for the code this app did not know was needed (a
+  // resync, an older snapshot): open the keypad then.
+  useEffect(() => onStartResult((result) => {
+    if (result.kind === 'refused' && !codeSheetOpen) setCodeSheetOpen(true);
+  }), [codeSheetOpen]);
 
   useEffect(() => {
     if (!ride) {
@@ -72,6 +81,11 @@ export default function DriverArrivedScreen() {
   };
 
   const handleStartTrip = async () => {
+    // The rider's 4-digit trip code first, when this trip has one.
+    if (ride.tripCodeRequired) {
+      setCodeSheetOpen(true);
+      return;
+    }
     try {
       await startTrip(ride.rideId);
     } catch (err) {
@@ -183,6 +197,14 @@ export default function DriverArrivedScreen() {
       </View>
 
       <AppButton title="Start trip" onPress={handleStartTrip} />
+      <TripCodeSheet
+        visible={codeSheetOpen}
+        rideId={ride.rideId}
+        riderName={ride.riderName}
+        onClose={() => setCodeSheetOpen(false)}
+        onSubmit={(code) => startTrip(ride.rideId, code || undefined)}
+        onStarted={() => setCodeSheetOpen(false)}
+      />
       {waitOverdue ? (
         <AppButton title="Rider didn't show — cancel trip" variant="danger" onPress={handleNoShow} />
       ) : (

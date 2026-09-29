@@ -110,6 +110,8 @@ export type DriverRide = {
   riderPhone?: string;
   /** The rider's first name, for "Chat with Ada". Older servers leave it out. */
   riderName?: string;
+  /** Start trip asks for the rider's 4-digit trip code. The code itself never comes to the driver. */
+  tripCodeRequired?: boolean;
   liveDistanceKm?: number;
 };
 
@@ -491,6 +493,7 @@ function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
     riderPaid: ride.riderPaid,
     riderPhone: ride.riderPhone ?? undefined,
     riderName: ride.riderName ?? undefined,
+    tripCodeRequired: ride.tripCodeRequired === true,
   };
 }
 
@@ -636,6 +639,7 @@ export function applyActiveRideSnapshot(
             riderPaid: prev.currentRide.riderPaid || snapshot.riderPaid,
             riderPhone: prev.currentRide.riderPhone ?? snapshot.riderPhone,
             riderName: prev.currentRide.riderName ?? snapshot.riderName,
+            tripCodeRequired: snapshot.tripCodeRequired,
             startedAt: prev.currentRide.startedAt ?? snapshot.startedAt,
           }
         : snapshot,
@@ -827,6 +831,10 @@ export function reduceDriverSession(
           getString(payload.paymentMethod) ?? offer?.paymentMethod ?? (sameRide ? prev.currentRide?.paymentMethod : undefined),
         riderPhone: getString(payload.riderPhone) ?? (sameRide ? prev.currentRide?.riderPhone : undefined),
         riderName: getString(payload.riderName) ?? (sameRide ? prev.currentRide?.riderName : undefined),
+        tripCodeRequired:
+          typeof payload.tripCodeRequired === 'boolean'
+            ? payload.tripCodeRequired
+            : sameRide ? prev.currentRide?.tripCodeRequired : undefined,
       },
     };
   }
