@@ -219,13 +219,15 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
     const subscription = Notifications.addNotificationReceivedListener(() => {
       void refreshNotifications();
     });
-    // A "ride near you" nudge from dispatch: bring the driver to the home
-    // screen, where the Go online button is. Everything else keeps the
-    // default behaviour of simply opening the app.
+    // A "ride near you" nudge from dispatch. The ride itself was sent to the
+    // driver: online, it is on the Active tab (where offers are); offline,
+    // Home, where Go online is, and the ride arrives the moment they go online.
+    // Everything else keeps the default behaviour of simply opening the app.
     const tapSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, unknown> | undefined;
       if (isDriverApp && data?.type === "dispatch_nudge") {
-        router.navigate("/driver/(tabs)/home" as Href);
+        const offerWaiting = data.online === "1" && typeof data.rideId === "string";
+        router.navigate((offerWaiting ? "/driver/(tabs)/active" : "/driver/(tabs)/home") as Href);
       }
       // Someone is calling: ask for the call on that trip; the call screen opens over whatever is showing.
       if (data?.type === "call:incoming" && typeof data.rideId === "string" && liveCallSupported) {
