@@ -230,7 +230,7 @@ export default function DriverWalletTabScreen() {
           <View style={styles.earningsLeft}>
             <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Stellar Testnet</AppText>
             <AppText variant="h3" numberOfLines={1}>
-              {stellar.data.account?.balanceXlm ? `${Number(stellar.data.account.balanceXlm).toLocaleString('en-NG', { maximumFractionDigits: 2 })} XLM` : 'Opens with your first paid trip'}
+              {stellar.data.account?.balanceXlm ? `${Number(stellar.data.account.balanceXlm).toLocaleString('en-NG', { maximumFractionDigits: 2 })} XLM` : 'Opening…'}
             </AppText>
           </View>
           <AppText variant="h3" color={theme.colors.orange}>›</AppText>

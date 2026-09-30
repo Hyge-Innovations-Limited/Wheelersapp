@@ -1783,6 +1783,7 @@ export async function postDriverLocation(input: {
 // ── Stellar Testnet (grant demo) ────────────────────────────────────────
 
 export interface StellarTransferView {
+  id?: string;
   kind: "ACCOUNT_OPEN" | "TOPUP" | "FARE" | "COMMISSION" | "WITHDRAWAL" | string;
   status: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED" | "SKIPPED" | string;
   amountXlm: string;
@@ -1793,7 +1794,12 @@ export interface StellarTransferView {
   direction?: "in" | "out";
   txHash: string | null;
   explorerUrl: string | null;
+  rideId?: string | null;
+  /** Public addresses only. */
+  from?: string;
+  to?: string;
   createdAt: string;
+  confirmedAt?: string | null;
   note: string | null;
 }
 
