@@ -1,4 +1,4 @@
-import { getDriverKycStatus } from "@/lib/api";
+import { checkDriverKyc, routeForKyc } from "@/lib/driver-kyc";
 import {
   getAuthenticatedRoute,
   type AuthenticatedRoute,
@@ -27,21 +27,8 @@ export async function resolvePostAuthRoute(
     return getAuthenticatedRoute(state);
   }
 
-  try {
-    const kyc = await getDriverKycStatus({ accessToken });
-
-    if (kyc.kycStatus === "APPROVED") {
-      return "/driver/(tabs)/home";
-    }
-
-    if (kyc.kycStatus === "SUBMITTED") {
-      return "/driver/onboarding/pending";
-    }
-
-    return "/driver/onboarding/welcome";
-  } catch {
-    // Can't reach the KYC endpoint — send them through onboarding rather than
-    // into a dashboard they may not be entitled to use.
-    return "/driver/onboarding/welcome";
-  }
+  // The server's answer; when it cannot be reached, its last answer. Never
+  // known at all: onboarding, not a dashboard they may not be entitled to.
+  const { status } = await checkDriverKyc(accessToken);
+  return routeForKyc(status);
 }

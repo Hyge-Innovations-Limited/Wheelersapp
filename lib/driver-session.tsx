@@ -46,6 +46,7 @@ import { invalidateCached } from '@/lib/cache-store';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { markTripChatClosed } from '@/lib/trip-chat';
 import { emitStartResult, isTripCodeError } from '@/lib/trip-code';
+import { emitKycRequired } from '@/lib/driver-kyc';
 
 /** Where the live market snapshot survives JS reloads. */
 const MARKET_STORAGE_KEY = 'wheelers.driver.market.v1';
@@ -237,6 +238,19 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
           );
           emitStartResult({ kind: 'unlocked', rideId: unlockedRideId });
         }
+        return;
+      }
+
+      if (type === 'error' && payload.code === 'KYC_REQUIRED') {
+        // The server will not put an unapproved driver on shift: undo the
+        // optimistic "online", stop the heartbeat, and go to verification.
+        shouldMaintainConnectionRef.current = false;
+        wantsOnlineRef.current = false;
+        lastOnlineCoordsRef.current = null;
+        void stopDriverLivenessUpdates().catch(() => undefined);
+        setSession(defaultDriverSession);
+        Alert.alert('Verification needed', getString(payload.message) ?? 'Finish your verification before you can drive.');
+        emitKycRequired();
         return;
       }
 

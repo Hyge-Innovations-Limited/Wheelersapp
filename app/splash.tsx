@@ -15,10 +15,11 @@ import {
   readStoredAuthState,
   type AuthenticatedRoute,
 } from "@/lib/auth-state";
+import { resolvePostAuthRoute, type PostAuthRoute } from "@/lib/post-auth";
 import { prefetchRiderHistory } from "@/lib/rider-history";
 import { prefetchWalletOverview } from "@/lib/wallet-overview";
 
-type SplashRoute = VariantPublicRoute | AuthenticatedRoute;
+type SplashRoute = VariantPublicRoute | AuthenticatedRoute | PostAuthRoute;
 
 /**
  * Keep the brand splash on screen for at least this long. Auth state usually
@@ -55,6 +56,8 @@ export default function SplashScreen() {
   const router = useRouter();
   const { getAccessToken, isReady } = useAuth();
   const hasNavigated = useRef(false);
+  /** A driver's KYC is being asked for: the fallback below must not jump ahead of it. */
+  const checkingDriver = useRef(false);
   const mountedAtRef = useRef(Date.now());
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -105,6 +108,23 @@ export default function SplashScreen() {
       const storedAuthState = await readStoredAuthState();
       if (cancelled || hasNavigated.current) return;
 
+      if (storedAuthState?.role === "DRIVER") {
+        // A driver's place depends on their KYC, which only the server knows.
+        // Going straight to the dashboard here let a driver who signed up,
+        // closed the app and came back skip verification entirely.
+        checkingDriver.current = true;
+        const token = await getAccessToken();
+        if (cancelled || hasNavigated.current) return;
+        if (!token) {
+          navigate(publicEntryRoute);
+          return;
+        }
+        const route = await resolvePostAuthRoute(storedAuthState, token);
+        if (cancelled || hasNavigated.current) return;
+        navigate(route);
+        return;
+      }
+
       if (storedAuthState) {
         const route = getAuthenticatedRoute(storedAuthState);
         if (route === "/rider") {
@@ -135,7 +155,7 @@ export default function SplashScreen() {
   // Fallback timer in case auth check takes too long
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (!hasNavigated.current) {
+      if (!hasNavigated.current && !checkingDriver.current) {
         navigate(publicEntryRoute);
       }
     }, EFFECTIVE_MIN_SPLASH_MS + 1200);

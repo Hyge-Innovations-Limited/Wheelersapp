@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { clearCachedAccessToken, clearStoredLocalAccessToken } from "@/lib/access-token";
+import { clearDriverKyc } from "@/lib/driver-kyc-store";
 
 export type AppAuthRole = "RIDER" | "DRIVER";
 export type RiderOnboardingRoute = "/rider";
@@ -88,6 +89,7 @@ export async function markStoredOnboardingComplete(): Promise<StoredAuthState | 
 export async function clearStoredAuthState(): Promise<void> {
   clearCachedAccessToken();
   await clearStoredLocalAccessToken();
+  await clearDriverKyc();
   await SecureStore.deleteItemAsync(AUTH_STATE_KEY);
 }
 

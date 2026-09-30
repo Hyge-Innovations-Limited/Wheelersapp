@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 import { useDriverSession } from '@/lib/driver-session';
+import { useDriverKycGuard } from '@/lib/use-driver-kyc-guard';
 import { useQuestBadge } from '@/lib/quest-badge-context';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
@@ -103,6 +104,7 @@ function SettingsIcon({ color, size }: { color: string; size: number }) {
 }
 
 const tabStyles = StyleSheet.create({
+  gate: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   countBadge: {
     position: 'absolute',
     top: -6,
@@ -137,6 +139,8 @@ const tabStyles = StyleSheet.create({
 });
 
 export default function DriverTabsLayout() {
+  // Approved drivers only: anyone else is sent to verification from here.
+  const kycApproved = useDriverKycGuard();
   const { isDark } = useAppTheme();
   const { showBadge } = useQuestBadge();
   const { session } = useDriverSession();
@@ -153,6 +157,14 @@ export default function DriverTabsLayout() {
   // older Androids) is added on top instead of a hard-coded 28 vs 10.
   const barRowHeight = responsive.scale(responsive.isShort ? 52 : 58);
   const bottomPadding = Math.max(insets.bottom, 8);
+
+  if (!kycApproved) {
+    return (
+      <View style={[tabStyles.gate, { backgroundColor: isDark ? theme.colors.black : theme.colors.offWhite }]}>
+        <ActivityIndicator color={theme.colors.orange} />
+      </View>
+    );
+  }
 
   return (
     <Tabs
