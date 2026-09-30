@@ -87,7 +87,7 @@ export default function DriverStellarScreen() {
 
       {data?.enabled && !account ? (
         <View style={styles.card}>
-          <AppText variant="body">Your Stellar account opens with your first paid trip.</AppText>
+          <AppText variant="body">Your Stellar account is being opened. It is ready in a minute or so.</AppText>
         </View>
       ) : null}
 
