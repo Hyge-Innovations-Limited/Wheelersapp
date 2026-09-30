@@ -42,6 +42,7 @@ import {
   type InterstatePassenger,
 } from "@/lib/interstate";
 import { theme } from "@/theme";
+import { emitKycRequired, knownDriverKyc } from "@/lib/driver-kyc";
 
 type Tab = "available" | "offers" | "mine";
 
@@ -111,6 +112,11 @@ export default function DriverInterstateScreen() {
             text: "Take it",
             onPress: () => {
               void (async () => {
+                // Approved drivers only, on the phone as on the server.
+                if (knownDriverKyc() !== "APPROVED") {
+                  emitKycRequired();
+                  return;
+                }
                 setBusyId(departure.id);
                 try {
                   const accessToken = await getAccessTokenWithRetry(getAccessToken);

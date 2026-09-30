@@ -46,7 +46,15 @@ import { invalidateCached } from '@/lib/cache-store';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { markTripChatClosed } from '@/lib/trip-chat';
 import { emitStartResult, isTripCodeError } from '@/lib/trip-code';
-import { emitKycRequired } from '@/lib/driver-kyc';
+import { emitKycRequired, knownDriverKyc } from '@/lib/driver-kyc';
+
+/** On this phone too, not only on the server: an unapproved driver never goes online or bids. */
+function blockedForKyc(): boolean {
+  if (knownDriverKyc() === 'APPROVED') return false;
+  Alert.alert('Verification needed', 'Finish your verification and wait for approval before you can drive.');
+  emitKycRequired();
+  return true;
+}
 
 /** Where the live market snapshot survives JS reloads. */
 const MARKET_STORAGE_KEY = 'wheelers.driver.market.v1';
@@ -528,6 +536,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
   const goOnline = useCallback(async (lat: number, lng: number) => {
     console.log('[driver-session] goOnline called with', { lat, lng });
+    if (blockedForKyc()) return;
     shouldMaintainConnectionRef.current = true;
     wantsOnlineRef.current = true;
     lastOnlineCoordsRef.current = { lat, lng };
@@ -580,6 +589,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     async (rideId: string, counterOfferNgn?: number, origin?: { lat: number; lng: number }) => {
       // Bids come from the feed card as often as from the open request modal
       // now — resolve the offer from wherever it lives.
+      if (blockedForKyc()) throw new Error('Finish your verification before you can bid.');
       const { currentOffer, offers, pendingBids } = sessionRef.current;
       const offer =
         (currentOffer?.rideId === rideId ? currentOffer : undefined) ??

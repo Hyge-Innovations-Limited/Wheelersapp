@@ -10,7 +10,9 @@ import { AppButton } from "@/components/app-button";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useAuth } from "@/lib/auth";
+import { noteDriverKyc } from "@/lib/driver-kyc";
 import { getDriverKycStatus } from "@/lib/api";
+import { OnboardingSignOut } from "@/components/onboarding-sign-out";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 
 const FIELD_TO_ROUTE: Record<string, string> = {
@@ -46,6 +48,8 @@ export default function PendingScreen() {
         if (!token || !active) return;
         const result = await getDriverKycStatus({ accessToken: token });
         if (!active) return;
+        // Tell the driver lock too: it keeps them here until this says APPROVED.
+        noteDriverKyc(result.kycStatus);
         setKycStatus(result.kycStatus);
         setRejectionReason(result.submission?.rejectionReason ?? null);
         setRejectedFields(result.submission?.rejectedFields ?? []);
@@ -131,6 +135,7 @@ export default function PendingScreen() {
           title={rejectedFields.length > 0 ? `Fix ${FIELD_LABELS[rejectedFields[0]!] ?? "Documents"}` : "Resubmit Documents"}
           onPress={() => router.replace(firstRejectedRoute as any)}
         />
+        <OnboardingSignOut />
       </AppScreen>
     );
   }
@@ -175,6 +180,7 @@ export default function PendingScreen() {
           </AppText>
         </View>
       </Animated.View>
+      <OnboardingSignOut />
     </AppScreen>
   );
 }

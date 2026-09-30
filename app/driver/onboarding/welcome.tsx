@@ -7,6 +7,7 @@ import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
 import { AppText } from "@/components/app-text";
 import { FlowHeader } from "@/components/flow-header";
+import { OnboardingSignOut } from "@/components/onboarding-sign-out";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 
@@ -56,6 +57,7 @@ export default function OnboardingWelcomeScreen() {
       <View style={styles.spacer} />
 
       <AppButton title="Let's go" onPress={() => router.push("/driver/onboarding/nin-upload")} />
+      <OnboardingSignOut />
     </AppScreen>
   );
 }

@@ -35,7 +35,7 @@ execFileSync('npx', [
 ], { cwd: projectRoot, stdio: 'pipe' });
 
 const req = createRequire(import.meta.url);
-const { resolvePostAuthRoute, checkDriverKyc, clearStoredAuthState, knownDriverKyc, emitKycRequired, onKycRequired } = req(outFile);
+const { resolvePostAuthRoute, checkDriverKyc, clearStoredAuthState, knownDriverKyc, emitKycRequired, onKycRequired, kycLockTarget, kycLockCovers, noteDriverKyc, onDriverKycChange } = req(outFile);
 const kyc = req(join(here, 'stubs/kyc-api.cjs')).__kyc;
 const store = req(join(here, 'stubs/secure-store.cjs')).__store;
 
@@ -93,4 +93,42 @@ test('riders are not asked about KYC', async () => {
   kyc.answer = 'PENDING';
   assert.equal(await resolvePostAuthRoute(rider, 'token'), '/rider');
   assert.equal(kyc.calls, 0);
+});
+
+const at = (path) => path.split('/');
+
+test('the lock: an unverified driver is forced back to verification from every driver screen', () => {
+  for (const status of ['PENDING', 'REJECTED', null]) {
+    for (const screen of ['driver/(tabs)/home', 'driver/(tabs)/wallet', 'driver/withdraw', 'driver/stellar', 'driver/navigation', 'driver/(tabs)/interstate']) {
+      assert.equal(kycLockTarget(status, at(screen)), '/driver/onboarding/welcome', `${status} on ${screen}`);
+      assert.equal(kycLockCovers(status, at(screen)), true, 'hidden while moved');
+    }
+    for (const step of ['welcome', 'nin-upload', 'licence-upload', 'face-verification', 'vehicle-info', 'vehicle-photos']) {
+      assert.equal(kycLockTarget(status, at(`driver/onboarding/${step}`)), null, `${status} may do ${step}`);
+      assert.equal(kycLockCovers(status, at(`driver/onboarding/${step}`)), false);
+    }
+  }
+});
+
+test('the lock: documents in, the driver waits on "Under review" and cannot go anywhere else', () => {
+  for (const screen of ['driver/(tabs)/home', 'driver/onboarding/welcome', 'driver/onboarding/nin-upload', 'driver/onboarding/vehicle-photos']) {
+    assert.equal(kycLockTarget('SUBMITTED', at(screen)), '/driver/onboarding/pending', screen);
+  }
+  assert.equal(kycLockTarget('SUBMITTED', at('driver/onboarding/pending')), null, 'stays there');
+});
+
+test('the lock: an approved driver goes anywhere; before the answer the dashboard stays hidden', () => {
+  assert.equal(kycLockTarget('APPROVED', at('driver/(tabs)/home')), null);
+  assert.equal(kycLockCovers('APPROVED', at('driver/(tabs)/home')), false);
+  assert.equal(kycLockTarget(undefined, at('driver/(tabs)/home')), null, 'no move until the server answers');
+  assert.equal(kycLockCovers(undefined, at('driver/(tabs)/home')), true, 'but nothing shows either');
+});
+
+test('approval seen by the pending screen reaches the lock', () => {
+  const seen = [];
+  const off = onDriverKycChange((status) => seen.push(status));
+  noteDriverKyc('APPROVED');
+  off();
+  assert.deepEqual(seen, ['APPROVED']);
+  assert.equal(knownDriverKyc(), 'APPROVED');
 });

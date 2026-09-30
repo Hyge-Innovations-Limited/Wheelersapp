@@ -1,7 +1,21 @@
 import { Stack } from 'expo-router';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DriverTripRouter } from '@/components/driver-trip-router';
 import { DriverSessionProvider } from '@/lib/driver-session';
 import { DriverLiveCallHost } from '@/lib/live-call/hosts';
+import { useDriverKycLock } from '@/lib/use-driver-kyc-lock';
+import { theme } from '@/theme';
+
+/** Covers any driver screen an unapproved driver lands on while the lock moves them to verification. */
+function DriverKycLock() {
+  const covered = useDriverKycLock();
+  if (!covered) return null;
+  return (
+    <View style={styles.cover} pointerEvents="auto">
+      <ActivityIndicator color={theme.colors.orange} />
+    </View>
+  );
+}
 
 export default function DriverLayout() {
   return (
@@ -24,7 +38,18 @@ export default function DriverLayout() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="docs" />
       </Stack>
+      <DriverKycLock />
       </DriverLiveCallHost>
     </DriverSessionProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  cover: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.offWhite,
+    zIndex: 1000,
+  },
+});

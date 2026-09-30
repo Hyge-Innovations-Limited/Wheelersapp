@@ -28,6 +28,28 @@ export function routeForKyc(status: string | null): DriverKycRoute {
   return "/driver/onboarding/welcome";
 }
 
+/**
+ * The lock: where a driver on this screen must be sent, or null to stay.
+ * `segments` are the route's (e.g. ["driver", "(tabs)", "home"]); status
+ * undefined means not known yet (wait, the screen stays covered).
+ *   approved            → anywhere
+ *   submitted           → only "Under review"
+ *   anything else       → only the verification steps
+ */
+export function kycLockTarget(status: string | null | undefined, segments: string[]): DriverKycRoute | null {
+  if (status === undefined || status === "APPROVED") return null;
+  const inOnboarding = segments[0] === "driver" && segments[1] === "onboarding";
+  if (!inOnboarding) return routeForKyc(status);
+  if (status === "SUBMITTED" && segments[2] !== "pending") return "/driver/onboarding/pending";
+  return null;
+}
+
+/** Whether this screen is hidden while the driver is moved (or while the answer is awaited). */
+export function kycLockCovers(status: string | null | undefined, segments: string[]): boolean {
+  const inOnboarding = segments[0] === "driver" && segments[1] === "onboarding";
+  return !inOnboarding && status !== "APPROVED";
+}
+
 /** Ask the server; when it cannot be reached, fall back to its last answer. */
 export async function checkDriverKyc(accessToken: string): Promise<{ status: string | null; fromServer: boolean }> {
   try {
@@ -35,11 +57,25 @@ export async function checkDriverKyc(accessToken: string): Promise<{ status: str
       getDriverKycStatus({ accessToken }),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("KYC check timed out")), CHECK_TIMEOUT_MS)),
     ]);
-    await rememberDriverKyc(result.kycStatus);
+    noteDriverKyc(result.kycStatus);
     return { status: result.kycStatus, fromServer: true };
   } catch {
     return { status: await lastDriverKyc(), fromServer: false };
   }
+}
+
+/* Every fresh answer from the server, wherever it was asked (the pending screen polls). */
+const changeListeners = new Set<(status: string) => void>();
+
+/** A fresh answer from the server, got elsewhere (the pending screen's own poll). */
+export function noteDriverKyc(status: string): void {
+  void rememberDriverKyc(status);
+  for (const listener of [...changeListeners]) listener(status);
+}
+
+export function onDriverKycChange(listener: (status: string) => void): () => void {
+  changeListeners.add(listener);
+  return () => changeListeners.delete(listener);
 }
 
 /* The server said "not approved" to something (going online): the dashboard sends them to verification. */
