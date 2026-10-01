@@ -383,6 +383,8 @@ export function hydrateBidRecords(
     createdAt: string;
     resolvedAt: string | null;
     ride: {
+      /** The ride's own status: a finished trip leaves nothing on the Active tab. */
+      status?: string;
       pickupAddress: string;
       destAddress: string;
       riderOfferNgn: number | null;
@@ -400,7 +402,10 @@ export function hydrateBidRecords(
     // The trip was cancelled (by the rider, by this driver, by the system):
     // nothing to show. An ACCEPTED row used to come back here as a green
     // "Starting your trip…" for a trip that no longer existed.
-    if (rec.status === 'CANCELLED') {
+    // A cancelled bid, or a trip that is over (completed or cancelled): nothing
+    // to show. An ACCEPTED row of a finished trip used to come back as a green
+    // "Starting your trip…" on the Active tab.
+    if (rec.status === 'CANCELLED' || rec.ride?.status === 'COMPLETED' || rec.ride?.status === 'CANCELLED') {
       if (local) {
         if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
         delete pendingBids[rec.rideId];
@@ -1032,8 +1037,13 @@ export function reduceDriverSession(
   }
 
   if (type === 'ride:end:accepted' || type === 'ride:completed') {
+    // The trip is over: its bid card ("Accepted · Starting your trip…") goes too.
+    const endedRideId = getString(payload.rideId) ?? prev.currentRide?.rideId;
+    const pendingBids = endedRideId && prev.pendingBids[endedRideId] ? { ...prev.pendingBids } : prev.pendingBids;
+    if (endedRideId && pendingBids !== prev.pendingBids) delete pendingBids[endedRideId];
     return {
       ...prev,
+      pendingBids,
       status: 'completed',
       currentRide: prev.currentRide
         ? {

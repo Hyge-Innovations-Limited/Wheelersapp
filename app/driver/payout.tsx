@@ -83,12 +83,12 @@ export default function DriverPayoutScreen() {
             booking fee); the booking fee is Wheelers' and closes the list. */}
         <SummaryRow
           color={theme.colors.danger}
-          label="Commission (4%)"
+          label="Commission · 4% of your share"
           value={`-${formatNgn(fees.commissionNgn)}`}
         />
         <SummaryRow
           color={theme.colors.danger}
-          label="VAT (7.5%)"
+          label="VAT · 7.5% of your share"
           value={`-${formatNgn(fees.vatNgn)}`}
         />
         <SummaryRow

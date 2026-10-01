@@ -105,3 +105,16 @@ test('the trip was cancelled: the server row (CANCELLED) removes the card — no
   const fresh = hydrateBidRecords({ ...defaultDriverSession }, rec('CANCELLED'), NOW);
   assert.equal(fresh.pendingBids['ride-1'], undefined, 'and is never rebuilt');
 });
+
+test('the trip is over: the "Accepted · Starting your trip…" card goes, and the sync never brings it back', () => {
+  const accepted = reduceDriverSession(withBid(12500, 11900), 'ride:offer_accepted', { rideId: 'ride-1', agreedFareNgn: 12500, paymentMethod: 'WALLET' }, NOW);
+  const done = reduceDriverSession(accepted, 'ride:completed', { rideId: 'ride-1', fareNgn: 12500 }, NOW);
+  assert.equal(done.pendingBids['ride-1'], undefined, 'gone on completion');
+
+  const rec = [{
+    rideId: 'ride-1', riderId: 'rider-1', status: 'ACCEPTED', amountNgn: 12500, createdAt: new Date(NOW).toISOString(), resolvedAt: new Date(NOW).toISOString(),
+    ride: { status: 'COMPLETED', pickupAddress: 'Ilemere', destAddress: 'Unilag', fareEstimateNgn: 11900, riderOfferNgn: 11900, agreedFareNgn: 12500 },
+  }];
+  assert.equal(hydrateBidRecords({ ...defaultDriverSession }, rec, NOW).pendingBids['ride-1'], undefined, 'not rebuilt from the server');
+  assert.equal(hydrateBidRecords(accepted, rec, NOW).pendingBids['ride-1'], undefined, 'and a stale local one is removed');
+});
