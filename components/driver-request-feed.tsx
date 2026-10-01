@@ -183,6 +183,10 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     const inAuctionTail = Number.isFinite(offerClockMs) && offerClockMs > now;
     const timeLeft = inAuctionTail ? countdown(offerClockMs, now) : null;
 
+    // Declined: the request form again — the rider's current price, Accept, the
+    // three prices, Other amount, Skip — glowing red with "Declined" on it.
+    if (declined) return renderRequestCard(offer, bid);
+
     // A resolved bid stays as its story — greyed, dismissible — instead of
     // vanishing mid-thought.
     if (bid.outcome) {
@@ -209,16 +213,14 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
         style={({ pressed }) => [
           styles.card,
-          accepted ? styles.cardAccepted : declined ? styles.cardDeclined : countered ? styles.cardCountered : paying ? styles.cardPaying : styles.cardBid,
+          accepted ? styles.cardAccepted : countered ? styles.cardCountered : paying ? styles.cardPaying : styles.cardBid,
           pressed && styles.pressed,
         ]}>
         <View style={styles.topRow}>
-          <AppText variant="h3" color={accepted ? theme.colors.green : declined ? theme.colors.danger : paying ? theme.colors.warning : theme.colors.black}>
+          <AppText variant="h3" color={accepted ? theme.colors.green : paying ? theme.colors.warning : theme.colors.black}>
             {accepted
               ? bid.riderPaid ? 'Rider paid' : 'Accepted'
-              : declined
-                ? 'Declined'
-                : paying
+              : paying
                 ? 'Rider is paying…'
                 : countered
                   ? `Rider offers ${formatNgn(riderAsk)}`
@@ -226,9 +228,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                     ? `You took ${formatNgn(bid.amountNgn)}`
                     : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
-          {declined ? (
-            <AppText variant="label" color={theme.colors.danger}>Rider wants {formatNgn(riderAsk)}</AppText>
-          ) : tookPrice ? (
+          {tookPrice ? (
             <AppText variant="caption" color={theme.colors.muted}>the rider's price</AppText>
           ) : !accepted && !paying && timeLeft ? (
             <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText>
@@ -246,13 +246,8 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           <AppText variant="bodySmall" color={theme.colors.muted}>
             They chose you for {formatNgn(bid.amountNgn)} and are adding money. Keep this trip in mind.
           </AppText>
-        ) : countered || declined ? (
+        ) : countered ? (
           <View style={styles.actionsBlock}>
-            {declined ? (
-              <AppText variant="bodySmall" color={theme.colors.muted}>
-                The rider declined your {formatNgn(bid.amountNgn)}. The trip is still open — send a new offer.
-              </AppText>
-            ) : null}
             <Pressable
               disabled={busyRideId === offer.rideId}
               onPress={() => void sendBid(offer, riderAsk)}
@@ -304,21 +299,40 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
   }
 
   // ── One life-cycle card: the fresh request state ────────────────────────
-  function renderRequestCard(offer: RideOffer) {
+  /**
+   * A request, as a form: Accept at the rider's price, three prices, Other
+   * amount, Skip. `declinedBid`: the rider declined this driver's offer and the
+   * trip is still open — the same form, red, saying so; any tap is a new bid.
+   */
+  function renderRequestCard(offer: RideOffer, declinedBid?: PendingBid) {
     const riderAsk = offer.riderOfferNgn ?? offer.fareEstimateNgn;
+    const wasDeclined = Boolean(declinedBid);
+    const otherAmount = () => wasDeclined
+      ? router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)
+      : openDetails(offer.rideId);
     const km = distanceKm(offer);
     const expiresMs = new Date(offer.expiresAt).getTime();
-    const stale = isOfferStale(offer, now);
+    const stale = !wasDeclined && isOfferStale(offer, now);
     const timeLeft = !stale && Number.isFinite(expiresMs) ? countdown(expiresMs, now) : null;
 
     return (
       <View
         key={offer.rideId}
-        style={[styles.card, stale ? styles.cardStale : styles.cardRequest]}>
-        <Pressable onPress={() => openDetails(offer.rideId)}>
+        style={[styles.card, wasDeclined ? styles.cardDeclined : stale ? styles.cardStale : styles.cardRequest]}>
+        <Pressable onPress={otherAmount}>
+          {declinedBid ? (
+            <View style={styles.declinedBadgeRow}>
+              <View style={styles.declinedBadge}>
+                <AppText variant="label" color={theme.colors.white}>DECLINED</AppText>
+              </View>
+              <AppText variant="caption" color={theme.colors.danger} numberOfLines={1} style={styles.personText}>
+                Your {formatNgn(declinedBid.amountNgn)} · send a new offer
+              </AppText>
+            </View>
+          ) : null}
           <View style={styles.topRow}>
             <View>
-              <AppText variant="h2" color={stale ? theme.colors.muted : theme.colors.orange}>
+              <AppText variant="h2" color={wasDeclined ? theme.colors.danger : stale ? theme.colors.muted : theme.colors.orange}>
                 {formatNgn(riderAsk)}
               </AppText>
               {/* The base rate, as the server sends it with the offer — never a
@@ -403,11 +417,16 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               ))}
             </View>
             <View style={styles.quietRow}>
-              <Pressable onPress={() => openDetails(offer.rideId)} style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
+              <Pressable onPress={otherAmount} style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
                 <AppText variant="label" color={theme.colors.muted}>Other amount</AppText>
               </Pressable>
               <Pressable
-                onPress={() => { void stopRideRequestSound(); void rejectRide(offer.rideId).catch(() => undefined); }}
+                onPress={() => {
+                  void stopRideRequestSound();
+                  // Declined: Skip just clears the card; there is no request to turn down.
+                  if (wasDeclined) dismissBid(offer.rideId);
+                  else void rejectRide(offer.rideId).catch(() => undefined);
+                }}
                 style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
                 <AppText variant="label" color={theme.colors.muted}>Skip</AppText>
               </Pressable>
@@ -460,6 +479,22 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.danger,
     backgroundColor: theme.colors.dangerLight,
     shadowColor: theme.colors.danger,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  declinedBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: 6,
+  },
+  declinedBadge: {
+    backgroundColor: theme.colors.danger,
+    borderRadius: theme.radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
   cardCountered: {
     borderColor: theme.colors.orange,
