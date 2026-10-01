@@ -109,7 +109,11 @@ export default function DriverPayoutScreen() {
         )}
         <View style={styles.totalRow}>
           <AppText variant="bodyMedium">
-            {ride?.paymentMethod === 'CASH' ? 'Collect in cash' : 'Credited to wallet'}
+            {ride?.paymentMethod === 'CASH'
+              ? 'Collect in cash'
+              : ride?.paymentMethod === 'XLM'
+                ? 'Paid in XLM to your Stellar wallet'
+                : 'Credited to wallet'}
           </AppText>
           <AppText variant="monoLarge" color={theme.colors.orange} numberOfLines={1} style={styles.rowValue}>
             {formatNgn(finalPayout)}
