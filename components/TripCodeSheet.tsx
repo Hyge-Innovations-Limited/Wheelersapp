@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { onStartResult } from '@/lib/trip-code';
@@ -26,6 +26,16 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  // Android does not resize a Modal for the keyboard: the sheet sat BEHIND the
+  // keypad and the driver could not see the digits they typed. Lift it by the
+  // keyboard's height. (iOS: KeyboardAvoidingView below does it.)
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const shown = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardHeight(event.endCoordinates.height));
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => { shown.remove(); hidden.remove(); };
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -71,7 +81,7 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
         <Pressable style={styles.flex} onPress={onClose} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
           <AppText variant="h2">Trip code</AppText>
           <AppText variant="body" color={theme.colors.muted}>
             Ask {who} for their 4-digit trip code. You can start the trip once it is right.
