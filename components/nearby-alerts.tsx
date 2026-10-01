@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -19,6 +19,7 @@ import {
 import { theme } from '@/theme';
 
 const OFFERED_KEY = 'wheelers.driver.standby.offered';
+const IOS = Platform.OS === 'ios';
 // The driver switched alerts off but the server never heard. Until it does,
 // the server's "on" must not be allowed to switch them back on.
 const PENDING_OFF_KEY = 'wheelers.driver.standby.pendingOff';
@@ -181,18 +182,24 @@ export function useNearbyAlerts(
     [turnOn, turnOff],
   );
 
-  /** Show the explanation once, ever, to a driver who has not decided yet. */
+  /**
+   * Show the explanation once, ever, to a driver who has not decided yet.
+   * Not on iOS: there the explainer cannot be declined (App Review 5.1.1(iv)),
+   * so it only opens when the driver switches the alerts on in Settings.
+   */
   const offerOnce = useCallback(async (): Promise<void> => {
-    if (enabled || !supported) return;
+    if (IOS || enabled || !supported) return;
     if (await AsyncStorage.getItem(OFFERED_KEY).catch(() => '1')) return;
     await turnOn();
   }, [enabled, supported, turnOn]);
 
   const sheet = useMemo(
     () => (
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={() => settle(false)}>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={() => settle(IOS)}>
         <View style={styles.overlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => settle(false)} accessibilityLabel="Close" />
+          {IOS ? null : (
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => settle(false)} accessibilityLabel="Close" />
+          )}
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.md }]}>
             <AppText variant="h2" style={styles.title}>Hear about riders near you</AppText>
             <AppText variant="body" color={theme.colors.muted}>
@@ -224,9 +231,12 @@ export function useNearbyAlerts(
               accessibilityRole="button">
               <AppText variant="bodyMedium" color={theme.colors.white}>Turn on</AppText>
             </Pressable>
-            <Pressable onPress={() => settle(false)} style={styles.secondary} accessibilityRole="button">
-              <AppText variant="bodyMedium" color={theme.colors.muted}>Not now</AppText>
-            </Pressable>
+            {/* iOS: the choice is made in Apple's prompt, so no "Not now" here. */}
+            {IOS ? null : (
+              <Pressable onPress={() => settle(false)} style={styles.secondary} accessibilityRole="button">
+                <AppText variant="bodyMedium" color={theme.colors.muted}>Not now</AppText>
+              </Pressable>
+            )}
           </View>
         </View>
       </Modal>

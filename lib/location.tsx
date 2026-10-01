@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+import { Platform } from "react-native";
 import {
   isMockLocationAvailable,
   loadMockLocationPreset,
@@ -28,6 +29,12 @@ import { setPlaceSearchBias } from "@/lib/google-places";
  */
 const BACKGROUND_DISCLOSURE_DECLINED_KEY = "wheelers.backgroundLocation.disclosureDeclined";
 const FOREGROUND_DISCLOSURE_DECLINED_KEY = "wheelers.foregroundLocation.disclosureDeclined";
+/**
+ * iOS: the explainer has no "Not now" (App Review 5.1.1(iv)) — it always goes
+ * on to Apple's prompt, and iOS itself remembers the answer. So no "declined
+ * before" shortcut there; a denial shows up as the OS permission state.
+ */
+const DISCLOSURE_CAN_BE_DECLINED = Platform.OS !== "ios";
 
 type AppLocation = {
   lat: number;
@@ -261,7 +268,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         // an in-app disclosure with an affirmative action. This used to fire
         // the prompt cold on first mount — the exact reason the app was
         // rejected ("Inadequate Prominent Disclosure").
-        if (!options?.force) {
+        if (!options?.force && DISCLOSURE_CAN_BE_DECLINED) {
           const declined = await AsyncStorage.getItem(FOREGROUND_DISCLOSURE_DECLINED_KEY);
           if (declined) {
             setPermissionState("denied");
@@ -271,7 +278,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         }
         if (foreground.canAskAgain) {
           const accepted = await showDisclosure("foreground");
-          if (!accepted) {
+          if (!accepted && DISCLOSURE_CAN_BE_DECLINED) {
             await AsyncStorage.setItem(FOREGROUND_DISCLOSURE_DECLINED_KEY, "1");
             setPermissionState("denied");
             setError("Location access is disabled.");
@@ -329,7 +336,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (!options?.force) {
+        if (!options?.force && DISCLOSURE_CAN_BE_DECLINED) {
           const declined = await AsyncStorage.getItem(BACKGROUND_DISCLOSURE_DECLINED_KEY);
           if (declined) {
             setBackgroundGranted(false);
@@ -339,7 +346,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 
         // Prominent disclosure MUST precede the runtime permission prompt.
         const accepted = await showBackgroundDisclosure();
-        if (!accepted) {
+        if (!accepted && DISCLOSURE_CAN_BE_DECLINED) {
           await AsyncStorage.setItem(BACKGROUND_DISCLOSURE_DECLINED_KEY, "1");
           setBackgroundGranted(false);
           return;

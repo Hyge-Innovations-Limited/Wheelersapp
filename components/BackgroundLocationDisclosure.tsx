@@ -114,8 +114,9 @@ export function BackgroundLocationDisclosure({
       animationType="fade"
       statusBarTranslucent
       // Hardware back must not silently dismiss the disclosure — an explicit
-      // choice is required by the policy. Treat back as "Not now".
-      onRequestClose={onDecline}
+      // choice is required by the policy. Treat back as "Not now". (iOS has no
+      // back, and no "Not now": see the buttons below.)
+      onRequestClose={Platform.OS === "ios" ? onAccept : onDecline}
     >
       <View style={styles.backdrop}>
         <View
@@ -190,7 +191,13 @@ export function BackgroundLocationDisclosure({
               title={foreground ? "Continue" : "Allow background location"}
               onPress={onAccept}
             />
-            <AppButton title="Not now" variant="ghost" onPress={onDecline} />
+            {/* Apple (App Review 5.1.1(iv)): a screen before the permission
+                prompt must always lead to it — the choice is made in Apple's
+                prompt, not here. Google's prominent disclosure wants a way to
+                decline: Android keeps "Not now". */}
+            {Platform.OS === "ios" ? null : (
+              <AppButton title="Not now" variant="ghost" onPress={onDecline} />
+            )}
           </View>
         </View>
       </View>

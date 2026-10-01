@@ -43,11 +43,18 @@ function showNotificationDisclosure(): Promise<boolean> {
       isDriverApp
         ? "Wheelers Driver sends notifications to alert you about new ride requests, rider messages, and payments — so you never miss a job while the app is in the background."
         : "Wheelers sends notifications about your ride: driver found, driver arriving, trip updates, and payments.",
-      [
-        { text: "Not now", style: "cancel", onPress: () => resolve(false) },
-        { text: "Continue", onPress: () => resolve(true) },
-      ],
-      { cancelable: true, onDismiss: () => resolve(false) },
+      // Apple (App Review 5.1.1(iv)): the screen before the permission prompt
+      // must always lead to it — no "Not now"; the answer is given in Apple's
+      // prompt. Android keeps the choice here.
+      Platform.OS === "ios"
+        ? [{ text: "Continue", onPress: () => resolve(true) }]
+        : [
+            { text: "Not now", style: "cancel", onPress: () => resolve(false) },
+            { text: "Continue", onPress: () => resolve(true) },
+          ],
+      Platform.OS === "ios"
+        ? { cancelable: false }
+        : { cancelable: true, onDismiss: () => resolve(false) },
     );
   });
 }
@@ -164,7 +171,8 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
       const existingPermissions = await Notifications.getPermissionsAsync();
       let finalPermissions = existingPermissions;
       if (!existingPermissions.granted) {
-        const declined = await AsyncStorage.getItem(NOTIFICATION_DISCLOSURE_DECLINED_KEY);
+        // iOS remembers the answer in its own prompt; "declined here" only exists on Android.
+        const declined = Platform.OS === "ios" ? null : await AsyncStorage.getItem(NOTIFICATION_DISCLOSURE_DECLINED_KEY);
         if (declined) {
           setPermissionGranted(false);
           return;
