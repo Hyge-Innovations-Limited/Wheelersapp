@@ -705,6 +705,10 @@ export function reduceDriverSession(
     // back (usually a counter-offer). It updates the bid card — it must
     // never reappear in the requests queue as a seemingly new job.
     const existingBid = prev.pendingBids[incoming.rideId];
+    // The rider declined this driver's offer. A re-send of the same ride (a
+    // reconnect, the rider's next price) is not a new job for them: the card
+    // stays red in Active, and Home does not light up with it again.
+    if (existingBid?.outcome === 'declined') return prev;
     if (existingBid && !existingBid.outcome) {
       const previousAsk = existingBid.offer.riderOfferNgn ?? existingBid.offer.fareEstimateNgn;
       const nextAsk = incoming.riderOfferNgn ?? incoming.fareEstimateNgn;

@@ -69,3 +69,13 @@ test('the server saying DECLINED rebuilds a red card', () => {
   }], NOW);
   assert.equal(stageOf(s), 'declined');
 });
+
+test('declined, then the same ride is sent again (a reconnect, a new price): the card stays red, Home gets nothing', () => {
+  const declined = reduceDriverSession(withBid(4400, 4200), 'ride:bid_declined', { rideId: 'ride-1' }, NOW);
+  const o = offer(4200);
+  const resent = reduceDriverSession(declined, 'ride:offer', { ...o, pickup: o.pickup, destination: o.destination }, NOW + 5_000);
+  assert.equal(resent, declined, 'nothing changes');
+  assert.equal(stageOf(resent), 'declined');
+  assert.equal(resent.offers.length, 0, 'not queued as a new request');
+  assert.equal(resent.currentOffer, null);
+});
