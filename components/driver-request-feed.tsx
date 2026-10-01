@@ -172,6 +172,8 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     const accepted = stage === 'accepted';
     const countered = stage === 'countered';
     const paying = stage === 'paying';
+    // Declined is still live: red, the rider's current price, and a new bid is one tap.
+    const declined = stage === 'declined';
     // Show a ticking clock only while the offer's own auction window is
     // still running. Past it the bid is simply OPEN — waiting on the rider —
     // not a countdown to a fake deadline half an hour away.
@@ -182,11 +184,10 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     // A resolved bid stays as its story — greyed, dismissible — instead of
     // vanishing mid-thought.
     if (bid.outcome) {
-      const declined = bid.outcome === 'declined';
       return (
-        <View key={offer.rideId} style={[styles.card, declined ? styles.cardDeclined : styles.cardResolved]}>
+        <View key={offer.rideId} style={[styles.card, styles.cardResolved]}>
           <View style={styles.topRow}>
-            <AppText variant={declined ? 'h3' : 'label'} color={declined ? theme.colors.danger : theme.colors.muted}>
+            <AppText variant="label" color={theme.colors.muted}>
               {outcomeLabel(bid.outcome)}
             </AppText>
             <Pressable onPress={() => dismissBid(offer.rideId)} style={styles.cancelChip}>
@@ -206,20 +207,24 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
         style={({ pressed }) => [
           styles.card,
-          accepted ? styles.cardAccepted : countered ? styles.cardCountered : paying ? styles.cardPaying : styles.cardBid,
+          accepted ? styles.cardAccepted : declined ? styles.cardDeclined : countered ? styles.cardCountered : paying ? styles.cardPaying : styles.cardBid,
           pressed && styles.pressed,
         ]}>
         <View style={styles.topRow}>
-          <AppText variant="h3" color={accepted ? theme.colors.green : paying ? theme.colors.warning : theme.colors.black}>
+          <AppText variant="h3" color={accepted ? theme.colors.green : declined ? theme.colors.danger : paying ? theme.colors.warning : theme.colors.black}>
             {accepted
               ? bid.riderPaid ? 'Rider paid' : 'Accepted'
-              : paying
+              : declined
+                ? 'Declined'
+                : paying
                 ? 'Rider is paying…'
                 : countered
                   ? `Rider offers ${formatNgn(riderAsk)}`
                   : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
-          {!accepted && !paying && timeLeft ? (
+          {declined ? (
+            <AppText variant="label" color={theme.colors.danger}>Rider wants {formatNgn(riderAsk)}</AppText>
+          ) : !accepted && !paying && timeLeft ? (
             <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText>
           ) : !accepted && !paying && !bid.outcome ? (
             <AppText variant="caption" color={theme.colors.muted}>open · waiting on rider</AppText>
@@ -235,8 +240,13 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           <AppText variant="bodySmall" color={theme.colors.muted}>
             They chose you for {formatNgn(bid.amountNgn)} and are adding money. Keep this trip in mind.
           </AppText>
-        ) : countered ? (
+        ) : countered || declined ? (
           <View style={styles.actionsBlock}>
+            {declined ? (
+              <AppText variant="bodySmall" color={theme.colors.muted}>
+                The rider declined your {formatNgn(bid.amountNgn)}. The trip is still open — send a new offer.
+              </AppText>
+            ) : null}
             <Pressable
               disabled={busyRideId === offer.rideId}
               onPress={() => void sendBid(offer, riderAsk)}
@@ -437,9 +447,11 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.warning,
     backgroundColor: '#FFF8E6',
   },
+  // Glows red: the rider said no to this price, the trip is still there.
   cardDeclined: {
     borderColor: theme.colors.danger,
     backgroundColor: theme.colors.dangerLight,
+    shadowColor: theme.colors.danger,
   },
   cardCountered: {
     borderColor: theme.colors.orange,

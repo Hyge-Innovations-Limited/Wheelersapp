@@ -143,10 +143,16 @@ export type PendingBid = {
    * greyed, dismissible — instead of vanishing: work should end with an
    * outcome, never with disappearance.
    */
-  outcome?: 'expired' | 'lost' | 'withdrawn' | 'declined';
+  outcome?: 'expired' | 'lost' | 'withdrawn';
   resolvedAt?: string;
   /** The rider chose this bid and is adding money to pay for it. */
   payingAt?: string;
+  /**
+   * The rider declined every offer on the table, this one included. Not an
+   * end: the search goes on, the card stays (red), the rider's next price
+   * still lands on it, and a new bid from the driver makes it live again.
+   */
+  declinedAt?: string;
 };
 
 export type DriverSessionState = {
@@ -385,7 +391,7 @@ export function hydrateBidRecords(
   now: number = Date.now(),
 ): DriverSessionState {
   let pendingBids = prev.pendingBids;
-  const TERMINAL = new Set(['EXPIRED', 'LOST', 'WITHDRAWN', 'CANCELLED', 'DECLINED']);
+  const TERMINAL = new Set(['EXPIRED', 'LOST', 'WITHDRAWN', 'CANCELLED']);
   for (const rec of records) {
     if (!rec?.rideId) continue;
     const local = pendingBids[rec.rideId];
@@ -399,6 +405,10 @@ export function hydrateBidRecords(
           outcome: outcomeFromServerStatus(rec.status),
           resolvedAt: rec.resolvedAt ?? new Date(now).toISOString(),
         };
+      } else if (!local.outcome && !local.declinedAt && !local.acceptedAt && rec.status === 'DECLINED') {
+        // Missed the socket's "declined": the card still turns red.
+        if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
+        pendingBids[rec.rideId] = { ...local, payingAt: undefined, declinedAt: rec.resolvedAt ?? new Date(now).toISOString() };
       }
       continue;
     }
@@ -420,6 +430,8 @@ export function hydrateBidRecords(
     let bid: PendingBid | null = null;
     if (rec.status === 'PENDING') {
       bid = { offer, amountNgn: rec.amountNgn, sentAt: rec.createdAt };
+    } else if (rec.status === 'DECLINED') {
+      bid = { offer, amountNgn: rec.amountNgn, sentAt: rec.createdAt, declinedAt: rec.resolvedAt ?? rec.createdAt };
     } else if (rec.status === 'ACCEPTED') {
       bid = {
         offer,
@@ -704,11 +716,9 @@ export function reduceDriverSession(
     // A re-broadcast for a ride we've already BID on is the rider talking
     // back (usually a counter-offer). It updates the bid card — it must
     // never reappear in the requests queue as a seemingly new job.
+    // A declined bid is still a live card: the re-send updates it (still red),
+    // and it never comes back to Home as a new request.
     const existingBid = prev.pendingBids[incoming.rideId];
-    // The rider declined this driver's offer. A re-send of the same ride (a
-    // reconnect, the rider's next price) is not a new job for them: the card
-    // stays red in Active, and Home does not light up with it again.
-    if (existingBid?.outcome === 'declined') return prev;
     if (existingBid && !existingBid.outcome) {
       const previousAsk = existingBid.offer.riderOfferNgn ?? existingBid.offer.fareEstimateNgn;
       const nextAsk = incoming.riderOfferNgn ?? incoming.fareEstimateNgn;
@@ -937,14 +947,14 @@ export function reduceDriverSession(
   }
 
   if (type === 'ride:bid_declined') {
-    // The rider declined every offer: this card turns red, "Declined". The
-    // search may go on — a new request from them is a new card.
+    // The rider declined every offer: this card turns red, "Declined", and
+    // stays. The search goes on — the driver can still send a new bid.
     const rideId = getString(payload.rideId);
     const bid = rideId ? prev.pendingBids[rideId] : undefined;
     if (!rideId || !bid || bid.acceptedAt || bid.outcome) return prev;
     return {
       ...prev,
-      pendingBids: { ...prev.pendingBids, [rideId]: { ...bid, outcome: 'declined', resolvedAt: new Date(now).toISOString() } },
+      pendingBids: { ...prev.pendingBids, [rideId]: { ...bid, payingAt: undefined, declinedAt: new Date(now).toISOString() } },
     };
   }
 

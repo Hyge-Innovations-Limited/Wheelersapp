@@ -179,7 +179,7 @@ export default function PendingBidScreen() {
             : stage === 'paying'
               ? 'The rider chose you and is adding money. Your trip starts the moment it lands.'
               : stage === 'declined'
-                ? 'The rider declined the offers on this trip.'
+                ? `The rider declined your ${formatNgn(bid.amountNgn)}. The trip is still open — send a new bid below.`
                 : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
         </AppText>
         {!accepted ? (() => {
@@ -259,12 +259,12 @@ export default function PendingBidScreen() {
 
       {/* Change the bid — a bid is a negotiation, not a commitment. Not once the
           driver took the rider's own price, nor once the rider has answered. */}
-      {stage === 'waiting' || stage === 'countered' ? tookRidersPrice(bid) && stage === 'waiting' ? null : (
+      {stage === 'waiting' || stage === 'countered' || stage === 'declined' ? tookRidersPrice(bid) && stage === 'waiting' ? null : (
         <View style={styles.card}>
           <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
-            Change your bid
+            {stage === 'declined' ? 'Send a new bid' : 'Change your bid'}
           </AppText>
-          {riderOffer !== bid.amountNgn ? (
+          {riderOffer !== bid.amountNgn || stage === 'declined' ? (
             <AppButton
               title={`Accept rider's ${formatNgn(riderOffer)}`}
               onPress={() => void sendNewBid(riderOffer)}

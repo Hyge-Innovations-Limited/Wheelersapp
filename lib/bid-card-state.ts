@@ -8,7 +8,8 @@ import type { PendingBid } from "@/lib/driver-session-reducer";
  *   countered  orange  the rider came back with another price
  *   paying     yellow  the rider chose this driver and is adding money
  *   accepted   green   the rider accepted (and paid, on wallet rides)
- *   declined   red     the rider declined every offer
+ *   declined   red     the rider declined every offer — still live: the
+ *                      driver can send a new bid, which makes it white again
  *   lost / expired / withdrawn   grey, finished
  */
 export type BidStage =
@@ -24,6 +25,7 @@ export type BidStage =
 export function bidStage(bid: PendingBid): BidStage {
   if (bid.acceptedAt) return "accepted";
   if (bid.outcome) return bid.outcome;
+  if (bid.declinedAt) return "declined";
   if (bid.payingAt) return "paying";
   const riderAsk = bid.offer.riderOfferNgn ?? bid.offer.fareEstimateNgn;
   if (bid.counteredAt && riderAsk !== bid.amountNgn) return "countered";
@@ -36,11 +38,10 @@ export function tookRidersPrice(bid: PendingBid): boolean {
   return riderAsk === bid.amountNgn;
 }
 
-/** The server's bid status, as the card's outcome. */
+/** The server's status for a bid that has ENDED, as the card's outcome. (DECLINED has not ended.) */
 export function outcomeFromServerStatus(status: string): NonNullable<PendingBid["outcome"]> {
   if (status === "LOST") return "lost";
   if (status === "EXPIRED") return "expired";
-  if (status === "DECLINED") return "declined";
   return "withdrawn";
 }
 
@@ -48,7 +49,6 @@ export function outcomeFromServerStatus(status: string): NonNullable<PendingBid[
 export function outcomeLabel(outcome: NonNullable<PendingBid["outcome"]>): string {
   switch (outcome) {
     case "lost": return "Taken by another driver";
-    case "declined": return "Declined";
     case "withdrawn": return "Your offer was withdrawn";
     default: return "Request ended";
   }

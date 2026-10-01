@@ -70,12 +70,25 @@ test('the server saying DECLINED rebuilds a red card', () => {
   assert.equal(stageOf(s), 'declined');
 });
 
-test('declined, then the same ride is sent again (a reconnect, a new price): the card stays red, Home gets nothing', () => {
+test('declined stays a live card: the rider\'s next price lands on it (still red, not on Home), and a new bid makes it white again', () => {
   const declined = reduceDriverSession(withBid(4400, 4200), 'ride:bid_declined', { rideId: 'ride-1' }, NOW);
-  const o = offer(4200);
-  const resent = reduceDriverSession(declined, 'ride:offer', { ...o, pickup: o.pickup, destination: o.destination }, NOW + 5_000);
-  assert.equal(resent, declined, 'nothing changes');
-  assert.equal(stageOf(resent), 'declined');
-  assert.equal(resent.offers.length, 0, 'not queued as a new request');
-  assert.equal(resent.currentOffer, null);
+  assert.equal(stageOf(declined), 'declined');
+  assert.equal(declined.pendingBids['ride-1'].outcome, undefined, 'not an end');
+
+  const resent = reduceDriverSession(declined, 'ride:offer', offer(4600), NOW + 5_000);
+  assert.equal(stageOf(resent), 'declined', 'still red');
+  assert.equal(resent.pendingBids['ride-1'].offer.riderOfferNgn, 4600, 'with the rider\'s new price');
+  assert.equal(resent.offers.length, 0, 'not queued on Home as a new request');
+
+  const rebid = recordBid(resent, resent.pendingBids['ride-1'].offer, 4600, new Date(NOW + 9_000).toISOString());
+  assert.equal(stageOf(rebid), 'waiting', 'a new bid is live again');
+});
+
+test('the server says DECLINED for a card still waiting here: it turns red, and stays a live card', () => {
+  const s = hydrateBidRecords(withBid(3500), [{
+    rideId: 'ride-1', riderId: 'rider-1', status: 'DECLINED', amountNgn: 3500, createdAt: new Date(NOW).toISOString(), resolvedAt: new Date(NOW).toISOString(),
+    ride: { pickupAddress: 'Akoka', destAddress: 'Yaba', fareEstimateNgn: 3000, riderOfferNgn: 3000, agreedFareNgn: null },
+  }], NOW);
+  assert.equal(stageOf(s), 'declined');
+  assert.equal(s.pendingBids['ride-1'].outcome, undefined);
 });
