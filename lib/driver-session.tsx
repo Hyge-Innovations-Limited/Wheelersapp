@@ -24,6 +24,7 @@ import {
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { startDriverLivenessUpdates, stopDriverLivenessUpdates } from '@/lib/background-location';
 import { readOnlineIntent, rememberOnline } from '@/lib/driver-online-intent';
+import { driverCancelNotice } from '@/lib/cancel-copy';
 import { pauseStandbyUpdates, resumeStandbyIfEnabled } from '@/lib/standby-location';
 import {
   applyActiveRideSnapshot,
@@ -330,8 +331,12 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       setSession((prev) => reduceDriverSession(prev, type, payload) ?? prev);
 
       if (type === 'ride:cancelled') {
-        setError('Ride was cancelled.');
-        Alert.alert('Ride cancelled', getString(payload.reason) ? `The rider cancelled: ${getString(payload.reason)}` : 'The rider cancelled this ride.');
+        // In words, never a code — and nothing at all when the driver cancelled it themselves.
+        const notice = driverCancelNotice({ reason: getString(payload.reason), cancelledBy: getString(payload.cancelledBy) });
+        if (notice) {
+          setError(notice.body);
+          Alert.alert(notice.title, notice.body);
+        }
       }
     },
     [markRideEnded],

@@ -92,3 +92,16 @@ test('the server says DECLINED for a card still waiting here: it turns red, and 
   assert.equal(stageOf(s), 'declined');
   assert.equal(s.pendingBids['ride-1'].outcome, undefined);
 });
+
+test('the trip was cancelled: the server row (CANCELLED) removes the card — no green "Starting your trip…" coming back', () => {
+  const accepted = reduceDriverSession(withBid(2800, 2500), 'ride:offer_accepted', { rideId: 'ride-1', agreedFareNgn: 2800, paymentMethod: 'WALLET' }, NOW);
+  assert.equal(stageOf(accepted), 'accepted');
+  const rec = (status) => [{
+    rideId: 'ride-1', riderId: 'rider-1', status, amountNgn: 2800, createdAt: new Date(NOW).toISOString(), resolvedAt: new Date(NOW).toISOString(),
+    ride: { pickupAddress: 'Akoka', destAddress: 'Yaba', fareEstimateNgn: 2500, riderOfferNgn: 2500, agreedFareNgn: 2800 },
+  }];
+  const synced = hydrateBidRecords(accepted, rec('CANCELLED'), NOW);
+  assert.equal(synced.pendingBids['ride-1'], undefined, 'the card is gone');
+  const fresh = hydrateBidRecords({ ...defaultDriverSession }, rec('CANCELLED'), NOW);
+  assert.equal(fresh.pendingBids['ride-1'], undefined, 'and is never rebuilt');
+});

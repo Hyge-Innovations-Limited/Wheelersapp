@@ -391,10 +391,20 @@ export function hydrateBidRecords(
   now: number = Date.now(),
 ): DriverSessionState {
   let pendingBids = prev.pendingBids;
-  const TERMINAL = new Set(['EXPIRED', 'LOST', 'WITHDRAWN', 'CANCELLED']);
+  const TERMINAL = new Set(['EXPIRED', 'LOST', 'WITHDRAWN']);
   for (const rec of records) {
     if (!rec?.rideId) continue;
     const local = pendingBids[rec.rideId];
+    // The trip was cancelled (by the rider, by this driver, by the system):
+    // nothing to show. An ACCEPTED row used to come back here as a green
+    // "Starting your trip…" for a trip that no longer existed.
+    if (rec.status === 'CANCELLED') {
+      if (local) {
+        if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
+        delete pendingBids[rec.rideId];
+      }
+      continue;
+    }
     if (local) {
       // The server knows this bid ended; a local card still "waiting on
       // rider" is stale. Anything else about a known card stays as is.
