@@ -10,6 +10,7 @@ import { BID_LIFETIME_MS } from '@/lib/driver-session-reducer';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
 import { bidNudgesNgn } from '@/lib/ride-fees';
+import { PerKmChip } from '@/components/PerKmChip';
 import { theme } from '@/theme';
 import { bidStage, tookRidersPrice } from '@/lib/bid-card-state';
 
@@ -259,6 +260,7 @@ export default function PendingBidScreen() {
           <AppText variant="body">{accepted ? 'Agreed fare' : 'Your bid'}</AppText>
           <AppText variant="h3" color={theme.colors.orange}>{formatNgn(fare)}</AppText>
         </View>
+        <PerKmChip priceNgn={fare} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
       </View>
 
       {/* Change the bid — a bid is a negotiation, not a commitment. Not once the

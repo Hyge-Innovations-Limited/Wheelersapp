@@ -15,8 +15,10 @@ import { rideFees } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
 
+// Kobo when there is any: VAT is 7.5% of the share, and the lines must add up to what lands.
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  const kobo = Math.round(amount * 100) % 100 !== 0;
+  return `NGN ${amount.toLocaleString('en-NG', { minimumFractionDigits: kobo ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 
 export default function DriverPayoutScreen() {
@@ -28,9 +30,6 @@ export default function DriverPayoutScreen() {
 
   const grossFare = ride?.completedFareNgn ?? ride?.fareNgn ?? 0;
   const fees = rideFees(grossFare);
-  const serviceFeeNgn = fees.serviceFeeNgn;
-  const platformFeeNgn = fees.platformFeeNgn;
-  const stateLevyNgn = fees.stateLevyNgn;
   const finalPayout = fees.driverPayoutNgn;
 
   const handleNextRide = () => {
@@ -80,20 +79,27 @@ export default function DriverPayoutScreen() {
             {formatNgn(grossFare)}
           </AppText>
         </View>
+        {/* Commission and VAT are on the driver's share (the fare after the
+            booking fee); the booking fee is Wheelers' and closes the list. */}
         <SummaryRow
           color={theme.colors.danger}
-          label="Service fee"
-          value={`-${formatNgn(serviceFeeNgn)}`}
+          label="Commission (4%)"
+          value={`-${formatNgn(fees.commissionNgn)}`}
         />
         <SummaryRow
           color={theme.colors.danger}
-          label="Fees (4%)"
-          value={`-${formatNgn(platformFeeNgn)}`}
+          label="VAT (7.5%)"
+          value={`-${formatNgn(fees.vatNgn)}`}
         />
         <SummaryRow
           color={theme.colors.danger}
           label="State levy"
-          value={`-${formatNgn(stateLevyNgn)}`}
+          value={`-${formatNgn(fees.stateLevyNgn)}`}
+        />
+        <SummaryRow
+          color={theme.colors.danger}
+          label="Booking fee"
+          value={`-${formatNgn(fees.bookingFeeNgn)}`}
         />
         {ride?.distanceKm != null && (
           <SummaryRow label="Distance" value={`${ride.distanceKm.toFixed(1)} km`} />

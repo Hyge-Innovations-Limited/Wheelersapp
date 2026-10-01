@@ -41,6 +41,8 @@ export type RideOffer = {
   minOfferNgn?: number;
   /** The base rate per km this fare was built on — shown on the card as sent, never typed into the app. */
   ratePerKmNgn?: number;
+  /** Wheelers' booking fee: each price is shown as (price − this) ÷ km — the driver's share per km. */
+  bookingFeeNgn?: number;
   /**
    * This driver is still carrying a passenger: they were matched because the
    * pickup is near their drop-off. The card says so, and the distances above
@@ -697,6 +699,7 @@ export function reduceDriverSession(
       riderOfferNgn: getNumber(payload.riderOfferNgn),
       minOfferNgn: getNumber(payload.minOfferNgn),
       ratePerKmNgn: getNumber(payload.ratePerKmNgn),
+      bookingFeeNgn: getNumber(payload.bookingFeeNgn),
       afterCurrentTrip: payload.afterCurrentTrip === true,
       plannedDistanceKm: getNumber(payload.plannedDistanceKm),
       plannedDurationSeconds: getNumber(payload.plannedDurationSeconds),

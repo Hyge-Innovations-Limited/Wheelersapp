@@ -25,7 +25,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
 import { bidCeilingNgn } from '@/lib/bid-limits';
-import { rideFees, suggestedBidsNgn } from '@/lib/ride-fees';
+import { driverRatePerKmNgn, formatPerKmNgn, rideFees, suggestedBidsNgn } from '@/lib/ride-fees';
+import { PerKmChip } from '@/components/PerKmChip';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
@@ -629,6 +630,9 @@ export default function IncomingRequestScreen() {
             </View>
           </View>
 
+          {/* This price per km to the driver (their share after the booking fee) — tap for how. */}
+          <PerKmChip priceNgn={activeFare} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
+
           {/* What the driver takes home at this price — one line, no ledger. */}
           <View style={styles.earnRow}>
             <AppText variant="label" color={theme.colors.muted}>You earn</AppText>
@@ -681,6 +685,9 @@ export default function IncomingRequestScreen() {
                   onSubmitEditing={handleSubmitBid}
                 />
               </View>
+              {parseInt(bidAmount, 10) > 0 ? (
+                <PerKmChip priceNgn={parseInt(bidAmount, 10)} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
+              ) : null}
               <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
                 Any amount. The rider picks.
               </AppText>
@@ -711,6 +718,11 @@ export default function IncomingRequestScreen() {
                     <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
                       {formatNgn(amount)}
                     </AppText>
+                    {driverRatePerKmNgn(amount, offer.plannedDistanceKm, offer.bookingFeeNgn) !== null ? (
+                      <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>
+                        {formatPerKmNgn(driverRatePerKmNgn(amount, offer.plannedDistanceKm, offer.bookingFeeNgn)!)}/km
+                      </AppText>
+                    ) : null}
                   </Pressable>
                 ))}
               </View>

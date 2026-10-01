@@ -11,6 +11,7 @@ import {
   type RideOffer,
 } from '@/lib/driver-session-reducer';
 import { suggestedBidsNgn } from '@/lib/ride-fees';
+import { PerKmChip } from '@/components/PerKmChip';
 import { useDriverSession } from '@/lib/driver-session';
 import {
   getDriverFilters,
@@ -335,13 +336,9 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               <AppText variant="h2" color={wasDeclined ? theme.colors.danger : stale ? theme.colors.muted : theme.colors.orange}>
                 {formatNgn(riderAsk)}
               </AppText>
-              {/* The base rate, as the server sends it with the offer — never a
-                  number typed here, so the card can never disagree with pricing. */}
-              {offer.ratePerKmNgn ? (
-                <AppText variant="bodySmall" color={theme.colors.muted}>
-                  {`${formatNgn(offer.ratePerKmNgn)}/km`}
-                </AppText>
-              ) : null}
+              {/* What this price is worth per km to the driver — their share after
+                  the booking fee, over the trip — moving with the rider's price. */}
+              <PerKmChip priceNgn={riderAsk} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
             </View>
             <View style={styles.metaRight}>
               {stale ? (
