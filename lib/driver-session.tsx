@@ -23,6 +23,7 @@ import {
 } from '@/lib/api';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { startDriverLivenessUpdates, stopDriverLivenessUpdates } from '@/lib/background-location';
+import { readOnlineIntent, rememberOnline } from '@/lib/driver-online-intent';
 import { pauseStandbyUpdates, resumeStandbyIfEnabled } from '@/lib/standby-location';
 import {
   applyActiveRideSnapshot,
@@ -540,6 +541,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     shouldMaintainConnectionRef.current = true;
     wantsOnlineRef.current = true;
     lastOnlineCoordsRef.current = { lat, lng };
+    // Kept on the phone: closing the app does not take them off shift.
+    void rememberOnline(lat, lng);
     // Going online is the driver asking, not a retry: connect now, from the first step.
     backoffRef.current.reset();
     try {
@@ -817,6 +820,21 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       return;
     }
   }, [clearReconnectTimer, isReady, user]);
+
+  // The app was closed (swiped away) while the driver was online: put them
+  // straight back online on launch, as they left it. The server re-sends what
+  // is still open with each search's own clock, so nothing starts over.
+  const onlineRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!isBackendConfigured() || !isReady || !user || onlineRestoredRef.current) return;
+    onlineRestoredRef.current = true;
+    void (async () => {
+      const intent = await readOnlineIntent();
+      if (!intent || wantsOnlineRef.current) return;
+      console.log('[driver-session] restoring online after the app was closed');
+      await goOnline(intent.lat, intent.lng).catch(() => undefined);
+    })();
+  }, [isReady, user, goOnline]);
 
   // A cold start mid-trip: the phone died, the app was killed, the driver
   // reinstalled. The backend still has them on a ride — pick it back up

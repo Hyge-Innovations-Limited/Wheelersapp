@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
 import { postDriverLocation } from '@/lib/api';
+import { forgetOnline } from '@/lib/driver-online-intent';
 
 export const DRIVER_LOCATION_TASK = 'wheelers-driver-location';
 const TOKEN_KEY = 'wheelers.driver.liveness.token';
@@ -96,6 +97,8 @@ export async function startDriverLivenessUpdates(accessToken: string): Promise<v
 }
 
 export async function stopDriverLivenessUpdates(): Promise<void> {
+  // Off shift (Go Offline, sign-out, the KYC lock): the next launch must not put them back online.
+  await forgetOnline();
   try {
     if (!taskDefined) return;
     await AsyncStorage.removeItem(TOKEN_KEY);
