@@ -9,6 +9,7 @@
  * have been caught.
  */
 import type { DriverActiveRide, RideEstimateWaypoint, RideRouteGeometry } from '@/lib/api';
+import { outcomeFromServerStatus } from '@/lib/bid-card-state';
 
 export type DriverStatus =
   | 'offline'
@@ -142,8 +143,10 @@ export type PendingBid = {
    * greyed, dismissible — instead of vanishing: work should end with an
    * outcome, never with disappearance.
    */
-  outcome?: 'expired' | 'lost' | 'withdrawn';
+  outcome?: 'expired' | 'lost' | 'withdrawn' | 'declined';
   resolvedAt?: string;
+  /** The rider chose this bid and is adding money to pay for it. */
+  payingAt?: string;
 };
 
 export type DriverSessionState = {
@@ -382,7 +385,7 @@ export function hydrateBidRecords(
   now: number = Date.now(),
 ): DriverSessionState {
   let pendingBids = prev.pendingBids;
-  const TERMINAL = new Set(['EXPIRED', 'LOST', 'WITHDRAWN', 'CANCELLED']);
+  const TERMINAL = new Set(['EXPIRED', 'LOST', 'WITHDRAWN', 'CANCELLED', 'DECLINED']);
   for (const rec of records) {
     if (!rec?.rideId) continue;
     const local = pendingBids[rec.rideId];
@@ -393,7 +396,7 @@ export function hydrateBidRecords(
         if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
         pendingBids[rec.rideId] = {
           ...local,
-          outcome: rec.status === 'LOST' ? 'lost' : rec.status === 'EXPIRED' ? 'expired' : 'withdrawn',
+          outcome: outcomeFromServerStatus(rec.status),
           resolvedAt: rec.resolvedAt ?? new Date(now).toISOString(),
         };
       }
@@ -432,7 +435,7 @@ export function hydrateBidRecords(
         offer,
         amountNgn: rec.amountNgn,
         sentAt: rec.createdAt,
-        outcome: rec.status === 'LOST' ? 'lost' : rec.status === 'EXPIRED' ? 'expired' : 'withdrawn',
+        outcome: outcomeFromServerStatus(rec.status),
         resolvedAt: rec.resolvedAt ?? rec.createdAt,
       };
     }
@@ -926,6 +929,29 @@ export function reduceDriverSession(
           ? prev.status
           : 'online',
       pendingBids,
+    };
+  }
+
+  if (type === 'ride:bid_declined') {
+    // The rider declined every offer: this card turns red, "Declined". The
+    // search may go on — a new request from them is a new card.
+    const rideId = getString(payload.rideId);
+    const bid = rideId ? prev.pendingBids[rideId] : undefined;
+    if (!rideId || !bid || bid.acceptedAt || bid.outcome) return prev;
+    return {
+      ...prev,
+      pendingBids: { ...prev.pendingBids, [rideId]: { ...bid, outcome: 'declined', resolvedAt: new Date(now).toISOString() } },
+    };
+  }
+
+  if (type === 'ride:rider_paying') {
+    // The rider chose this bid and is adding money: "Rider is paying…".
+    const rideId = getString(payload.rideId);
+    const bid = rideId ? prev.pendingBids[rideId] : undefined;
+    if (!rideId || !bid || bid.acceptedAt || bid.outcome) return prev;
+    return {
+      ...prev,
+      pendingBids: { ...prev.pendingBids, [rideId]: { ...bid, payingAt: new Date(now).toISOString() } },
     };
   }
 

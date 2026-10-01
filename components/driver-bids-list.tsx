@@ -28,13 +28,15 @@ export function describeBidStatus(status: DriverBidStatus): { label: string; col
     case 'ACCEPTED':
       return { label: 'Won', color: theme.colors.green };
     case 'LOST':
-      return { label: 'Rider chose another driver', color: theme.colors.muted };
+      return { label: 'Taken by another driver', color: theme.colors.muted };
     case 'WITHDRAWN':
       return { label: 'Withdrawn', color: theme.colors.muted };
     case 'EXPIRED':
       return { label: 'No answer', color: theme.colors.muted };
     case 'CANCELLED':
       return { label: 'Ride cancelled', color: theme.colors.danger };
+    case 'DECLINED':
+      return { label: 'Declined', color: theme.colors.danger };
     default:
       return { label: String(status).replace(/_/g, ' '), color: theme.colors.muted };
   }

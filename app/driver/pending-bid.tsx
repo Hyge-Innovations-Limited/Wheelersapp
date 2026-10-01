@@ -11,6 +11,7 @@ import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
 import { bidNudgesNgn } from '@/lib/ride-fees';
 import { theme } from '@/theme';
+import { bidStage, tookRidersPrice } from '@/lib/bid-card-state';
 
 
 /** How often to ask the backend about a bid the rider has accepted but whose
@@ -93,6 +94,7 @@ export default function PendingBidScreen() {
   // match while the app is backgrounded. Ask the backend once on open, and
   // keep asking while the rider has accepted but the trip hasn't arrived.
   const accepted = Boolean(bid?.acceptedAt);
+  const stage = bid ? bidStage(bid) : 'waiting';
   useEffect(() => {
     if (!bid) return;
     void syncActiveRide();
@@ -154,20 +156,31 @@ export default function PendingBidScreen() {
       </View>
 
       {/* Status — the one line the driver opened this page for. */}
-      <View style={[styles.statusCard, accepted ? styles.statusAccepted : styles.statusWaiting]}>
-        <AppText variant="h3" color={accepted ? theme.colors.orange : theme.colors.green}>
+      <View style={[
+        styles.statusCard,
+        accepted ? styles.statusAccepted : stage === 'paying' ? styles.statusPaying : stage === 'declined' ? styles.statusDeclined : styles.statusWaiting,
+      ]}>
+        <AppText variant="h3" color={accepted ? theme.colors.green : stage === 'paying' ? theme.colors.warning : stage === 'declined' ? theme.colors.danger : theme.colors.black}>
           {accepted
             ? bid.riderPaid
               ? 'Rider accepted and paid'
               : 'Rider accepted your bid'
-            : `Your bid: ${formatNgn(bid.amountNgn)}`}
+            : stage === 'paying'
+              ? 'Rider is paying…'
+              : stage === 'declined'
+                ? 'Declined'
+                : `Your bid: ${formatNgn(bid.amountNgn)}`}
         </AppText>
         <AppText variant="bodySmall" color={theme.colors.muted}>
           {accepted
             ? tripIsThisRide
               ? 'Your trip is ready.'
               : 'Setting up your trip. This usually takes a few seconds.'
-            : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
+            : stage === 'paying'
+              ? 'The rider chose you and is adding money. Your trip starts the moment it lands.'
+              : stage === 'declined'
+                ? 'The rider declined the offers on this trip.'
+                : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
         </AppText>
         {!accepted ? (() => {
           // The server's clock for this search, the same one the request card counted down.
@@ -244,8 +257,9 @@ export default function PendingBidScreen() {
         </View>
       </View>
 
-      {/* Change the bid — a bid is a negotiation, not a commitment. */}
-      {!accepted ? (
+      {/* Change the bid — a bid is a negotiation, not a commitment. Not once the
+          driver took the rider's own price, nor once the rider has answered. */}
+      {stage === 'waiting' || stage === 'countered' ? tookRidersPrice(bid) && stage === 'waiting' ? null : (
         <View style={styles.card}>
           <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
             Change your bid
@@ -342,12 +356,21 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     marginBottom: theme.spacing.md,
   },
+  // White while waiting; green accepted; yellow paying; red declined.
   statusWaiting: {
-    borderColor: theme.colors.green,
+    borderColor: theme.colors.black,
   },
   statusAccepted: {
-    borderColor: theme.colors.orange,
-    backgroundColor: theme.colors.orangeLight,
+    borderColor: theme.colors.green,
+    backgroundColor: theme.colors.successLight,
+  },
+  statusPaying: {
+    borderColor: theme.colors.warning,
+    backgroundColor: '#FFF8E6',
+  },
+  statusDeclined: {
+    borderColor: theme.colors.danger,
+    backgroundColor: theme.colors.dangerLight,
   },
   card: {
     gap: theme.spacing.sm,

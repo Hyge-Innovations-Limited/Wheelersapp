@@ -1682,7 +1682,8 @@ export type DriverBidStatus =
   | "LOST"
   | "WITHDRAWN"
   | "EXPIRED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "DECLINED";
 
 export interface DriverBidRecord {
   id: string;

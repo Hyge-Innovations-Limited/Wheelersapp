@@ -22,6 +22,7 @@ import { haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
 import { stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
+import { bidStage, outcomeLabel, tookRidersPrice } from '@/lib/bid-card-state';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -167,8 +168,10 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
   function renderBidCard(bid: PendingBid) {
     const { offer } = bid;
     const riderAsk = offer.riderOfferNgn ?? offer.fareEstimateNgn;
-    const accepted = Boolean(bid.acceptedAt);
-    const countered = Boolean(bid.counteredAt) && riderAsk !== bid.amountNgn;
+    const stage = bidStage(bid);
+    const accepted = stage === 'accepted';
+    const countered = stage === 'countered';
+    const paying = stage === 'paying';
     // Show a ticking clock only while the offer's own auction window is
     // still running. Past it the bid is simply OPEN — waiting on the rider —
     // not a countdown to a fake deadline half an hour away.
@@ -179,15 +182,12 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     // A resolved bid stays as its story — greyed, dismissible — instead of
     // vanishing mid-thought.
     if (bid.outcome) {
+      const declined = bid.outcome === 'declined';
       return (
-        <View key={offer.rideId} style={[styles.card, styles.cardResolved]}>
+        <View key={offer.rideId} style={[styles.card, declined ? styles.cardDeclined : styles.cardResolved]}>
           <View style={styles.topRow}>
-            <AppText variant="label" color={theme.colors.muted}>
-              {bid.outcome === 'lost'
-                ? 'Rider chose another driver'
-                : bid.outcome === 'withdrawn'
-                  ? 'Your offer was withdrawn'
-                  : 'Request ended'}
+            <AppText variant={declined ? 'h3' : 'label'} color={declined ? theme.colors.danger : theme.colors.muted}>
+              {outcomeLabel(bid.outcome)}
             </AppText>
             <Pressable onPress={() => dismissBid(offer.rideId)} style={styles.cancelChip}>
               <AppText variant="label" color={theme.colors.muted}>✕</AppText>
@@ -206,20 +206,22 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
         style={({ pressed }) => [
           styles.card,
-          accepted ? styles.cardAccepted : countered ? styles.cardCountered : styles.cardBid,
+          accepted ? styles.cardAccepted : countered ? styles.cardCountered : paying ? styles.cardPaying : styles.cardBid,
           pressed && styles.pressed,
         ]}>
         <View style={styles.topRow}>
-          <AppText variant="h3" color={accepted ? theme.colors.orange : theme.colors.green}>
+          <AppText variant="h3" color={accepted ? theme.colors.green : paying ? theme.colors.warning : theme.colors.black}>
             {accepted
               ? bid.riderPaid ? 'Rider paid' : 'Accepted'
-              : countered
-                ? `Rider offers ${formatNgn(riderAsk)}`
-                : `You offered ${formatNgn(bid.amountNgn)}`}
+              : paying
+                ? 'Rider is paying…'
+                : countered
+                  ? `Rider offers ${formatNgn(riderAsk)}`
+                  : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
-          {!accepted && timeLeft ? (
+          {!accepted && !paying && timeLeft ? (
             <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText>
-          ) : !accepted && !bid.outcome ? (
+          ) : !accepted && !paying && !bid.outcome ? (
             <AppText variant="caption" color={theme.colors.muted}>open · waiting on rider</AppText>
           ) : null}
         </View>
@@ -229,6 +231,10 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
 
         {accepted ? (
           <AppText variant="bodySmall" color={theme.colors.muted}>Starting your trip…</AppText>
+        ) : paying ? (
+          <AppText variant="bodySmall" color={theme.colors.muted}>
+            They chose you for {formatNgn(bid.amountNgn)} and are adding money. Keep this trip in mind.
+          </AppText>
         ) : countered ? (
           <View style={styles.actionsBlock}>
             <Pressable
@@ -265,11 +271,14 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                 You can keep taking other requests
               </AppText>
             )}
-            <Pressable
-              onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
-              style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-              <AppText variant="label">Change bid</AppText>
-            </Pressable>
+            {/* Took the rider's own price: nothing to change, so no "Change bid". */}
+            {tookRidersPrice(bid) ? null : (
+              <Pressable
+                onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
+                style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                <AppText variant="label">Change bid</AppText>
+              </Pressable>
+            )}
           </View>
         )}
       </Pressable>
@@ -419,16 +428,26 @@ const styles = StyleSheet.create({
   cardRequest: {
     borderColor: theme.colors.orange,
   },
+  // White while waiting; green accepted; yellow paying; red declined.
   cardBid: {
-    borderColor: theme.colors.green,
+    borderColor: theme.colors.black,
+    backgroundColor: theme.colors.white,
+  },
+  cardPaying: {
+    borderColor: theme.colors.warning,
+    backgroundColor: '#FFF8E6',
+  },
+  cardDeclined: {
+    borderColor: theme.colors.danger,
+    backgroundColor: theme.colors.dangerLight,
   },
   cardCountered: {
     borderColor: theme.colors.orange,
     backgroundColor: theme.colors.orangeLight,
   },
   cardAccepted: {
-    borderColor: theme.colors.orange,
-    backgroundColor: theme.colors.orangeLight,
+    borderColor: theme.colors.green,
+    backgroundColor: theme.colors.successLight,
   },
   cardStale: {
     borderColor: theme.colors.mutedLight,
