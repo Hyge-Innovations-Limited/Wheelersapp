@@ -49,7 +49,7 @@ export function outcomeFromServerStatus(status: string): NonNullable<PendingBid[
 export function outcomeLabel(outcome: NonNullable<PendingBid["outcome"]>): string {
   switch (outcome) {
     case "lost": return "Taken by another driver";
-    case "withdrawn": return "Your offer was withdrawn";
+    case "withdrawn": return "Offer withdrawn";
     default: return "Request ended";
   }
 }

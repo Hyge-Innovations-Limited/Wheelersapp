@@ -174,6 +174,8 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     const paying = stage === 'paying';
     // Declined is still live: red, the rider's current price, and a new bid is one tap.
     const declined = stage === 'declined';
+    // Took the rider's own price: not a bid to haggle over — a yes, waiting for them to pay.
+    const tookPrice = stage === 'waiting' && tookRidersPrice(bid);
     // Show a ticking clock only while the offer's own auction window is
     // still running. Past it the bid is simply OPEN — waiting on the rider —
     // not a countdown to a fake deadline half an hour away.
@@ -220,10 +222,14 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                 ? 'Rider is paying…'
                 : countered
                   ? `Rider offers ${formatNgn(riderAsk)}`
-                  : `You offered ${formatNgn(bid.amountNgn)}`}
+                  : tookPrice
+                    ? `You took ${formatNgn(bid.amountNgn)}`
+                    : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
           {declined ? (
             <AppText variant="label" color={theme.colors.danger}>Rider wants {formatNgn(riderAsk)}</AppText>
+          ) : tookPrice ? (
+            <AppText variant="caption" color={theme.colors.muted}>the rider's price</AppText>
           ) : !accepted && !paying && timeLeft ? (
             <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText>
           ) : !accepted && !paying && !bid.outcome ? (
@@ -278,7 +284,9 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               </Pressable>
             ) : (
               <AppText variant="caption" color={theme.colors.mutedLight} style={styles.waitNote}>
-                You can keep taking other requests
+                {tookPrice
+                  ? 'Waiting for the rider to confirm and pay. Keep the app open — you can take other requests too.'
+                  : 'You can keep taking other requests'}
               </AppText>
             )}
             {/* Took the rider's own price: nothing to change, so no "Change bid". */}

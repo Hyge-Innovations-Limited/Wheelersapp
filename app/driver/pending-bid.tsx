@@ -169,7 +169,9 @@ export default function PendingBidScreen() {
               ? 'Rider is paying…'
               : stage === 'declined'
                 ? 'Declined'
-                : `Your bid: ${formatNgn(bid.amountNgn)}`}
+                : tookRidersPrice(bid)
+                  ? `You took the rider's price: ${formatNgn(bid.amountNgn)}`
+                  : `Your bid: ${formatNgn(bid.amountNgn)}`}
         </AppText>
         <AppText variant="bodySmall" color={theme.colors.muted}>
           {accepted
@@ -180,7 +182,9 @@ export default function PendingBidScreen() {
               ? 'The rider chose you and is adding money. Your trip starts the moment it lands.'
               : stage === 'declined'
                 ? `The rider declined your ${formatNgn(bid.amountNgn)}. The trip is still open — send a new bid below.`
-                : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
+                : tookRidersPrice(bid)
+                  ? 'Nothing to agree on — the rider just has to confirm and pay. We will alert you the moment they do. Keep the app open so they can reach you.'
+                  : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
         </AppText>
         {!accepted ? (() => {
           // The server's clock for this search, the same one the request card counted down.
