@@ -1528,6 +1528,29 @@ export async function submitDriverKyc(input: {
   );
 }
 
+/**
+ * After a rejection: only the items sent back (the server refuses anything
+ * but a rejected driver, and keeps everything already approved).
+ */
+export async function resubmitDriverKyc(input: {
+  accessToken: string;
+  ninImage?: string;
+  licenceImage?: string;
+  selfieImage?: string;
+  vehicleImages?: string[];
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehiclePlate?: string;
+  vehicleYear?: number;
+  phone?: string;
+}): Promise<{ status: string; resubmitted: string[] }> {
+  const { accessToken, ...body } = input;
+  return postJson<{ status: string; resubmitted: string[] }>("/drivers/kyc/resubmit", body, {
+    accessToken,
+    fallbackError: "Could not send your documents.",
+  });
+}
+
 export interface DriverKycStatusResponse {
   kycStatus: string;
   submission: {
@@ -1536,6 +1559,8 @@ export interface DriverKycStatusResponse {
     reviewedAt: string | null;
     rejectionReason: string | null;
     rejectedFields: string[];
+    /** The reviewer's words for each rejected item, e.g. { licence: "photo is blurry" }. */
+    fieldReasons?: Record<string, string>;
     vehicleMake: string | null;
     vehicleModel: string | null;
     vehiclePlate: string | null;

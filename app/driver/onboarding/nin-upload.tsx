@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -11,9 +10,10 @@ import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
+import { useKycStep } from "@/lib/use-kyc-step";
 
 export default function NinUploadScreen() {
-  const router = useRouter();
+  const step = useKycStep("nin");
   const responsive = useResponsive();
   const { setNinUri, data } = useDriverOnboarding();
   const [imageUri, setImageUri] = useState<string | null>(data.ninUri);
@@ -52,7 +52,7 @@ export default function NinUploadScreen() {
         title="Upload your NIN"
         subtitle="Take a clear photo of your NIN card or slip"
         showBack
-        progress={{ count: 6, active: 1 }}
+        progress={step.progress}
       />
 
       <View
@@ -111,9 +111,10 @@ export default function NinUploadScreen() {
       <View style={styles.spacer} />
 
       <AppButton
-        title="Continue"
-        onPress={() => router.push("/driver/onboarding/licence-upload")}
+        title={step.buttonTitle}
+        onPress={() => void step.go()}
         disabled={!imageUri}
+        loading={step.submitting}
       />
     </AppScreen>
   );

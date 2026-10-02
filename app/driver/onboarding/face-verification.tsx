@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -13,6 +12,7 @@ import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
+import { useKycStep } from "@/lib/use-kyc-step";
 
 type Challenge = "center" | "blink" | "turn_left" | "turn_right";
 
@@ -24,12 +24,19 @@ const CHALLENGES: { key: Challenge; instruction: string }[] = [
 ];
 
 export default function FaceVerificationScreen() {
-  const router = useRouter();
   const responsive = useResponsive();
+  const step = useKycStep("selfie");
   const { setSelfieUri } = useDriverOnboarding();
   const [permission, requestPermission] = useCameraPermissions();
   const [currentStep, setCurrentStep] = useState(0);
   const [captured, setCaptured] = useState(false);
+  // The prompts only run once the camera is really on, and "captured" means a
+  // photo exists: a camera that failed used to pass as done, and the driver
+  // only found out when sending failed at the very end.
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraKey, setCameraKey] = useState(0);
+  const capturingRef = useRef(false);
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -43,7 +50,7 @@ export default function FaceVerificationScreen() {
 
   useEffect(() => {
     // Auto-advance through challenges every 2.5s (simulating liveness detection)
-    if (captured || !permission?.granted) return;
+    if (captured || cameraError || !cameraReady || !permission?.granted) return;
 
     timerRef.current = setTimeout(() => {
       if (currentStep < CHALLENGES.length - 1) {
@@ -56,21 +63,39 @@ export default function FaceVerificationScreen() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentStep, captured, permission?.granted]);
+  }, [currentStep, captured, cameraError, cameraReady, permission?.granted]);
 
   async function handleCapture() {
-    if (!cameraRef.current) return;
+    if (capturingRef.current) return;
+    if (!cameraRef.current || !cameraReady) {
+      setCameraError("The camera isn't ready yet. Try again in a moment.");
+      return;
+    }
 
+    capturingRef.current = true;
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
-      if (photo) {
+      if (photo?.uri) {
         setSelfieUri(photo.uri);
         setCaptured(true);
+      } else {
+        setCameraError("The photo didn't save. Try again.");
       }
     } catch {
-      // Camera error — still mark as captured for flow continuity
-      setCaptured(true);
+      setCameraError("Your camera couldn't take the photo. Try again.");
+    } finally {
+      capturingRef.current = false;
     }
+  }
+
+  /** Starts the check again with a fresh camera. */
+  function retry() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setCameraError(null);
+    setCaptured(false);
+    setCurrentStep(0);
+    setCameraReady(false);
+    setCameraKey((k) => k + 1);
   }
 
   if (!permission?.granted) {
@@ -80,7 +105,7 @@ export default function FaceVerificationScreen() {
           title="Face Verification"
           subtitle="Camera permission is required"
           showBack
-          progress={{ count: 6, active: 3 }}
+          progress={step.progress}
         />
         <View style={styles.center}>
           <AppText variant="body" color={theme.colors.muted}>
@@ -102,18 +127,21 @@ export default function FaceVerificationScreen() {
     <AppScreen scroll contentStyle={styles.container}>
       <FlowHeader
         title="Face Verification"
-        subtitle={captured ? "Looking good!" : "Follow the prompts below"}
+        subtitle={captured ? "Looking good!" : cameraError ? "Let's try that again" : "Follow the prompts below"}
         showBack
-        progress={{ count: 6, active: 3 }}
+        progress={step.progress}
       />
 
       <View style={[styles.cameraSection, { gap: responsive.scale(16) }]}>
         <View style={[styles.cameraWrap, { height: cameraHeight, maxWidth: Math.round(cameraHeight * 0.75) }]}>
           <CameraView
+            key={cameraKey}
             ref={cameraRef}
             style={styles.camera}
             facing="front"
             mode="picture"
+            onCameraReady={() => setCameraReady(true)}
+            onMountError={() => setCameraError("Your camera didn't start. Close any other app using it, then try again.")}
           />
           <View style={styles.overlay}>
             <View
@@ -129,7 +157,18 @@ export default function FaceVerificationScreen() {
           </View>
         </View>
 
-        {!captured && challenge && (
+        {cameraError && (
+          <View style={styles.errorWrap}>
+            <Ionicons name="alert-circle" size={28} color={theme.colors.danger} />
+            <AppText variant="body" style={styles.instruction}>
+              {cameraError}
+            </AppText>
+            <AppButton title="Try again" variant="ghost" onPress={retry} />
+          </View>
+        )}
+
+        {!captured && !cameraError && challenge && (
+          cameraReady ? (
           <View style={styles.instructionWrap}>
             <AppText variant="h3" style={styles.instruction}>
               {challenge.instruction}
@@ -138,9 +177,14 @@ export default function FaceVerificationScreen() {
               Step {currentStep + 1} of {CHALLENGES.length}
             </AppText>
           </View>
+          ) : (
+            <AppText variant="bodySmall" color={theme.colors.muted}>
+              Starting your camera…
+            </AppText>
+          )
         )}
 
-        {!captured && (
+        {!captured && !cameraError && cameraReady && (
           <Pressable
             onPress={handleCapture}
             style={({ pressed }) => [
@@ -167,9 +211,10 @@ export default function FaceVerificationScreen() {
       <View style={styles.spacer} />
 
       <AppButton
-        title="Continue"
-        onPress={() => router.push("/driver/onboarding/vehicle-info")}
+        title={step.buttonTitle}
+        onPress={() => void step.go()}
         disabled={!captured}
+        loading={step.submitting}
       />
     </AppScreen>
   );
@@ -241,6 +286,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.orange,
     alignItems: "center",
     justifyContent: "center",
+  },
+  errorWrap: {
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
   },
   successWrap: {
     alignItems: "center",

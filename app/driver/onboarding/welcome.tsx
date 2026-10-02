@@ -10,6 +10,7 @@ import { FlowHeader } from "@/components/flow-header";
 import { OnboardingSignOut } from "@/components/onboarding-sign-out";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
+import { useDriverOnboarding } from "@/lib/driver-onboarding";
 
 const STEPS = [
   { icon: "id-card-outline" as const, label: "NIN card photo" },
@@ -22,6 +23,7 @@ const STEPS = [
 export default function OnboardingWelcomeScreen() {
   const router = useRouter();
   const responsive = useResponsive();
+  const { startFull } = useDriverOnboarding();
 
   // Five rows plus a header have to clear the button on a 320x568 phone —
   // tighten the rhythm there instead of pushing the CTA off-screen.
@@ -56,7 +58,13 @@ export default function OnboardingWelcomeScreen() {
 
       <View style={styles.spacer} />
 
-      <AppButton title="Let's go" onPress={() => router.push("/driver/onboarding/nin-upload")} />
+      <AppButton
+        title="Let's go"
+        onPress={() => {
+          startFull();
+          router.push("/driver/onboarding/nin-upload");
+        }}
+      />
       <OnboardingSignOut />
     </AppScreen>
   );

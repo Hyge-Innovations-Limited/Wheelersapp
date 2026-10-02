@@ -11,33 +11,24 @@ import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useAuth } from "@/lib/auth";
 import { noteDriverKyc } from "@/lib/driver-kyc";
-import { getDriverKycStatus } from "@/lib/api";
+import { knownDriverKyc } from "@/lib/driver-kyc-store";
+import { getDriverKycStatus, type DriverKycStatusResponse } from "@/lib/api";
+import { useDriverOnboarding } from "@/lib/driver-onboarding";
+import { KYC_STEP_LABELS, KYC_STEP_ROUTES, KYC_STEPS, fixStepsFrom } from "@/lib/kyc-steps";
 import { OnboardingSignOut } from "@/components/onboarding-sign-out";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
-
-const FIELD_TO_ROUTE: Record<string, string> = {
-  nin: "/driver/onboarding/nin-upload",
-  licence: "/driver/onboarding/licence-upload",
-  selfie: "/driver/onboarding/face-verification",
-  vehicle: "/driver/onboarding/vehicle-info",
-  vehiclePhotos: "/driver/onboarding/vehicle-photos",
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  nin: "NIN Document",
-  licence: "Driver's Licence",
-  selfie: "Face Verification",
-  vehicle: "Vehicle Details",
-  vehiclePhotos: "Vehicle Photos",
-};
 
 export default function PendingScreen() {
   const router = useRouter();
   const { getAccessToken } = useAuth();
   const responsive = useResponsive();
-  const [kycStatus, setKycStatus] = useState<string>("SUBMITTED");
+  const { startFix } = useDriverOnboarding();
+  // Start from the last known answer, so a rejected driver doesn't first see "Under review".
+  const [kycStatus, setKycStatus] = useState<string>(() => knownDriverKyc() ?? "SUBMITTED");
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [rejectedFields, setRejectedFields] = useState<string[]>([]);
+  const [fieldReasons, setFieldReasons] = useState<Record<string, string>>({});
+  const [submission, setSubmission] = useState<DriverKycStatusResponse["submission"]>(null);
 
   useEffect(() => {
     let active = true;
@@ -53,6 +44,8 @@ export default function PendingScreen() {
         setKycStatus(result.kycStatus);
         setRejectionReason(result.submission?.rejectionReason ?? null);
         setRejectedFields(result.submission?.rejectedFields ?? []);
+        setFieldReasons(result.submission?.fieldReasons ?? {});
+        setSubmission(result.submission);
       } catch {
         // silently retry on next interval
       }
@@ -96,44 +89,61 @@ export default function PendingScreen() {
   }
 
   if (kycStatus === "REJECTED") {
-    const firstRejectedRoute = rejectedFields.length > 0
-      ? FIELD_TO_ROUTE[rejectedFields[0]!] ?? "/driver/onboarding/welcome"
-      : "/driver/onboarding/welcome";
+    // Only what was sent back; everything else stays approved.
+    const toFix = fixStepsFrom(rejectedFields);
+    const everything = toFix.length === KYC_STEPS.length;
+    const startFixing = () => {
+      startFix(toFix, submission ? {
+        make: submission.vehicleMake ?? undefined,
+        model: submission.vehicleModel ?? undefined,
+        plate: submission.vehiclePlate ?? undefined,
+        year: submission.vehicleYear ?? undefined,
+      } : null);
+      router.push(KYC_STEP_ROUTES[toFix[0]!] as any);
+    };
 
     return (
       <AppScreen scroll contentStyle={styles.container}>
         <View style={[styles.center, centerStyle]}>
           <Animated.View entering={ZoomIn.duration(400)} style={[styles.iconWrap, iconStyle, styles.rejectedIcon]}>
-            <Ionicons name="close-circle" size={glyphSize} color={theme.colors.danger} />
+            <Ionicons name="alert-circle" size={glyphSize} color={theme.colors.danger} />
           </Animated.View>
           <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.textWrap}>
-            <AppText variant="h1" style={styles.title} numberOfLines={2}>Application Rejected</AppText>
+            <AppText variant="h1" style={styles.title} numberOfLines={2}>
+              {toFix.length === 1 ? "One thing to fix" : everything ? "Please send your documents again" : "A few things to fix"}
+            </AppText>
             <AppText variant="body" color={theme.colors.muted} style={styles.subtitle}>
-              {rejectionReason ?? "Your documents did not pass review."}
+              {everything
+                ? rejectionReason ?? "Your documents did not pass review."
+                : "Everything else is approved. Fix this and we'll look again, usually within a few hours."}
             </AppText>
           </Animated.View>
 
-          {rejectedFields.length > 0 && (
+          {!everything && (
             <Animated.View
               entering={FadeInDown.delay(250).duration(400)}
               style={[styles.rejectedList, { padding: responsive.scale(16) }]}>
-              <AppText variant="label" style={styles.rejectedListTitle} numberOfLines={1}>
-                Please fix the following:
-              </AppText>
-              {rejectedFields.map((field) => (
+              {toFix.map((field) => (
                 <View key={field} style={styles.rejectedItem}>
                   <Ionicons name="alert-circle" size={responsive.scale(16)} color={theme.colors.danger} />
-                  <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={2}>
-                    {FIELD_LABELS[field] ?? field}
-                  </AppText>
+                  <View style={styles.rejectedText}>
+                    <AppText variant="label" numberOfLines={1}>
+                      {KYC_STEP_LABELS[field]}
+                    </AppText>
+                    {fieldReasons[field] ? (
+                      <AppText variant="bodySmall" color={theme.colors.muted}>
+                        {fieldReasons[field]}
+                      </AppText>
+                    ) : null}
+                  </View>
                 </View>
               ))}
             </Animated.View>
           )}
         </View>
         <AppButton
-          title={rejectedFields.length > 0 ? `Fix ${FIELD_LABELS[rejectedFields[0]!] ?? "Documents"}` : "Resubmit Documents"}
-          onPress={() => router.replace(firstRejectedRoute as any)}
+          title={toFix.length === 1 ? `Fix ${KYC_STEP_LABELS[toFix[0]!].toLowerCase()}` : everything ? "Start again" : `Fix ${toFix.length} items`}
+          onPress={startFixing}
         />
         <OnboardingSignOut />
       </AppScreen>
@@ -252,12 +262,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.dangerLight,
     ...theme.shadows.subtle,
   },
-  rejectedListTitle: {
-    marginBottom: theme.spacing.xs,
-  },
   rejectedItem: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: theme.spacing.sm,
+  },
+  rejectedText: {
+    flex: 1,
+    gap: 2,
   },
 });

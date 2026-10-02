@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,7 +9,7 @@ import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
-import { useAuth } from "@/lib/auth";
+import { useKycStep } from "@/lib/use-kyc-step";
 
 const MIN_PHOTOS = 7;
 const MAX_PHOTOS = 10;
@@ -26,9 +25,8 @@ const PHOTO_TIPS = [
 ];
 
 export default function VehiclePhotosScreen() {
-  const router = useRouter();
-  const { data, addVehiclePhoto, removeVehiclePhoto, submit, submitting } = useDriverOnboarding();
-  const { getAccessToken } = useAuth();
+  const { data, addVehiclePhoto, removeVehiclePhoto } = useDriverOnboarding();
+  const step = useKycStep("vehiclePhotos");
   const responsive = useResponsive();
   const photos = data.vehiclePhotos;
   const canAddMore = photos.length < MAX_PHOTOS;
@@ -95,7 +93,7 @@ export default function VehiclePhotosScreen() {
         title="Vehicle Photos"
         subtitle={`Take ${MIN_PHOTOS}-${MAX_PHOTOS} clear photos of your vehicle`}
         showBack
-        progress={{ count: 6, active: 5 }}
+        progress={step.progress}
       />
 
       <View style={styles.counterRow}>
@@ -181,20 +179,10 @@ export default function VehiclePhotosScreen() {
       <View style={styles.spacer} />
 
       <AppButton
-        title="Submit for Review"
-        onPress={async () => {
-          try {
-            await submit(getAccessToken);
-            router.replace("/driver/onboarding/pending");
-          } catch (error) {
-            Alert.alert(
-              "Submission failed",
-              error instanceof Error ? error.message : "Could not submit. Please try again.",
-            );
-          }
-        }}
+        title={step.buttonTitle}
+        onPress={() => void step.go()}
         disabled={!isValid}
-        loading={submitting}
+        loading={step.submitting}
       />
     </AppScreen>
   );

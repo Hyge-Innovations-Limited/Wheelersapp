@@ -233,6 +233,11 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
     // Everything else keeps the default behaviour of simply opening the app.
     const tapSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+      // The verification decision: that screen says what to fix, or moves an approved driver on.
+      if (isDriverApp && (data?.type === "kyc_rejected" || data?.type === "kyc_approved")) {
+        router.navigate("/driver/onboarding/pending" as Href);
+        return;
+      }
       if (isDriverApp && data?.type === "dispatch_nudge") {
         const offerWaiting = data.online === "1" && typeof data.rideId === "string";
         router.navigate((offerWaiting ? "/driver/(tabs)/active" : "/driver/(tabs)/home") as Href);

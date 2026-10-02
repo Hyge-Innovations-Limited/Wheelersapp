@@ -48,8 +48,11 @@ test.beforeEach(async () => { await clearStoredAuthState(); store.clear(); kyc.a
 test('a driver who only signed up (KYC not started) goes to verification, never the dashboard', async () => {
   kyc.answer = 'PENDING';
   assert.equal(await resolvePostAuthRoute(driver, 'token'), '/driver/onboarding/welcome');
+});
+
+test('a rejected driver lands on what to fix, not back at the start', async () => {
   kyc.answer = 'REJECTED';
-  assert.equal(await resolvePostAuthRoute(driver, 'token'), '/driver/onboarding/welcome');
+  assert.equal(await resolvePostAuthRoute(driver, 'token'), '/driver/onboarding/pending');
 });
 
 test('a driver in review waits on the pending screen; an approved one gets the dashboard', async () => {
@@ -99,8 +102,9 @@ const at = (path) => path.split('/');
 
 test('the lock: an unverified driver is forced back to verification from every driver screen', () => {
   for (const status of ['PENDING', 'REJECTED', null]) {
+    const verification = status === 'REJECTED' ? '/driver/onboarding/pending' : '/driver/onboarding/welcome';
     for (const screen of ['driver/(tabs)/home', 'driver/(tabs)/wallet', 'driver/withdraw', 'driver/stellar', 'driver/navigation', 'driver/(tabs)/interstate']) {
-      assert.equal(kycLockTarget(status, at(screen)), '/driver/onboarding/welcome', `${status} on ${screen}`);
+      assert.equal(kycLockTarget(status, at(screen)), verification, `${status} on ${screen}`);
       assert.equal(kycLockCovers(status, at(screen)), true, 'hidden while moved');
     }
     for (const step of ['welcome', 'nin-upload', 'licence-upload', 'face-verification', 'vehicle-info', 'vehicle-photos']) {

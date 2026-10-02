@@ -24,7 +24,8 @@ const CHECK_TIMEOUT_MS = 6_000;
 
 export function routeForKyc(status: string | null): DriverKycRoute {
   if (status === "APPROVED") return "/driver/(tabs)/home";
-  if (status === "SUBMITTED") return "/driver/onboarding/pending";
+  // Rejected: the screen that says what to fix and why, not the start.
+  if (status === "SUBMITTED" || status === "REJECTED") return "/driver/onboarding/pending";
   return "/driver/onboarding/welcome";
 }
 
@@ -34,6 +35,7 @@ export function routeForKyc(status: string | null): DriverKycRoute {
  * undefined means not known yet (wait, the screen stays covered).
  *   approved            → anywhere
  *   submitted           → only "Under review"
+ *   rejected            → "What to fix" (the pending screen), then the steps
  *   anything else       → only the verification steps
  */
 export function kycLockTarget(status: string | null | undefined, segments: string[]): DriverKycRoute | null {

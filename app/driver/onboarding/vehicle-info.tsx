@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 
@@ -9,16 +8,19 @@ import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
+import { useKycStep } from "@/lib/use-kyc-step";
 
 export default function VehicleInfoScreen() {
-  const router = useRouter();
   const responsive = useResponsive();
-  const { setVehicleInfo } = useDriverOnboarding();
-  const [make, setMake] = useState("");
-  const [model, setModel] = useState("");
-  const [plate, setPlate] = useState("");
-  const [year, setYear] = useState("");
-  const [phone, setPhone] = useState("");
+  const { data, setVehicleInfo } = useDriverOnboarding();
+  const step = useKycStep("vehicle");
+  // Fixing the car's details: start from what was sent, not a blank form.
+  const start = data.vehicleInfo ?? data.vehicleDraft;
+  const [make, setMake] = useState(start?.make ?? "");
+  const [model, setModel] = useState(start?.model ?? "");
+  const [plate, setPlate] = useState(start?.plate ?? "");
+  const [year, setYear] = useState(start?.year ? String(start.year) : "");
+  const [phone, setPhone] = useState(start?.phone ?? "");
 
   // Refs let the keyboard's "next" key walk down the form instead of the
   // driver having to tap each field behind the keyboard.
@@ -27,12 +29,15 @@ export default function VehicleInfoScreen() {
   const yearRef = useRef<TextInput>(null);
   const phoneRef = useRef<TextInput>(null);
 
-  const isValid = make.trim() && model.trim() && plate.trim() && year.trim().length === 4 && phone.trim().length >= 10;
+  // The phone is asked once, with the first application; a fix may leave it as it is.
+  const phoneOk = step.fixing ? phone.trim().length === 0 || phone.trim().length >= 10 : phone.trim().length >= 10;
+  const isValid = make.trim() && model.trim() && plate.trim() && year.trim().length === 4 && phoneOk;
 
   function handleContinue() {
     if (!isValid) return;
-    setVehicleInfo({ make: make.trim(), model: model.trim(), plate: plate.trim(), year: parseInt(year, 10), phone: phone.trim() });
-    router.push("/driver/onboarding/vehicle-photos");
+    const info = { make: make.trim(), model: model.trim(), plate: plate.trim(), year: parseInt(year, 10), phone: phone.trim() };
+    setVehicleInfo(info);
+    void step.go({ vehicleInfo: info });
   }
 
   return (
@@ -41,7 +46,7 @@ export default function VehicleInfoScreen() {
         title="Vehicle Details"
         subtitle="Tell us about the vehicle you'll be driving"
         showBack
-        progress={{ count: 6, active: 4 }}
+        progress={step.progress}
       />
 
       <View style={[styles.form, { marginTop: responsive.scale(28), gap: responsive.scale(16) }]}>
@@ -109,7 +114,7 @@ export default function VehicleInfoScreen() {
 
       <View style={styles.spacer} />
 
-      <AppButton title="Continue" onPress={handleContinue} disabled={!isValid} />
+      <AppButton title={step.buttonTitle} onPress={handleContinue} disabled={!isValid} loading={step.submitting} />
     </AppScreen>
   );
 }
