@@ -25,7 +25,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
 import { bidCeilingNgn } from '@/lib/bid-limits';
-import { driverRatePerKmNgn, formatPerKmNgn, rideFees, suggestedBidsNgn } from '@/lib/ride-fees';
+import { driverRatePerKmNgn, formatPerKmNgn, suggestedBidsNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
@@ -333,8 +333,6 @@ export default function IncomingRequestScreen() {
   // The rider's live number, not the original estimate — a counter-offer only
   // moves riderOfferNgn, so reading fareEstimateNgn froze the price on screen.
   const activeFare = lastBidNgn ?? offer.riderOfferNgn ?? offer.fareEstimateNgn;
-  // One number, not the itemised fees: what lands in the driver's wallet at this price.
-  const driverPayout = rideFees(activeFare).driverPayoutNgn;
   const distanceKm = offer.plannedDistanceKm
     ? `${offer.plannedDistanceKm.toFixed(1)} km`
     : '--';
@@ -632,12 +630,6 @@ export default function IncomingRequestScreen() {
 
           {/* This price per km to the driver (their share after the booking fee) — tap for how. */}
           <PerKmChip priceNgn={activeFare} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
-
-          {/* What the driver takes home at this price — one line, no ledger. */}
-          <View style={styles.earnRow}>
-            <AppText variant="label" color={theme.colors.muted}>You earn</AppText>
-            <AppText variant="h3" color={theme.colors.green}>{formatNgn(driverPayout)}</AppText>
-          </View>
 
           {/* Actions — per-seat groups negotiate above; a lump-sum accept has
               no rider on the other end to approve it. */}
@@ -1027,18 +1019,6 @@ const styles = StyleSheet.create({
   },
 
   // What the driver earns — one row
-  earnRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: theme.colors.white,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radii.sm,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    ...theme.shadows.subtle,
-  },
 
   // Actions
   switcherRow: {
