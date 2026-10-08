@@ -21,6 +21,7 @@ import { Text, TextInput } from "react-native";
 
 import { AppLockOverlay, AppLockProvider } from "@/lib/app-lock";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { SessionKeeper } from "@/components/session-keeper";
 import { LocationProvider } from "@/lib/location";
 import { AppNotificationsProvider } from "@/lib/notifications";
 import { InterstateRequestsProvider } from "@/lib/interstate-requests-context";
@@ -60,6 +61,7 @@ export default function RootLayout() {
                     {/* The driver app's calls live in the driver layout, on the driver's socket. */}
                     {isDriverApp ? <ThemedLayout /> : <RiderLiveCallHost><ThemedLayout /></RiderLiveCallHost>}
                     <AuthAppLockOverlay />
+                    <SessionKeeper />
                   </AppLockProvider>
                   </InterstateRequestsProvider>
                 </QuestBadgeProvider>

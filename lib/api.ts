@@ -1496,6 +1496,14 @@ export async function getDriverRideHistory(input: {
 
 // ─── Driver KYC ─────────────────────────────────────────────────
 
+/** Swaps a signed-in phone's login for a fresh 30-day one (rolling logins). */
+export async function refreshAccessToken(accessToken: string): Promise<{ accessToken: string; expiresAt: string }> {
+  return postJson<{ accessToken: string; expiresAt: string }>("/auth/refresh", {}, {
+    accessToken,
+    fallbackError: "Could not renew your login.",
+  });
+}
+
 export async function submitDriverKyc(input: {
   accessToken: string;
   ninImage: string;
