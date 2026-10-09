@@ -99,6 +99,14 @@
       },
       "channel": "production-driver"
     },
+    "production:driver:simulator": {
+      "extends": "production:driver",
+      "distribution": "internal",
+      "autoIncrement": false,
+      "ios": {
+        "simulator": true
+      }
+    },
     "production:driver:play": {
       "distribution": "store",
       "environment": "production",
