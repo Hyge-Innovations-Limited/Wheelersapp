@@ -24,7 +24,7 @@ export * from '${join(projectRoot, 'lib/bid-card-state.ts')}';
 `);
 const outFile = join(dir, 'bundle.cjs');
 execFileSync('npx', ['esbuild', entry, '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { reduceDriverSession, recordBid, defaultDriverSession, bidStage, tookRidersPrice, hydrateBidRecords } = createRequire(import.meta.url)(outFile);
+const { reduceDriverSession, recordBid, defaultDriverSession, bidStage, tookRidersPrice, hydrateBidRecords, repricedAfterDecline } = createRequire(import.meta.url)(outFile);
 
 const NOW = Date.parse('2026-10-01T10:00:00Z');
 const offer = (riderOfferNgn = 3000) => ({
@@ -117,4 +117,23 @@ test('the trip is over: the "Accepted · Starting your trip…" card goes, and t
   }];
   assert.equal(hydrateBidRecords({ ...defaultDriverSession }, rec, NOW).pendingBids['ride-1'], undefined, 'not rebuilt from the server');
   assert.equal(hydrateBidRecords(accepted, rec, NOW).pendingBids['ride-1'], undefined, 'and a stale local one is removed');
+});
+
+test('declined, then the rider names a new price: live again ("New price"), red only until then and again if they decline once more', () => {
+  const payload = (riderOfferNgn) => ({ ...offer(riderOfferNgn), expiresAt: new Date(NOW + 600_000).toISOString() });
+  let s = reduceDriverSession(withBid(3500), 'ride:bid_declined', { rideId: 'ride-1' }, NOW);
+  assert.equal(repricedAfterDecline(s.pendingBids['ride-1']), false, 'declined, nothing new: red');
+
+  // The same price sent again is not a new price.
+  s = reduceDriverSession(s, 'ride:offer', payload(3000), NOW + 30_000);
+  assert.equal(repricedAfterDecline(s.pendingBids['ride-1']), false);
+
+  s = reduceDriverSession(s, 'ride:offer', payload(3300), NOW + 60_000);
+  const bid = s.pendingBids['ride-1'];
+  assert.equal(bid.offer.riderOfferNgn, 3300, 'the card shows the new price');
+  assert.equal(stageOf(s), 'declined', 'the bid form stays: the driver still has to answer');
+  assert.equal(repricedAfterDecline(bid), true, 'but it is shown live, not red');
+
+  s = reduceDriverSession(s, 'ride:bid_declined', { rideId: 'ride-1' }, NOW + 120_000);
+  assert.equal(repricedAfterDecline(s.pendingBids['ride-1']), false, 'declined again: red again');
 });

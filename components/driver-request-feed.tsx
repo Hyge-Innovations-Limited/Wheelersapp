@@ -23,7 +23,7 @@ import { haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
 import { stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
-import { bidStage, outcomeLabel, tookRidersPrice } from '@/lib/bid-card-state';
+import { bidStage, outcomeLabel, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -308,6 +308,9 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
   function renderRequestCard(offer: RideOffer, declinedBid?: PendingBid) {
     const riderAsk = offer.riderOfferNgn ?? offer.fareEstimateNgn;
     const wasDeclined = Boolean(declinedBid);
+    // The rider declined, then came back with a new price: live again, not red.
+    const repriced = declinedBid ? repricedAfterDecline(declinedBid) : false;
+    const red = wasDeclined && !repriced;
     const otherAmount = () => wasDeclined
       ? router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)
       : openDetails(offer.rideId);
@@ -319,21 +322,23 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     return (
       <View
         key={offer.rideId}
-        style={[styles.card, wasDeclined ? styles.cardDeclined : stale ? styles.cardStale : styles.cardRequest]}>
+        style={[styles.card, red ? styles.cardDeclined : stale ? styles.cardStale : styles.cardRequest]}>
         <Pressable onPress={otherAmount}>
           {declinedBid ? (
             <View style={styles.declinedBadgeRow}>
-              <View style={styles.declinedBadge}>
-                <AppText variant="label" color={theme.colors.white}>DECLINED</AppText>
+              <View style={[styles.declinedBadge, repriced && styles.newPriceBadge]}>
+                <AppText variant="label" color={theme.colors.white}>{repriced ? 'NEW PRICE' : 'DECLINED'}</AppText>
               </View>
-              <AppText variant="caption" color={theme.colors.danger} numberOfLines={1} style={styles.personText}>
-                Your {formatNgn(declinedBid.amountNgn)} · send a new offer
+              <AppText variant="caption" color={repriced ? theme.colors.muted : theme.colors.danger} numberOfLines={1} style={styles.personText}>
+                {repriced
+                  ? `Your ${formatNgn(declinedBid.amountNgn)} was declined · rider's new price`
+                  : `Your ${formatNgn(declinedBid.amountNgn)} · send a new offer`}
               </AppText>
             </View>
           ) : null}
           <View style={styles.topRow}>
             <View>
-              <AppText variant="h2" color={wasDeclined ? theme.colors.danger : stale ? theme.colors.muted : theme.colors.orange}>
+              <AppText variant="h2" color={red ? theme.colors.danger : stale ? theme.colors.muted : theme.colors.orange}>
                 {formatNgn(riderAsk)}
               </AppText>
               {/* What this price is worth per km to the driver — their share after
@@ -492,6 +497,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
+  },
+  // The rider came back with a new price after declining: the badge is live orange, not red.
+  newPriceBadge: {
+    backgroundColor: theme.colors.orange,
   },
   cardCountered: {
     borderColor: theme.colors.orange,

@@ -12,7 +12,7 @@ import { useAppLocation } from '@/lib/location';
 import { bidNudgesNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { theme } from '@/theme';
-import { bidStage, tookRidersPrice } from '@/lib/bid-card-state';
+import { bidStage, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
 
 
 /** How often to ask the backend about a bid the rider has accepted but whose
@@ -96,6 +96,7 @@ export default function PendingBidScreen() {
   // keep asking while the rider has accepted but the trip hasn't arrived.
   const accepted = Boolean(bid?.acceptedAt);
   const stage = bid ? bidStage(bid) : 'waiting';
+  const repriced = bid ? repricedAfterDecline(bid) : false;
   useEffect(() => {
     if (!bid) return;
     void syncActiveRide();
@@ -159,9 +160,9 @@ export default function PendingBidScreen() {
       {/* Status — the one line the driver opened this page for. */}
       <View style={[
         styles.statusCard,
-        accepted ? styles.statusAccepted : stage === 'paying' ? styles.statusPaying : stage === 'declined' ? styles.statusDeclined : styles.statusWaiting,
+        accepted ? styles.statusAccepted : stage === 'paying' ? styles.statusPaying : stage === 'declined' && !repriced ? styles.statusDeclined : styles.statusWaiting,
       ]}>
-        <AppText variant="h3" color={accepted ? theme.colors.green : stage === 'paying' ? theme.colors.warning : stage === 'declined' ? theme.colors.danger : theme.colors.black}>
+        <AppText variant="h3" color={accepted ? theme.colors.green : stage === 'paying' ? theme.colors.warning : stage === 'declined' ? (repriced ? theme.colors.orange : theme.colors.danger) : theme.colors.black}>
           {accepted
             ? bid.riderPaid
               ? 'Rider accepted and paid'
@@ -169,7 +170,7 @@ export default function PendingBidScreen() {
             : stage === 'paying'
               ? 'Rider is paying…'
               : stage === 'declined'
-                ? 'Declined'
+                ? repriced ? `Rider's new price: ${formatNgn(riderOffer)}` : 'Declined'
                 : tookRidersPrice(bid)
                   ? `You took the rider's price: ${formatNgn(bid.amountNgn)}`
                   : `Your bid: ${formatNgn(bid.amountNgn)}`}
@@ -182,7 +183,9 @@ export default function PendingBidScreen() {
             : stage === 'paying'
               ? 'The rider chose you and is adding money. Your trip starts the moment it lands.'
               : stage === 'declined'
-                ? `The rider declined your ${formatNgn(bid.amountNgn)}. The trip is still open — send a new bid below.`
+                ? repriced
+                  ? `The rider declined your ${formatNgn(bid.amountNgn)}, then named a new price. Take it or send a new bid below.`
+                  : `The rider declined your ${formatNgn(bid.amountNgn)}. The trip is still open — send a new bid below.`
                 : tookRidersPrice(bid)
                   ? 'Nothing to agree on — the rider just has to confirm and pay. We will alert you the moment they do. Keep the app open so they can reach you.'
                   : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
