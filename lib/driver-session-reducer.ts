@@ -10,6 +10,7 @@
  */
 import type { DriverActiveRide, RideEstimateWaypoint, RideRouteGeometry } from '@/lib/api';
 import { outcomeFromServerStatus } from '@/lib/bid-card-state';
+import { pricingVersionOf, type PricingVersion } from '@/lib/ride-fees';
 
 export type DriverStatus =
   | 'offline'
@@ -41,8 +42,17 @@ export type RideOffer = {
   minOfferNgn?: number;
   /** The base rate per km this fare was built on — shown on the card as sent, never typed into the app. */
   ratePerKmNgn?: number;
-  /** Wheelers' booking fee: each price is shown as (price − this) ÷ km — the driver's share per km. */
+  /** Wheelers' booking fee, as an older server sent it. */
   bookingFeeNgn?: number;
+  /**
+   * Which rules this trip is priced under. 2 (since 10 Oct 2026): the driver
+   * prices per km and the rider's fare carries VAT and the booking fee on top.
+   */
+  pricingVersion: PricingVersion;
+  /** The highest fare a bid may come to on this trip, and the rates per km a bid may sit between. */
+  maxOfferNgn?: number;
+  minRatePerKmNgn?: number;
+  maxRatePerKmNgn?: number;
   /**
    * This driver is still carrying a passenger: they were matched because the
    * pickup is near their drop-off. The card says so, and the distances above
@@ -99,6 +109,8 @@ export type DriverRide = {
   destination: RideEstimateWaypoint;
   stops: RideEstimateWaypoint[];
   fareNgn: number;
+  /** Which rules the fare was agreed under: what the driver is paid is worked from it. */
+  pricingVersion: PricingVersion;
   plannedDistanceKm?: number;
   plannedDurationSeconds?: number;
   route?: RideRouteGeometry;
@@ -390,6 +402,7 @@ export function hydrateBidRecords(
       riderOfferNgn: number | null;
       agreedFareNgn: number | null;
       fareEstimateNgn: number | null;
+      pricingVersion?: number;
     };
   }>,
   now: number = Date.now(),
@@ -441,6 +454,7 @@ export function hydrateBidRecords(
       stops: [],
       fareEstimateNgn: rec.ride.fareEstimateNgn ?? rec.amountNgn,
       riderOfferNgn: rec.ride.riderOfferNgn ?? undefined,
+      pricingVersion: pricingVersionOf(rec.ride.pricingVersion),
       expiresAt: new Date(createdMs + 90_000).toISOString(),
       receivedAtMs: createdMs,
     };
@@ -521,6 +535,7 @@ function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
     destination: ride.destination,
     stops: ride.stops ?? [],
     fareNgn: ride.agreedFareNgn,
+    pricingVersion: pricingVersionOf(ride.pricingVersion),
     startedAt: ride.startedAt ?? undefined,
     riderPaid: ride.riderPaid,
     riderPhone: ride.riderPhone ?? undefined,
@@ -705,6 +720,10 @@ export function reduceDriverSession(
       minOfferNgn: getNumber(payload.minOfferNgn),
       ratePerKmNgn: getNumber(payload.ratePerKmNgn),
       bookingFeeNgn: getNumber(payload.bookingFeeNgn),
+      pricingVersion: pricingVersionOf(payload.pricingVersion),
+      maxOfferNgn: getNumber(payload.maxOfferNgn),
+      minRatePerKmNgn: getNumber(payload.minRatePerKmNgn),
+      maxRatePerKmNgn: getNumber(payload.maxRatePerKmNgn),
       afterCurrentTrip: payload.afterCurrentTrip === true,
       plannedDistanceKm: getNumber(payload.plannedDistanceKm),
       plannedDurationSeconds: getNumber(payload.plannedDurationSeconds),
@@ -854,6 +873,10 @@ export function reduceDriverSession(
           (sameRide ? prev.currentRide?.fareNgn : undefined) ??
           offer?.fareEstimateNgn ??
           0,
+        pricingVersion:
+          payload.pricingVersion !== undefined
+            ? pricingVersionOf(payload.pricingVersion)
+            : offer?.pricingVersion ?? (sameRide ? prev.currentRide?.pricingVersion : undefined) ?? 1,
         plannedDistanceKm:
           offer?.plannedDistanceKm ?? (sameRide ? prev.currentRide?.plannedDistanceKm : undefined),
         plannedDurationSeconds:

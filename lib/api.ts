@@ -152,6 +152,8 @@ export interface RideEstimateResponse {
   plannedDistanceKm: number;
   plannedDurationSeconds: number;
   fareEstimateNgn: number;
+  /** The lowest offer the server takes on this trip (the fare at 90% of the recommended rate). */
+  minOfferNgn?: number | null;
   pickup?: RideEstimateWaypoint;
   destination?: RideEstimateWaypoint;
   stops?: RideEstimateWaypoint[];
@@ -1682,6 +1684,8 @@ export interface DriverActiveRide {
   destination: RideEstimateWaypoint;
   stops: RideEstimateWaypoint[];
   agreedFareNgn: number;
+  /** Which rules the fare was agreed under (2 since 10 Oct 2026). Absent from an older server. */
+  pricingVersion?: number;
   riderOfferNgn: number | null;
   riderPaid: boolean;
   riderPhone: string | null;
@@ -1737,6 +1741,7 @@ export interface DriverBidRecord {
     agreedFareNgn: number | null;
     fareEstimateNgn: number | null;
     distanceKm: number | null;
+    pricingVersion?: number;
     matchedAt: string | null;
     completedAt: string | null;
     cancelledAt: string | null;

@@ -25,7 +25,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
 import { bidCeilingNgn } from '@/lib/bid-limits';
-import { driverRatePerKmNgn, formatPerKmNgn, suggestedBidsNgn } from '@/lib/ride-fees';
+import { bidCeilingFareNgn, bidChoices, bidsPerKm, fareFromRatePerKmNgn, formatPerKmNgn, rideFees } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
@@ -295,12 +295,32 @@ export default function IncomingRequestScreen() {
     requestAnimationFrame(() => bidInputRef.current?.focus());
   };
 
-  const handleSubmitBid = () => handleSubmitBidAt(parseInt(bidAmount, 10));
+  // New pricing: the box takes the driver's rate per km. What goes to the
+  // rider is the fare that rate comes to (trip fare + VAT + booking fee).
+  const handleSubmitBid = () => {
+    const typed = parseInt(bidAmount, 10);
+    if (!offer || !bidsPerKm(offer)) return handleSubmitBidAt(typed);
+    if (!typed || typed < 1) {
+      Alert.alert('Enter your rate', 'Type your price per km, e.g. 380.');
+      return;
+    }
+    return handleSubmitBidAt(fareFromRatePerKmNgn(typed, offer.plannedDistanceKm!));
+  };
 
   const handleSubmitBidAt = async (amount: number) => {
     if (!offer || bidSent) return;
     if (!amount || amount < 100) {
       Alert.alert('Invalid amount', 'Enter a valid bid amount.');
+      return;
+    }
+    const ceiling = bidCeilingFareNgn(offer.riderOfferNgn ?? offer.fareEstimateNgn, offer);
+    if (ceiling !== null && amount > ceiling) {
+      Alert.alert(
+        'Above the highest price',
+        offer.maxRatePerKmNgn && bidsPerKm(offer)
+          ? `The highest rate for this trip is ${formatPerKmNgn(offer.maxRatePerKmNgn)} a km. Lower your rate and send it again.`
+          : `The highest price for this trip is ${formatNgn(ceiling)}. Lower your bid and send it again.`,
+      );
       return;
     }
     if (maxBid !== null && amount > maxBid) {
@@ -333,6 +353,10 @@ export default function IncomingRequestScreen() {
   // The rider's live number, not the original estimate — a counter-offer only
   // moves riderOfferNgn, so reading fareEstimateNgn froze the price on screen.
   const activeFare = lastBidNgn ?? offer.riderOfferNgn ?? offer.fareEstimateNgn;
+  const perKm = bidsPerKm(offer);
+  const typedBid = parseInt(bidAmount, 10);
+  // The fare the typed bid comes to: a rate is turned into the rider's fare.
+  const typedFare = typedBid > 0 ? (perKm ? fareFromRatePerKmNgn(typedBid, offer.plannedDistanceKm!) : typedBid) : null;
   const distanceKm = offer.plannedDistanceKm
     ? `${offer.plannedDistanceKm.toFixed(1)} km`
     : '--';
@@ -629,7 +653,7 @@ export default function IncomingRequestScreen() {
           </View>
 
           {/* This price per km to the driver (their share after the booking fee) — tap for how. */}
-          <PerKmChip priceNgn={activeFare} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
+          <PerKmChip priceNgn={activeFare} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />
 
           {/* Actions — per-seat groups negotiate above; a lump-sum accept has
               no rider on the other end to approve it. */}
@@ -670,18 +694,27 @@ export default function IncomingRequestScreen() {
                   style={styles.bidInput}
                   value={bidAmount}
                   onChangeText={setBidAmount}
-                  placeholder="Your price"
+                  placeholder={perKm ? 'Your rate' : 'Your price'}
                   placeholderTextColor={theme.colors.mutedLight}
                   keyboardType="number-pad"
                   returnKeyType="done"
                   onSubmitEditing={handleSubmitBid}
                 />
+                {perKm ? <AppText variant="h3" color={theme.colors.muted}>/km</AppText> : null}
               </View>
-              {parseInt(bidAmount, 10) > 0 ? (
-                <PerKmChip priceNgn={parseInt(bidAmount, 10)} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
+              {typedFare !== null && perKm ? (
+                <AppText variant="bodySmall" style={styles.bidCapHint}>
+                  Rider pays {formatNgn(typedFare)} · you receive {formatNgn(Math.floor(rideFees(typedFare, 2).driverPayoutNgn))}
+                </AppText>
+              ) : typedFare !== null ? (
+                <PerKmChip priceNgn={typedFare} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />
               ) : null}
               <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
-                Any amount. The rider picks.
+                {perKm
+                  ? offer.maxRatePerKmNgn
+                    ? `Your price per km, up to ${formatPerKmNgn(offer.maxRatePerKmNgn)}. The rider picks.`
+                    : 'Your price per km. The rider picks.'
+                  : 'Any amount. The rider picks.'}
               </AppText>
               <View style={styles.bidActions}>
                 <Pressable onPress={handleCancelBid} style={styles.bidCancelBtn}>
@@ -702,24 +735,25 @@ export default function IncomingRequestScreen() {
               </View>
               <AppText variant="caption" color={theme.colors.muted} style={styles.suggestionHint}>OR BID HIGHER</AppText>
               <View style={styles.suggestionRow}>
-                {suggestedBidsNgn(activeFare).map((amount) => (
+                {/* New pricing: the bid is the rate, the fare under it is what the rider sees. */}
+                {bidChoices(activeFare, offer).map(({ fareNgn, ratePerKmNgn }) => (
                   <Pressable
-                    key={amount}
-                    onPress={() => { setBidAmount(String(amount)); void handleSubmitBidAt(amount); }}
+                    key={fareNgn}
+                    onPress={() => { setBidAmount(''); void handleSubmitBidAt(fareNgn); }}
                     style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}>
                     <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
-                      {formatNgn(amount)}
+                      {perKm && ratePerKmNgn !== null ? `${formatPerKmNgn(ratePerKmNgn)}/km` : formatNgn(fareNgn)}
                     </AppText>
-                    {driverRatePerKmNgn(amount, offer.plannedDistanceKm, offer.bookingFeeNgn) !== null ? (
+                    {ratePerKmNgn !== null ? (
                       <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>
-                        {formatPerKmNgn(driverRatePerKmNgn(amount, offer.plannedDistanceKm, offer.bookingFeeNgn)!)}/km
+                        {perKm ? formatNgn(fareNgn) : `${formatPerKmNgn(ratePerKmNgn)}/km`}
                       </AppText>
                     ) : null}
                   </Pressable>
                 ))}
               </View>
               <Pressable onPress={handleBidPress} style={({ pressed }) => [styles.otherAmountBtn, pressed && { opacity: 0.7 }]}>
-                <AppText variant="label" color={theme.colors.muted}>Other amount</AppText>
+                <AppText variant="label" color={theme.colors.muted}>{perKm ? 'Other rate' : 'Other amount'}</AppText>
               </Pressable>
             </View>
           )}

@@ -399,9 +399,13 @@ export default function RideSelectionScreen() {
     itinerary.stops[itinerary.stops.length - 1] ?? "",
   );
   const effectiveOfferNgn = offerNgn ?? selectedRideOption.fareNgn;
-  // Drivers stop looking at trips priced far under the estimate, so the floor
-  // keeps the request inside the range that still gets bids.
-  const minOfferNgn = Math.max(500, Math.round(selectedRideOption.fareNgn * 0.7));
+  // The server's own floor for this trip (the fare at 90% of the recommended
+  // rate): an offer under it is refused, so the stepper stops there. Until
+  // the live estimate lands, the same share of the preview price.
+  const minOfferNgn =
+    resolvedEstimate?.minOfferNgn && selectedRideOption.id === "basic"
+      ? resolvedEstimate.minOfferNgn
+      : Math.max(500, Math.ceil((selectedRideOption.fareNgn * 0.9) / 50) * 50);
 
   const adjustOffer = (delta: number) => {
     void Haptics.selectionAsync();

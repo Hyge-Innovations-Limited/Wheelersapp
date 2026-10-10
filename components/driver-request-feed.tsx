@@ -10,7 +10,7 @@ import {
   type PendingBid,
   type RideOffer,
 } from '@/lib/driver-session-reducer';
-import { suggestedBidsNgn } from '@/lib/ride-fees';
+import { bidChoices, bidsPerKm, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { useDriverSession } from '@/lib/driver-session';
 import {
@@ -256,15 +256,18 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               <AppText variant="h3" color={theme.colors.white}>Accept {formatNgn(riderAsk)}</AppText>
             </Pressable>
             <View style={styles.priceRow}>
-              {suggestedBidsNgn(riderAsk).map((amount) => (
+              {bidChoices(riderAsk, offer).map(({ fareNgn, ratePerKmNgn }) => (
                 <Pressable
-                  key={amount}
+                  key={fareNgn}
                   disabled={busyRideId === offer.rideId}
-                  onPress={() => void sendBid(offer, amount)}
+                  onPress={() => void sendBid(offer, fareNgn)}
                   style={({ pressed }) => [styles.priceChip, pressed && styles.pressed]}>
                   <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
-                    {formatNgn(amount)}
+                    {bidsPerKm(offer) && ratePerKmNgn !== null ? `${formatPerKmNgn(ratePerKmNgn)}/km` : formatNgn(fareNgn)}
                   </AppText>
+                  {bidsPerKm(offer) ? (
+                    <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>{formatNgn(fareNgn)}</AppText>
+                  ) : null}
                 </Pressable>
               ))}
             </View>
@@ -343,7 +346,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               </AppText>
               {/* What this price is worth per km to the driver — their share after
                   the booking fee, over the trip — moving with the rider's price. */}
-              <PerKmChip priceNgn={riderAsk} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
+              <PerKmChip priceNgn={riderAsk} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />
             </View>
             <View style={styles.metaRight}>
               {stale ? (
@@ -406,21 +409,24 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               </AppText>
             </Pressable>
             <View style={styles.priceRow}>
-              {suggestedBidsNgn(riderAsk).map((amount) => (
+              {bidChoices(riderAsk, offer).map(({ fareNgn, ratePerKmNgn }) => (
                 <Pressable
-                  key={amount}
+                  key={fareNgn}
                   disabled={busyRideId === offer.rideId}
-                  onPress={() => void sendBid(offer, amount)}
+                  onPress={() => void sendBid(offer, fareNgn)}
                   style={({ pressed }) => [styles.priceChip, pressed && styles.pressed]}>
                   <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
-                    {formatNgn(amount)}
+                    {bidsPerKm(offer) && ratePerKmNgn !== null ? `${formatPerKmNgn(ratePerKmNgn)}/km` : formatNgn(fareNgn)}
                   </AppText>
+                  {bidsPerKm(offer) ? (
+                    <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>{formatNgn(fareNgn)}</AppText>
+                  ) : null}
                 </Pressable>
               ))}
             </View>
             <View style={styles.quietRow}>
               <Pressable onPress={otherAmount} style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
-                <AppText variant="label" color={theme.colors.muted}>Other amount</AppText>
+                <AppText variant="label" color={theme.colors.muted}>{bidsPerKm(offer) ? 'Other rate' : 'Other amount'}</AppText>
               </Pressable>
               <Pressable
                 onPress={() => {

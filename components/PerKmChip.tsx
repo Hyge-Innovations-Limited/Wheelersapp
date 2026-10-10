@@ -3,33 +3,36 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
-import { BOOKING_FEE_NGN, driverRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
+import { driverRatePerKmNgn, formatPerKmNgn, rideFees, type PricingVersion } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
 type PerKmChipProps = {
   /** The price being looked at: the rider's, a counter, or a bid amount. */
   priceNgn: number;
   distanceKm: number | null | undefined;
-  bookingFeeNgn?: number;
+  /** The rules the price was made under: see lib/ride-fees.ts. */
+  pricingVersion?: PricingVersion;
   /** Smaller, for under a price button. */
   compact?: boolean;
 };
 
 function naira(n: number): string {
-  return `₦${Math.round(n).toLocaleString('en-NG')}`;
+  const kobo = Math.round(n * 100) % 100 !== 0;
+  return `₦${n.toLocaleString('en-NG', { minimumFractionDigits: kobo ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 
 /**
  * What a price is worth per km to the driver, like Bolt shows it: a little car
- * and "₦312.5/km". It is the driver's SHARE — the price after Wheelers' booking
- * fee — over the trip's distance, so it moves with every price. Tap it to see
- * how it is worked out; tap × to close.
+ * and "₦351.2/km". It is the trip fare inside the rider's fare (the fare
+ * without the booking fee and VAT) over the trip's distance, so it moves with
+ * every price. Tap it to see how it is worked out; tap × to close.
  */
-export function PerKmChip({ priceNgn, distanceKm, bookingFeeNgn = BOOKING_FEE_NGN, compact = false }: PerKmChipProps) {
+export function PerKmChip({ priceNgn, distanceKm, pricingVersion = 1, compact = false }: PerKmChipProps) {
   const [open, setOpen] = useState(false);
-  const perKm = driverRatePerKmNgn(priceNgn, distanceKm, bookingFeeNgn);
+  const perKm = driverRatePerKmNgn(priceNgn, distanceKm, pricingVersion);
   if (perKm === null || !distanceKm) return null;
-  const share = Math.max(0, priceNgn - bookingFeeNgn);
+  const fees = rideFees(priceNgn, pricingVersion);
+  const share = fees.tripFareNgn;
 
   return (
     <View style={styles.wrap}>
@@ -50,19 +53,23 @@ export function PerKmChip({ priceNgn, distanceKm, bookingFeeNgn = BOOKING_FEE_NG
       {open ? (
         <View style={styles.explain}>
           <View style={styles.explainTop}>
-            <AppText variant="label">Your share per km</AppText>
+            <AppText variant="label">{pricingVersion === 2 ? 'Your rate per km' : 'Your share per km'}</AppText>
             <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={18} color={theme.colors.muted} />
             </Pressable>
           </View>
           <AppText variant="caption" color={theme.colors.muted}>
-            {naira(priceNgn)} − {naira(bookingFeeNgn)} booking fee = {naira(share)}
+            {pricingVersion === 2
+              ? `${naira(priceNgn)} − ${naira(fees.bookingFeeNgn)} booking fee − ${naira(fees.vatNgn)} VAT = ${naira(share)}`
+              : `${naira(priceNgn)} − ${naira(fees.bookingFeeNgn)} booking fee = ${naira(share)}`}
           </AppText>
           <AppText variant="caption" color={theme.colors.muted}>
             {naira(share)} ÷ {distanceKm.toFixed(1)} km = {formatPerKmNgn(perKm)}/km
           </AppText>
           <AppText variant="caption" color={theme.colors.mutedLight}>
-            Commission (4%), VAT (7.5%) and the ₦30 levy come out of your share when the trip is paid.
+            {pricingVersion === 2
+              ? `You receive ${naira(fees.driverPayoutNgn)}: the trip fare less 10% commission and the ₦30 levy. The rider pays the VAT and the booking fee.`
+              : 'Commission (4%), VAT (7.5%) and the ₦30 levy come out of your share when the trip is paid.'}
           </AppText>
         </View>
       ) : null}

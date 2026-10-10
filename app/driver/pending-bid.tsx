@@ -9,7 +9,7 @@ import { AppText } from '@/components/app-text';
 import { BID_LIFETIME_MS } from '@/lib/driver-session-reducer';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
-import { bidNudgesNgn } from '@/lib/ride-fees';
+import { RATE_NUDGES_NGN, bidCeilingFareNgn, bidNudgesNgn, bidsPerKm, driverRatePerKmNgn, fareFromRatePerKmNgn, formatPerKmNgn, rideFees } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { theme } from '@/theme';
 import { bidStage, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
@@ -112,11 +112,28 @@ export default function PendingBidScreen() {
   const { offer } = bid;
   const fare = bid.agreedFareNgn ?? bid.amountNgn;
   const riderOffer = offer.riderOfferNgn ?? offer.fareEstimateNgn;
+  // New pricing: the box takes the driver's rate per km; what is sent is the
+  // fare that rate comes to for the rider (trip fare + VAT + booking fee).
+  const perKm = bidsPerKm(offer);
+  const bidRate = perKm ? Math.round(driverRatePerKmNgn(bid.amountNgn, offer.plannedDistanceKm, 2) ?? 0) : 0;
+  const editStart = perKm ? bidRate : bid.amountNgn;
+  const typed = Number(editAmount);
+  const typedFare = !(typed > 0) ? null : perKm ? fareFromRatePerKmNgn(typed, offer.plannedDistanceKm!) : typed;
 
   const sendNewBid = async (amountNgn: number) => {
     if (!bid || sendingBid) return;
     if (!Number.isFinite(amountNgn) || amountNgn <= 0) {
-      Alert.alert('Enter a valid amount', 'Type the fare you want to offer, e.g. 4500.');
+      Alert.alert('Enter a valid amount', perKm ? 'Type your price per km, e.g. 380.' : 'Type the fare you want to offer, e.g. 4500.');
+      return;
+    }
+    const ceiling = bidCeilingFareNgn(riderOffer, offer);
+    if (ceiling !== null && amountNgn > ceiling) {
+      Alert.alert(
+        'Above the highest price',
+        perKm && offer.maxRatePerKmNgn
+          ? `The highest rate for this trip is ${formatPerKmNgn(offer.maxRatePerKmNgn)} a km. Lower your rate and send it again.`
+          : `The highest price for this trip is ${formatNgn(ceiling)}. Lower your bid and send it again.`,
+      );
       return;
     }
     setSendingBid(true);
@@ -263,7 +280,7 @@ export default function PendingBidScreen() {
           <AppText variant="body">{accepted ? 'Agreed fare' : 'Your bid'}</AppText>
           <AppText variant="h3" color={theme.colors.orange}>{formatNgn(fare)}</AppText>
         </View>
-        <PerKmChip priceNgn={fare} distanceKm={offer.plannedDistanceKm} bookingFeeNgn={offer.bookingFeeNgn} />
+        <PerKmChip priceNgn={fare} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />
       </View>
 
       {/* Change the bid — a bid is a negotiation, not a commitment. Not once the
@@ -290,32 +307,39 @@ export default function PendingBidScreen() {
                   autoFocus
                   value={editAmount}
                   onChangeText={(text) => setEditAmount(text.replace(/[^0-9]/g, ''))}
-                  placeholder={String(bid.amountNgn)}
+                  placeholder={String(editStart)}
                   placeholderTextColor={theme.colors.mutedLight}
                 />
+                {perKm ? <AppText variant="h3" color={theme.colors.muted}>/km</AppText> : null}
               </View>
+              {perKm && typedFare !== null ? (
+                <AppText variant="bodySmall" color={theme.colors.muted}>
+                  Rider pays {formatNgn(typedFare)} · you receive {formatNgn(Math.floor(rideFees(typedFare, 2).driverPayoutNgn))}
+                  {offer.maxRatePerKmNgn ? ` · up to ${formatPerKmNgn(offer.maxRatePerKmNgn)}/km` : ''}
+                </AppText>
+              ) : null}
               <View style={styles.chipRow}>
-                {bidNudgesNgn(Number(editAmount) || bid.amountNgn).map((step) => (
+                {(perKm ? RATE_NUDGES_NGN : bidNudgesNgn(Number(editAmount) || bid.amountNgn)).map((step) => (
                   <Pressable
                     key={step}
-                    onPress={() => setEditAmount(String(Math.max(0, (Number(editAmount) || bid.amountNgn) + step)))}
+                    onPress={() => setEditAmount(String(Math.max(0, (Number(editAmount) || editStart) + step)))}
                     style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}>
                     <AppText variant="label">{step > 0 ? `+${step.toLocaleString()}` : `-${Math.abs(step).toLocaleString()}`}</AppText>
                   </Pressable>
                 ))}
               </View>
               <AppButton
-                title={`Send new bid${editAmount ? ` · ${formatNgn(Number(editAmount))}` : ''}`}
-                onPress={() => void sendNewBid(Number(editAmount))}
+                title={`Send new bid${typedFare !== null ? ` · ${perKm ? `${formatPerKmNgn(typed)}/km` : formatNgn(typedFare)}` : ''}`}
+                onPress={() => void sendNewBid(typedFare ?? 0)}
                 loading={sendingBid}
               />
             </>
           ) : (
             <AppButton
-              title="New amount…"
+              title={perKm ? 'New rate…' : 'New amount…'}
               variant="ghost"
               onPress={() => {
-                setEditAmount(String(bid.amountNgn));
+                setEditAmount(String(editStart));
                 setEditOpen(true);
               }}
             />

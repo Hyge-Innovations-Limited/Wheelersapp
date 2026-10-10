@@ -15,7 +15,7 @@ import { rideFees } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
 
-// Kobo when there is any: VAT is 7.5% of the share, and the lines must add up to what lands.
+// Kobo when there is any: the lines must add up to what lands.
 function formatNgn(amount: number): string {
   const kobo = Math.round(amount * 100) % 100 !== 0;
   return `NGN ${amount.toLocaleString('en-NG', { minimumFractionDigits: kobo ? 2 : 0, maximumFractionDigits: 2 })}`;
@@ -29,7 +29,8 @@ export default function DriverPayoutScreen() {
   const ride = session.currentRide;
 
   const grossFare = ride?.completedFareNgn ?? ride?.fareNgn ?? 0;
-  const fees = rideFees(grossFare);
+  const fees = rideFees(grossFare, ride?.pricingVersion ?? 1);
+  const perKmPricing = fees.pricingVersion === 2;
   const finalPayout = fees.driverPayoutNgn;
 
   const handleNextRide = () => {
@@ -71,36 +72,64 @@ export default function DriverPayoutScreen() {
       </View>
 
       <AppCard style={styles.summaryCard}>
-        <View style={styles.riderPaidRow}>
-          <AppText variant="bodySmall" color={theme.colors.muted}>
-            Rider paid
-          </AppText>
-          <AppText variant="monoLarge" color={theme.colors.green} numberOfLines={1} style={styles.rowValue}>
-            {formatNgn(grossFare)}
-          </AppText>
-        </View>
-        {/* Commission and VAT are on the driver's share (the fare after the
-            booking fee); the booking fee is Wheelers' and closes the list. */}
-        <SummaryRow
-          color={theme.colors.danger}
-          label="Commission · 4% of your share"
-          value={`-${formatNgn(fees.commissionNgn)}`}
-        />
-        <SummaryRow
-          color={theme.colors.danger}
-          label="VAT · 7.5% of your share"
-          value={`-${formatNgn(fees.vatNgn)}`}
-        />
-        <SummaryRow
-          color={theme.colors.danger}
-          label="State levy"
-          value={`-${formatNgn(fees.stateLevyNgn)}`}
-        />
-        <SummaryRow
-          color={theme.colors.danger}
-          label="Booking fee"
-          value={`-${formatNgn(fees.bookingFeeNgn)}`}
-        />
+        {perKmPricing ? (
+          <>
+            {/* New pricing: the driver's own money starts at the trip fare.
+                Commission and the levy come off it; VAT and the booking fee
+                were added to the rider's fare, never taken from the driver. */}
+            <View style={styles.riderPaidRow}>
+              <AppText variant="bodySmall" color={theme.colors.muted}>
+                Trip fare
+              </AppText>
+              <AppText variant="monoLarge" color={theme.colors.green} numberOfLines={1} style={styles.rowValue}>
+                {formatNgn(fees.tripFareNgn)}
+              </AppText>
+            </View>
+            <SummaryRow
+              color={theme.colors.danger}
+              label="Commission · 10% of the trip fare"
+              value={`-${formatNgn(fees.commissionNgn)}`}
+            />
+            <SummaryRow
+              color={theme.colors.danger}
+              label="State levy"
+              value={`-${formatNgn(fees.stateLevyNgn)}`}
+            />
+          </>
+        ) : (
+          <>
+            <View style={styles.riderPaidRow}>
+              <AppText variant="bodySmall" color={theme.colors.muted}>
+                Rider paid
+              </AppText>
+              <AppText variant="monoLarge" color={theme.colors.green} numberOfLines={1} style={styles.rowValue}>
+                {formatNgn(grossFare)}
+              </AppText>
+            </View>
+            {/* Commission and VAT are on the driver's share (the fare after the
+                booking fee); the booking fee is Wheelers' and closes the list. */}
+            <SummaryRow
+              color={theme.colors.danger}
+              label="Commission · 4% of your share"
+              value={`-${formatNgn(fees.commissionNgn)}`}
+            />
+            <SummaryRow
+              color={theme.colors.danger}
+              label="VAT · 7.5% of your share"
+              value={`-${formatNgn(fees.vatNgn)}`}
+            />
+            <SummaryRow
+              color={theme.colors.danger}
+              label="State levy"
+              value={`-${formatNgn(fees.stateLevyNgn)}`}
+            />
+            <SummaryRow
+              color={theme.colors.danger}
+              label="Booking fee"
+              value={`-${formatNgn(fees.bookingFeeNgn)}`}
+            />
+          </>
+        )}
         {ride?.distanceKm != null && (
           <SummaryRow label="Distance" value={`${ride.distanceKm.toFixed(1)} km`} />
         )}
@@ -119,6 +148,11 @@ export default function DriverPayoutScreen() {
             {formatNgn(finalPayout)}
           </AppText>
         </View>
+        {perKmPricing ? (
+          <AppText variant="caption" color={theme.colors.muted}>
+            The rider paid {formatNgn(grossFare)}: your trip fare, {formatNgn(fees.vatNgn)} VAT and the {formatNgn(fees.bookingFeeNgn)} booking fee.
+          </AppText>
+        ) : null}
       </AppCard>
 
       {/* Two-sided reputation starts here: the driver's one-tap verdict on
