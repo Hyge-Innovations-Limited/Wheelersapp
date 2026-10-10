@@ -25,7 +25,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { AppButton } from '@/components/app-button';
 import { bidCeilingNgn } from '@/lib/bid-limits';
-import { bidCeilingFareNgn, bidChoices, bidsPerKm, fareFromRatePerKmNgn, formatPerKmNgn, rideFees } from '@/lib/ride-fees';
+import { bidCeilingFareNgn, bidChoices, bidsPerKm, fareFromRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { AppText } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
@@ -704,7 +704,7 @@ export default function IncomingRequestScreen() {
               </View>
               {typedFare !== null && perKm ? (
                 <AppText variant="bodySmall" style={styles.bidCapHint}>
-                  Rider pays {formatNgn(typedFare)} · you receive {formatNgn(Math.floor(rideFees(typedFare, 2).driverPayoutNgn))}
+                  Rider pays {formatNgn(typedFare)}
                 </AppText>
               ) : typedFare !== null ? (
                 <PerKmChip priceNgn={typedFare} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />

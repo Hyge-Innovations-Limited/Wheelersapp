@@ -9,7 +9,7 @@ import { AppText } from '@/components/app-text';
 import { BID_LIFETIME_MS } from '@/lib/driver-session-reducer';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
-import { RATE_NUDGES_NGN, bidCeilingFareNgn, bidNudgesNgn, bidsPerKm, driverRatePerKmNgn, fareFromRatePerKmNgn, formatPerKmNgn, rideFees } from '@/lib/ride-fees';
+import { RATE_NUDGES_NGN, bidCeilingFareNgn, bidNudgesNgn, bidsPerKm, driverRatePerKmNgn, fareFromRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { theme } from '@/theme';
 import { bidStage, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
@@ -314,7 +314,7 @@ export default function PendingBidScreen() {
               </View>
               {perKm && typedFare !== null ? (
                 <AppText variant="bodySmall" color={theme.colors.muted}>
-                  Rider pays {formatNgn(typedFare)} · you receive {formatNgn(Math.floor(rideFees(typedFare, 2).driverPayoutNgn))}
+                  Rider pays {formatNgn(typedFare)}
                   {offer.maxRatePerKmNgn ? ` · up to ${formatPerKmNgn(offer.maxRatePerKmNgn)}/km` : ''}
                 </AppText>
               ) : null}

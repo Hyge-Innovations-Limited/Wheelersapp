@@ -68,7 +68,7 @@ export function PerKmChip({ priceNgn, distanceKm, pricingVersion = 1, compact = 
           </AppText>
           <AppText variant="caption" color={theme.colors.mutedLight}>
             {pricingVersion === 2
-              ? `You receive ${naira(fees.driverPayoutNgn)}: the trip fare less 10% commission and the ₦30 levy. The rider pays the VAT and the booking fee.`
+              ? 'Commission (10%) and the ₦30 levy come out of the trip fare when the trip is paid. The rider pays the VAT and the booking fee.'
               : 'Commission (4%), VAT (7.5%) and the ₦30 levy come out of your share when the trip is paid.'}
           </AppText>
         </View>
