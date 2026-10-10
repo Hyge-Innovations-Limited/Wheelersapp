@@ -6,17 +6,20 @@
  *
  *   trip fare         ₦350/km × 10 km           ₦3,500      (the driver's price)
  *   + VAT 7.5%                                   ₦262.50
- *   + booking fee                                ₦375
+ *   + service charge                             ₦350
  *   = the rider's fare, rounded up to ₦50        ₦4,150      (the one amount a rider sees)
  *
- *   the driver is paid: the trip fare inside that fare (₦3,511.63)
- *   − commission 10% ₦351.16 − Lagos levy ₦30  = ₦3,130.47
+ *   the driver is paid: the trip fare inside that fare (₦3,534.88)
+ *   − commission 10% ₦353.49 − Lagos levy ₦30  = ₦3,151.39
  *
  * Version 1 (rides agreed before): the booking fee came off the fare, then 4%
  * commission, 7.5% VAT and the levy all came off the driver's share.
  */
 export type PricingVersion = 1 | 2;
-export const BOOKING_FEE_NGN = 375;
+/** Wheelers' service charge inside every fare. Rides agreed under version 1 carried ₦375. */
+export const BOOKING_FEE_NGN = 350;
+export const V1_BOOKING_FEE_NGN = 375;
+const bookingFeeOf = (version: PricingVersion) => (version === 1 ? V1_BOOKING_FEE_NGN : BOOKING_FEE_NGN);
 export const COMMISSION_RATE = 0.1;
 export const V1_COMMISSION_RATE = 0.04;
 export const VAT_RATE = 0.075;
@@ -60,13 +63,13 @@ export function fareFromRatePerKmNgn(ratePerKmNgn: number, distanceKm: number): 
 
 /** The trip fare inside a fare. */
 export function tripFareNgn(fareNgn: number, version: PricingVersion = 2): number {
-  const afterFee = Math.max(0, round2(fareNgn - BOOKING_FEE_NGN));
+  const afterFee = Math.max(0, round2(fareNgn - bookingFeeOf(version)));
   return version === 1 ? afterFee : round2(afterFee / (1 + VAT_RATE));
 }
 
 export function rideFees(fareNgn: number, version: PricingVersion = 2): RideFees {
   const fare = round2(fareNgn);
-  const booking = Math.min(BOOKING_FEE_NGN, Math.max(0, fare));
+  const booking = Math.min(bookingFeeOf(version), Math.max(0, fare));
   const afterFee = round2(fare - booking);
   const share = version === 1 ? afterFee : round2(afterFee / (1 + VAT_RATE));
   let commission = round2(share * (version === 1 ? V1_COMMISSION_RATE : COMMISSION_RATE));

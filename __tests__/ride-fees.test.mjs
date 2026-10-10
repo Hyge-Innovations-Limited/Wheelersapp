@@ -1,7 +1,7 @@
 /**
  * The driver's money, as the server works it out (lib/ride-fees.ts mirrors
  * packages/config/src/pricing.ts). New pricing: ₦350/km on 10 km is a ₦3,500
- * trip fare; + 7.5% VAT + ₦375 booking fee, rounded up to ₦50, is the ₦4,150
+ * trip fare; + 7.5% VAT + ₦350 service charge, rounded up to ₦50, is the ₦4,150
  * the rider sees; the driver is paid the trip fare less 10% and the ₦30 levy.
  * A ride agreed before the change keeps the old sums.
  *
@@ -27,17 +27,18 @@ const {
 test('₦350/km on 10 km: the rider sees ₦4,150, the driver gets the trip fare less 10% and the levy', () => {
   assert.equal(fareFromRatePerKmNgn(350, 10), 4150);
   const f = rideFees(4150);
-  assert.equal(f.bookingFeeNgn, 375);
-  assert.equal(f.tripFareNgn, 3511.63);
-  assert.equal(f.vatNgn, 263.37);
-  assert.equal(f.commissionNgn, 351.16);
+  assert.equal(f.bookingFeeNgn, 350);
+  assert.equal(f.tripFareNgn, 3534.88);
+  assert.equal(f.vatNgn, 265.12);
+  assert.equal(f.commissionNgn, 353.49);
   assert.equal(f.stateLevyNgn, 30);
-  assert.equal(f.driverPayoutNgn, 3130.47);
+  assert.equal(f.driverPayoutNgn, 3151.39);
   assert.equal(fareFromRatePerKmNgn(300, 2), 2500, 'never under the minimum fare');
 });
 
 test('a ride agreed before the change: booking fee first, then 4% and 7.5% of the share, then the levy', () => {
   const f = rideFees(3500, 1);
+  assert.equal(f.bookingFeeNgn, 375, 'the fee it was agreed with');
   assert.equal(f.driverShareNgn, 3125);
   assert.equal(f.commissionNgn, 125);
   assert.equal(f.vatNgn, 234.38);
@@ -47,7 +48,7 @@ test('a ride agreed before the change: booking fee first, then 4% and 7.5% of th
 });
 
 test('per km is the trip fare over the distance, and moves with the price', () => {
-  assert.equal(driverRatePerKmNgn(4150, 10), 351.2);
+  assert.equal(driverRatePerKmNgn(4150, 10), 353.5);
   assert.equal(driverRatePerKmNgn(3500, 10, 1), 312.5);
   assert.equal(driverRatePerKmNgn(3500, null), null);
   assert.equal(formatPerKmNgn(312.5), '₦312.5');
@@ -57,9 +58,9 @@ test('per km is the trip fare over the distance, and moves with the price', () =
 test('one-tap bids are rates above the rider\'s, each with the fare the rider would see, never past the ceiling', () => {
   const offer = { pricingVersion: 2, plannedDistanceKm: 10, maxOfferNgn: 5900, maxRatePerKmNgn: 511 };
   assert.equal(bidsPerKm(offer), true);
-  const bids = bidChoices(4450, offer); // the rider's ₦4,450 is ₦379.1/km
-  assert.deepEqual(bids.map((b) => b.ratePerKmNgn), [395, 410, 425]);
-  assert.deepEqual(bids.map((b) => b.fareNgn), [4650, 4800, 4950]);
+  const bids = bidChoices(4450, offer); // the rider's ₦4,450 is ₦381.4/km
+  assert.deepEqual(bids.map((b) => b.ratePerKmNgn), [400, 415, 430]);
+  assert.deepEqual(bids.map((b) => b.fareNgn), [4650, 4850, 5000]);
   for (const b of bids) assert.equal(fareFromRatePerKmNgn(b.ratePerKmNgn, 10), b.fareNgn);
   const nearTop = suggestedRateBids(5800, 10, 511);
   assert.ok(nearTop.every((b) => b.ratePerKmNgn <= 511 && b.fareNgn <= 5900));
