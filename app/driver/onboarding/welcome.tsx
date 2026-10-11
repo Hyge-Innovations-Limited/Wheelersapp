@@ -18,6 +18,7 @@ const STEPS = [
   { icon: "person-outline" as const, label: "Your name and licence number" },
   { icon: "camera-outline" as const, label: "Face verification" },
   { icon: "speedometer-outline" as const, label: "Vehicle details" },
+  { icon: "call-outline" as const, label: "Your phone number (we text you a code)" },
   { icon: "images-outline" as const, label: "Vehicle photos (7-10)" },
 ];
 

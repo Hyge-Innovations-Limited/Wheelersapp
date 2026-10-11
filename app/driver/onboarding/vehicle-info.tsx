@@ -20,22 +20,19 @@ export default function VehicleInfoScreen() {
   const [model, setModel] = useState(start?.model ?? "");
   const [plate, setPlate] = useState(start?.plate ?? "");
   const [year, setYear] = useState(start?.year ? String(start.year) : "");
-  const [phone, setPhone] = useState(start?.phone ?? "");
 
   // Refs let the keyboard's "next" key walk down the form instead of the
   // driver having to tap each field behind the keyboard.
   const modelRef = useRef<TextInput>(null);
   const plateRef = useRef<TextInput>(null);
   const yearRef = useRef<TextInput>(null);
-  const phoneRef = useRef<TextInput>(null);
 
-  // The phone is asked once, with the first application; a fix may leave it as it is.
-  const phoneOk = step.fixing ? phone.trim().length === 0 || phone.trim().length >= 10 : phone.trim().length >= 10;
-  const isValid = make.trim() && model.trim() && plate.trim() && year.trim().length === 4 && phoneOk;
+  // The phone number is not typed here any more: the next step sends a code to it and checks it.
+  const isValid = make.trim() && model.trim() && plate.trim() && year.trim().length === 4;
 
   function handleContinue() {
     if (!isValid) return;
-    const info = { make: make.trim(), model: model.trim(), plate: plate.trim(), year: parseInt(year, 10), phone: phone.trim() };
+    const info = { make: make.trim(), model: model.trim(), plate: plate.trim(), year: parseInt(year, 10), phone: "" };
     setVehicleInfo(info);
     void step.go({ vehicleInfo: info });
   }
@@ -93,20 +90,6 @@ export default function VehicleInfoScreen() {
           onChangeText={setYear}
           keyboardType="number-pad"
           maxLength={4}
-          returnKeyType="next"
-          onSubmitEditing={() => phoneRef.current?.focus()}
-          submitBehavior="submit"
-        />
-
-        <AppInput
-          ref={phoneRef}
-          label="Phone Number"
-          hint="Riders will use this to reach you"
-          placeholder="e.g. 08012345678"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          maxLength={15}
           returnKeyType="done"
           onSubmitEditing={handleContinue}
         />

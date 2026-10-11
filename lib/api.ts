@@ -1686,6 +1686,72 @@ export async function saveDriverDetails(input: {
   });
 }
 
+// ─── Driver phone verification ──────────────────────────────────
+
+export interface DriverPhoneStatus {
+  phone: string | null;
+  verified: boolean;
+  verifiedAt: string | null;
+  /** A code is out and still good: the masked number it went to. */
+  codeSentTo: string | null;
+  /** Seconds until another code may be asked for. 0: now. */
+  resendInSeconds: number;
+  /** Seconds left of a stop for asking for too many codes. 0: not stopped. */
+  lockedForSeconds: number;
+}
+
+export interface DriverPhoneCodeSent {
+  /** Masked, e.g. "0803 ••• 4567". */
+  sentTo: string;
+  by: "sms" | "whatsapp";
+  expiresInMinutes: number;
+  resendInSeconds: number;
+  /** How many more codes may be asked for in this half hour. */
+  codesLeft: number;
+}
+
+/**
+ * A refusal from the phone endpoints that carries a wait: the app counts it
+ * down instead of only saying "try later".
+ */
+export class WaitError extends ApiError {
+  retryAfterSeconds: number;
+  constructor(message: string, status: number, code: string | undefined, retryAfterSeconds: number) {
+    super(message, status, code);
+    this.name = "WaitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+async function phoneRequest<T>(method: "GET" | "POST", path: string, accessToken: string, body: unknown, fallbackError: string): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method,
+    headers: { authorization: `Bearer ${accessToken}`, ...(body === undefined ? {} : { "content-type": "application/json" }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch(() => {
+    throw new Error(buildConnectivityErrorMessage());
+  });
+  const payload = (await response.json().catch(() => null)) as { error?: string; code?: string; retryAfterSeconds?: number } | null;
+  if (!response.ok) {
+    const message = getErrorMessage(payload, fallbackError);
+    if (typeof payload?.retryAfterSeconds === "number") throw new WaitError(message, response.status, payload.code, payload.retryAfterSeconds);
+    throw new ApiError(message, response.status, payload?.code);
+  }
+  return (payload ?? {}) as T;
+}
+
+export function getDriverPhone(input: { accessToken: string }): Promise<DriverPhoneStatus> {
+  return phoneRequest<DriverPhoneStatus>("GET", "/drivers/phone", input.accessToken, undefined, "Could not check your number.");
+}
+
+export function sendDriverPhoneCode(input: { accessToken: string; phone: string }): Promise<DriverPhoneCodeSent> {
+  return phoneRequest<DriverPhoneCodeSent>("POST", "/drivers/phone/send-code", input.accessToken, { phone: input.phone }, "The code was not sent. Please try again.");
+}
+
+export function verifyDriverPhoneCode(input: { accessToken: string; code: string }): Promise<{ verified: boolean; phone: string }> {
+  return phoneRequest<{ verified: boolean; phone: string }>("POST", "/drivers/phone/verify-code", input.accessToken, { code: input.code }, "The code was not checked. Please try again.");
+}
+
 // ── Chat ──────────────────────────────────────────────────────────
 
 export interface ChatMessageResponse {

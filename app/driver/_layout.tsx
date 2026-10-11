@@ -39,6 +39,7 @@ export default function DriverLayout() {
         <Stack.Screen name="docs" />
         <Stack.Screen name="doc-upload" />
         <Stack.Screen name="legal-details" />
+        <Stack.Screen name="verify-phone" />
       </Stack>
       <DriverKycLock />
       </DriverLiveCallHost>

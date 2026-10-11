@@ -1,15 +1,17 @@
 /**
  * The verification steps, in the order a driver fills them in. A new driver
- * walks all six; a driver sent back to fix something walks only what was
+ * walks all seven; a driver sent back to fix something walks only what was
  * rejected (fix mode), and the last of those sends it.
  *
  * "details" (the name as on the licence, its number and expiry) is typed
- * right after the licence is photographed. A reviewer never sends it back as
- * a step: it is corrected from Your papers, so it is not part of fix mode.
+ * right after the licence is photographed, and "phone" (a code sent to the
+ * driver's number, typed back) comes after the car's details. A reviewer
+ * never sends either back as a step: they are put right from Your papers,
+ * so they are not part of fix mode.
  */
-export type KycStep = "nin" | "licence" | "details" | "selfie" | "vehicle" | "vehiclePhotos";
+export type KycStep = "nin" | "licence" | "details" | "selfie" | "vehicle" | "phone" | "vehiclePhotos";
 
-export const KYC_STEPS: readonly KycStep[] = ["nin", "licence", "details", "selfie", "vehicle", "vehiclePhotos"];
+export const KYC_STEPS: readonly KycStep[] = ["nin", "licence", "details", "selfie", "vehicle", "phone", "vehiclePhotos"];
 
 /** What a reviewer can send back. */
 export const FIXABLE_STEPS: readonly KycStep[] = ["nin", "licence", "selfie", "vehicle", "vehiclePhotos"];
@@ -20,6 +22,7 @@ export const KYC_STEP_ROUTES = {
   details: "/driver/onboarding/your-details",
   selfie: "/driver/onboarding/face-verification",
   vehicle: "/driver/onboarding/vehicle-info",
+  phone: "/driver/onboarding/verify-phone",
   vehiclePhotos: "/driver/onboarding/vehicle-photos",
 } as const satisfies Record<KycStep, string>;
 
@@ -29,6 +32,7 @@ export const KYC_STEP_LABELS: Record<KycStep, string> = {
   details: "Your name and licence details",
   selfie: "Face check",
   vehicle: "Vehicle details",
+  phone: "Your phone number",
   vehiclePhotos: "Vehicle photos",
 };
 

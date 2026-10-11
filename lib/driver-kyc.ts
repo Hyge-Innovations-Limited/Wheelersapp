@@ -40,7 +40,7 @@ export function routeForKyc(status: string | null): DriverKycRoute {
  *   anything else       → only the verification steps
  */
 /** The papers screens: a driver under review may use these while they wait. */
-const PAPERS_SCREENS = new Set(["docs", "doc-upload", "legal-details"]);
+const PAPERS_SCREENS = new Set(["docs", "doc-upload", "legal-details", "verify-phone"]);
 const onPapers = (status: string | null | undefined, segments: string[]) =>
   status === "SUBMITTED" && segments[0] === "driver" && PAPERS_SCREENS.has(segments[1] ?? "") && segments.length === 2;
 

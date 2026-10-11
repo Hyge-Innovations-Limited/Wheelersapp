@@ -9,7 +9,8 @@ import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import { BackArrow } from '@/components/back-arrow';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
-import { getDriverPapers, type DriverPaper, type DriverPaperNeed, type DriverPapersResponse } from '@/lib/api';
+import { getDriverPapers, getDriverPhone, type DriverPaper, type DriverPaperNeed, type DriverPapersResponse, type DriverPhoneStatus } from '@/lib/api';
+import { localNumber } from '@/lib/countdown';
 import { useAuth } from '@/lib/auth';
 import { isoToWords } from '@/lib/day-input';
 import { PAPER_STATE, needsAction, paperLine, papersError } from '@/lib/driver-papers';
@@ -26,6 +27,7 @@ export default function DriverPapersScreen() {
   const router = useRouter();
   const { getAccessToken } = useAuth();
   const [papers, setPapers] = useState<DriverPapersResponse | null>(null);
+  const [phone, setPhone] = useState<DriverPhoneStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -35,6 +37,8 @@ export default function DriverPapersScreen() {
       if (!token) throw new Error('Please sign in again to see your papers.');
       setPapers(await getDriverPapers({ accessToken: token }));
       setError(null);
+      // The number's own row: when it cannot be read the row is simply left out.
+      setPhone(await getDriverPhone({ accessToken: token }).catch(() => null));
     } catch (e) {
       setError(papersError(e, 'Could not load your papers. Please try again.'));
     }
@@ -146,6 +150,23 @@ export default function DriverPapersScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.colors.mutedLight} />
           </Pressable>
+
+          {phone ? (
+            <Pressable
+              onPress={() => router.push('/driver/verify-phone' as Href)}
+              style={({ pressed }) => [styles.card, styles.row, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={phone.verified ? 'Your phone number, verified' : 'Verify your phone number'}>
+              <Ionicons name={phone.verified ? 'checkmark-circle' : 'call-outline'} size={26} color={phone.verified ? theme.colors.green : theme.colors.muted} />
+              <View style={styles.flex}>
+                <AppText variant="bodyMedium" numberOfLines={1}>{phone.verified ? localNumber(phone.phone) : 'Verify your phone number'}</AppText>
+                <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={2}>
+                  {phone.verified ? 'Verified. Riders reach you on this number.' : 'We text a code to your number to make sure it is yours'}
+                </AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.mutedLight} />
+            </Pressable>
+          ) : null}
 
           {/* ── the car ── */}
           <AppText variant="label" color={theme.colors.muted} style={styles.sectionLabel}>FOR YOUR CAR</AppText>

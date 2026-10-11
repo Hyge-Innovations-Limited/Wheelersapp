@@ -1,7 +1,8 @@
 /**
  * Fixing a rejection walks only what was sent back, in order, and the last
- * of those steps sends. A new application walks all six: the name and licence
- * details are typed right after the licence, and are never a step to fix.
+ * of those steps sends. A new application walks all seven: the name and licence
+ * details are typed right after the licence, the phone number is proved after
+ * the car's details, and neither is ever a step to fix.
  *
  *   node --test __tests__/kyc-steps.test.mjs
  */
@@ -22,13 +23,14 @@ const { fixStepsFrom, nextKycStep, kycProgress, stepsToWalk, KYC_STEPS, FIXABLE_
 
 test('a new application walks every step, and the photos send it', () => {
   assert.deepEqual(stepsToWalk(null), [...KYC_STEPS]);
-  assert.deepEqual([...KYC_STEPS], ['nin', 'licence', 'details', 'selfie', 'vehicle', 'vehiclePhotos']);
+  assert.deepEqual([...KYC_STEPS], ['nin', 'licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos']);
   assert.equal(nextKycStep('nin', null), 'licence');
   assert.equal(nextKycStep('licence', null), 'details', 'the licence\'s details are typed right after its photo');
   assert.equal(nextKycStep('details', null), 'selfie');
-  assert.equal(nextKycStep('vehicle', null), 'vehiclePhotos');
+  assert.equal(nextKycStep('vehicle', null), 'phone', 'the number is proved before the photos are sent');
+  assert.equal(nextKycStep('phone', null), 'vehiclePhotos');
   assert.equal(nextKycStep('vehiclePhotos', null), null);
-  assert.deepEqual(kycProgress('nin', null), { count: 7, active: 1 }, 'the welcome screen is step 0');
+  assert.deepEqual(kycProgress('nin', null), { count: 8, active: 1 }, 'the welcome screen is step 0');
 });
 
 test('sent back for the licence only: one step, and it sends', () => {
@@ -52,5 +54,7 @@ test('nothing named means the whole application', () => {
   // The typed details are never a step to fix: they are corrected from Your papers.
   assert.deepEqual(fixStepsFrom(['details']), [...FIXABLE_STEPS]);
   assert.deepEqual(fixStepsFrom(['details', 'licence']), ['licence']);
+  assert.deepEqual(fixStepsFrom(['phone']), [...FIXABLE_STEPS]);
+  assert.equal(nextKycStep('vehicle', fixStepsFrom(['vehicle', 'vehiclePhotos'])), 'vehiclePhotos', 'fixing skips the phone step');
   assert.equal(nextKycStep('licence', fixStepsFrom(['licence', 'selfie'])), 'selfie', 'fixing skips the details step');
 });
