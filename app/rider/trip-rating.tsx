@@ -1,40 +1,90 @@
-import { Href, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
-import { AppButton } from "@/components/app-button";
-import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
-import { FloatingView, PulseView } from "@/components/motion";
-import { StatusPill } from "@/components/StatusPill";
+import { RAvatar, RButton, RCard, RLink, RPill, RScreen, RText, naira, rider } from "@/components/rider/kit";
 import { toUserMessage } from "@/lib/error-messages";
+import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
-import { theme } from "@/theme";
 
+const { colors, fonts } = rider;
+
+const VERDICTS = ["", "Very bad", "Bad", "Okay", "Good", "Excellent"] as const;
+const TAGS = ["Careful driving", "Clean car", "On time", "Friendly"] as const;
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function shortPlace(address: string): string {
+  return address.split(",")[0]?.trim() ?? "";
+}
+
+/** The trip has ended: what it cost, a rating for the driver, and the same trip again. */
 export default function TripRatingScreen() {
   const router = useRouter();
-  const walletRoute = "/rider/wallet" as Href;
-  const { currentRide, submitRating } = useRideSession();
-  const [rating, setRating] = useState(4);
+  const isFocused = useIsFocused();
+  const { clearRide, currentRide, submitRating } = useRideSession();
+  const [rating, setRating] = useState(5);
+  const [tags, setTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const leavingRef = useRef(false);
 
-  // The real driver from the trip that just ended. This screen used to show a
-  // hardcoded person from the mock file, so a rider was asked to rate somebody
-  // who had never driven them anywhere.
+  const rideId = currentRide?.rideId ?? null;
+  const hasRide = Boolean(currentRide);
+
+  // This screen stays mounted between trips: each trip starts with a clean form.
+  useEffect(() => {
+    setRating(5);
+    setTags([]);
+    setIsSubmitting(false);
+  }, [rideId]);
+
+  // Come back to it with the trip already put away (after Repeat or Reverse): nothing to rate.
+  useEffect(() => {
+    if (!isFocused) {
+      leavingRef.current = false;
+      return;
+    }
+    if (!hasRide && !leavingRef.current) router.replace("/rider");
+  }, [hasRide, isFocused, router]);
+
+  // The real driver from the trip that just ended.
   const driver = currentRide?.driver;
   const driverName = driver?.driverName?.trim() || "Your driver";
-  const driverInitials =
-    driverName
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0] ?? "")
-      .join("")
-      .toUpperCase() || "D";
   const vehicleLine = [driver?.vehicleModel, driver?.vehiclePlate]
     .filter((part) => Boolean(part && part.trim()))
     .join(" · ");
   const canRate = Boolean(driver?.driverUserId);
+
+  const itinerary = currentRide?.itinerary;
+  const destination = itinerary?.stops[itinerary.stops.length - 1] ?? "";
+  const tripLine = [
+    destination,
+    isNumber(currentRide?.plannedDistanceKm) ? `${currentRide.plannedDistanceKm.toFixed(1)} km` : null,
+    isNumber(currentRide?.plannedDurationSeconds)
+      ? `${Math.max(1, Math.round(currentRide.plannedDurationSeconds / 60))} min`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const paid = currentRide?.completedFareNgn;
+  const agreed = driver?.lockedFareNgn;
+
+  // Where the trip started, as an address: "Current location" means nothing as a destination.
+  const pickupAddress = itinerary
+    ? isCurrentLocationLabel(itinerary.pickup)
+      ? currentRide?.route?.pickup?.address?.trim() || null
+      : itinerary.pickup
+    : null;
+  const reversed: RideItinerary | null =
+    itinerary && pickupAddress && destination
+      ? { pickup: destination, stops: [...itinerary.stops.slice(0, -1).reverse(), pickupAddress] }
+      : null;
 
   async function handleSubmit() {
     if (!canRate) {
@@ -43,15 +93,15 @@ export default function TripRatingScreen() {
       Alert.alert(
         "We could not find that trip",
         "Your rating could not be matched to a driver. You can rate from your ride history instead.",
-        [{ text: "OK", onPress: () => router.replace(walletRoute) }],
+        [{ text: "OK", onPress: () => router.replace("/rider") }],
       );
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await submitRating({ rating });
-      router.replace(walletRoute);
+      await submitRating({ rating, comment: tags.length > 0 ? tags.join(", ") : undefined });
+      router.replace("/rider");
     } catch (error) {
       Alert.alert(
         "Could not send your rating",
@@ -62,151 +112,217 @@ export default function TripRatingScreen() {
     }
   }
 
+  /** The finished trip is put away, then the price screen opens with the same places. */
+  function rideAgain(next: RideItinerary) {
+    const serialized = serializeRideItinerary(next);
+    leavingRef.current = true;
+    clearRide();
+    router.push({ pathname: "/ride-selection", params: { itinerary: serialized } });
+  }
+
+  function toggleTag(tag: string) {
+    setTags((current) => (current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]));
+  }
+
   return (
-    <AppScreen
-      backgroundColor={theme.colors.offWhite}
-      contentStyle={styles.container}
-    >
-      <StatusBar style="dark" backgroundColor={theme.colors.offWhite} />
-      <ConfettiPiece color={theme.colors.orange} style={styles.confettiOne} />
-      <ConfettiPiece color={theme.colors.black} style={styles.confettiTwo} />
-      <ConfettiPiece color={theme.colors.green} style={styles.confettiThree} />
-      <ConfettiPiece color={theme.colors.orange} style={styles.confettiFour} />
+    <RScreen contentStyle={styles.container} scroll>
+      <StatusBar style="dark" />
 
-      <StatusPill label="TRIP COMPLETE" variant="light" style={styles.badge} />
-
-      <View style={styles.header}>
-        <AppText variant="h1" style={styles.center}>
-          How was{"\n"}your ride?
-        </AppText>
-        <AppText
-          variant="bodySmall"
-          color={theme.colors.muted}
-          style={styles.center}
-        >
-          Rate your driver
-        </AppText>
-      </View>
-
-      <PulseView>
-        <View style={styles.avatar}>
-          <AppText variant="h2" color={theme.colors.offWhite}>
-            {driverInitials}
-          </AppText>
-        </View>
-      </PulseView>
-
-      <View style={styles.driverMeta}>
-        <AppText variant="h3">{driverName}</AppText>
-        {vehicleLine ? (
-          <AppText variant="bodySmall" color={theme.colors.muted}>
-            {vehicleLine}
-          </AppText>
+      <View style={styles.head}>
+        <RPill icon="checkmark-circle" label="Trip completed" tone="green" />
+        <RText accessibilityRole="header" variant="display">
+          You have arrived
+        </RText>
+        {tripLine ? (
+          <RText color={colors.muted} style={styles.tripLine}>
+            {tripLine}
+          </RText>
         ) : null}
       </View>
 
-      <View style={styles.stars}>
-        {Array.from({ length: 5 }).map((_, index) => {
-          const active = index < rating;
-          return (
-            <Pressable key={index} onPress={() => setRating(index + 1)}>
-              <AppText
-                style={[styles.star, !active ? styles.starInactive : null]}
-              >
-                ⭐
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </View>
+      <RCard style={styles.paid} tone="ink">
+        <View style={styles.paidRow}>
+          <RText color={colors.onInkMuted} variant="small">
+            {isNumber(paid) ? "Paid from your wallet" : "Agreed price"}
+          </RText>
+          {isNumber(paid) || isNumber(agreed) ? (
+            <RText color={colors.orange} style={styles.paidAmount}>
+              {naira(isNumber(paid) ? paid : agreed)}
+            </RText>
+          ) : null}
+        </View>
+        {rideId ? (
+          <View style={styles.paidFoot}>
+            <RLink
+              accessibilityLabel="Receipt"
+              color={colors.orange}
+              onPress={() => router.push({ pathname: "/trip-receipt", params: { rideId } })}
+              title="Receipt"
+            />
+          </View>
+        ) : null}
+      </RCard>
 
-      {/* The tip selector that used to sit here moved no money: it set local
-          state, was never sent anywhere, and left a rider believing they had
-          tipped ₦200. It comes back when there is a tipping endpoint behind
-          it. */}
+      <RCard style={styles.rate}>
+        <View style={styles.rateHead}>
+          <RAvatar name={driver?.driverName} size={48} />
+          <View style={styles.rateText}>
+            <RText style={styles.rateTitle}>Rate your driver</RText>
+            <RText color={colors.muted} numberOfLines={1} variant="small">
+              {[driverName, vehicleLine].filter(Boolean).join(" · ")}
+            </RText>
+          </View>
+        </View>
+        <View accessibilityLabel="Rate your driver" style={styles.stars}>
+          {[1, 2, 3, 4, 5].map((value) => {
+            const on = value <= rating;
+            return (
+              <Pressable
+                accessibilityLabel={`${value} ${value === 1 ? "star" : "stars"}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                key={value}
+                onPress={() => setRating(value)}
+                style={({ pressed }) => [styles.star, on ? styles.starOn : null, pressed ? styles.pressed : null]}>
+                <Ionicons color={on ? colors.orange : "#B9AE9C"} name="star" size={28} />
+              </Pressable>
+            );
+          })}
+        </View>
+        <RText accessibilityLiveRegion="polite" color={colors.muted} variant="smallBold">
+          {VERDICTS[rating]}
+        </RText>
+        <View style={styles.tags}>
+          {TAGS.map((tag) => {
+            const on = tags.includes(tag);
+            return (
+              <Pressable
+                accessibilityLabel={tag}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                key={tag}
+                onPress={() => toggleTag(tag)}
+                style={({ pressed }) => [styles.tag, on ? styles.tagOn : null, pressed ? styles.pressed : null]}>
+                <RText color={on ? colors.cream : colors.ink} style={styles.tagText}>
+                  {tag}
+                </RText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </RCard>
 
-      <AppButton
-        title={isSubmitting ? "Sending…" : "Submit rating ↗"}
-        disabled={isSubmitting}
+      {itinerary ? (
+        <View style={styles.again}>
+          {reversed && pickupAddress ? (
+            <AgainCard
+              note={`Back to ${shortPlace(pickupAddress)}`}
+              onPress={() => rideAgain(reversed)}
+              title="Reverse this ride"
+            />
+          ) : null}
+          <AgainCard note="Same trip again" onPress={() => rideAgain(itinerary)} title="Repeat this ride" />
+        </View>
+      ) : null}
+
+      <View style={styles.spacer} />
+
+      <RButton
+        loading={isSubmitting}
         onPress={() => void handleSubmit()}
+        title="Submit rating"
       />
-    </AppScreen>
+      <RLink
+        accessibilityLabel="Report a problem with this trip"
+        color={colors.muted}
+        onPress={() => router.push("/support/chat")}
+        title="Report a problem with this trip"
+      />
+    </RScreen>
   );
 }
 
-function ConfettiPiece({ color, style }: { color: string; style: object }) {
+function AgainCard({ title, note, onPress }: { title: string; note: string; onPress: () => void }) {
   return (
-    <FloatingView distance={12} style={style}>
-      <View style={[styles.confetti, { backgroundColor: color }]} />
-    </FloatingView>
+    <Pressable
+      accessibilityLabel={`${title}. ${note}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.againCard, pressed ? styles.pressed : null]}>
+      <RText variant="bodyBold">{title}</RText>
+      <RText color={colors.muted} numberOfLines={1} variant="small">
+        {note}
+      </RText>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.gutter,
+  container: { flexGrow: 1, paddingHorizontal: rider.gutter, paddingTop: 16, paddingBottom: 16, gap: 14 },
+  pressed: { opacity: 0.72 },
+  head: { gap: 10 },
+  tripLine: { fontSize: 15, lineHeight: 21 },
+
+  paid: { padding: 18, gap: 6 },
+  paidRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  paidAmount: {
+    fontFamily: fonts.display,
+    fontSize: 40,
+    lineHeight: 46,
+    letterSpacing: -0.8,
+    fontVariant: ["tabular-nums"],
+    flexShrink: 0,
   },
-  badge: {
-    marginBottom: theme.spacing.sm,
-  },
-  header: {
-    gap: theme.spacing.xs,
-  },
-  center: {
-    textAlign: "center",
-  },
-  avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: theme.radii.pill,
-    backgroundColor: theme.colors.orange,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    alignItems: "center",
-    justifyContent: "center",
-    ...theme.shadows.card,
-  },
-  driverMeta: {
-    alignItems: "center",
-    gap: theme.spacing.xxs,
-  },
-  stars: {
+  paidFoot: {
     flexDirection: "row",
-    gap: theme.spacing.sm,
+    justifyContent: "flex-end",
+    borderTopWidth: 1,
+    borderTopColor: "#3A3A3A",
+    paddingTop: 4,
   },
+
+  rate: { gap: 12 },
+  rateHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  rateText: { flex: 1, minWidth: 0 },
+  rateTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24 },
+  stars: { flexDirection: "row", gap: 8 },
   star: {
-    fontSize: 34,
+    flex: 1,
+    maxWidth: 56,
+    height: 56,
+    borderRadius: rider.radius.md,
+    backgroundColor: colors.tint,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  starInactive: {
-    opacity: 0.28,
+  starOn: { backgroundColor: colors.orangeSoft },
+  tags: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: {
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: rider.radius.pill,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  confetti: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
+  tagOn: { backgroundColor: colors.ink },
+  tagText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19 },
+
+  again: { flexDirection: "row", gap: 10 },
+  againCard: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 64,
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: rider.radius.lg,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
-  confettiOne: {
-    position: "absolute",
-    top: 78,
-    left: "22%",
-  },
-  confettiTwo: {
-    position: "absolute",
-    top: 96,
-    right: "24%",
-  },
-  confettiThree: {
-    position: "absolute",
-    top: 134,
-    left: "70%",
-  },
-  confettiFour: {
-    position: "absolute",
-    top: 150,
-    left: "34%",
-  },
+
+  spacer: { flexGrow: 1 },
 });

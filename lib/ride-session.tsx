@@ -355,6 +355,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   const backoffRef = useRef(createReconnectBackoff());
   const shouldMaintainConnectionRef = useRef(false);
   const currentRideRef = useRef<RiderRideState | null>(null);
+  // The offers on screen when the rider accepted one. Accepting clears them;
+  // if the server refuses (the wallet is short), they are put back.
+  const offersBeforeAcceptRef = useRef<RideOffer[] | null>(null);
   const userRef = useRef(user);
 
   // The device fix, kept in a ref so requestRide reads the newest value without
@@ -412,6 +415,15 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
       if (type === 'error') {
         setError(getString(payload.message) ?? 'Ride session error.');
+        const heldOffers = offersBeforeAcceptRef.current;
+        if (heldOffers) {
+          offersBeforeAcceptRef.current = null;
+          setRideState((previous) =>
+            previous && previous.status === 'matching'
+              ? { ...previous, status: 'bidding', offers: heldOffers, driver: undefined }
+              : previous,
+          );
+        }
         return;
       }
 
@@ -482,6 +494,16 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // A new price for every driver restarts the search's clock: the server
+      // says when it now closes.
+      if (type === 'ride:rider_counter_offer:accepted') {
+        const bidsCloseAt = getString(payload.bidsCloseAt);
+        if (bidsCloseAt) {
+          setRideState((previous) => (previous ? { ...previous, bidsCloseAt } : previous));
+        }
+        return;
+      }
+
       // The rider's own counter reached the driver; show it as pending.
       if (type === 'ride:rider_counter_offer:confirmed') {
         const driverId = getString(payload.driverId);
@@ -510,6 +532,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       }
 
       if (type === 'ride:matched') {
+        offersBeforeAcceptRef.current = null;
         setError(null);
         setRideState((previous) => {
           if (!previous) {
@@ -968,6 +991,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         agreedFareNgn: offer.counterOfferNgn,
         paymentMethod: 'wallet_balance',
       });
+      offersBeforeAcceptRef.current = ride.offers ?? null;
 
       // Optimistically leave the auction. `ride:matched` fills in the rest of
       // the driver, but the accepted bid already knows who they are — keeping

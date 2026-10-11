@@ -1,448 +1,119 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Href, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Href, useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
-import { PanResponder, Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Circle, Ellipse, Path, Rect } from "react-native-svg";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppCard } from "@/components/app-card";
-import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
-import { StarBurst, TriangleShape } from "@/components/decorative-shapes";
+import { BrandLogo } from "@/components/brand-logo";
 import { LiveMap } from "@/components/live-map";
-import { FloatingView, RevealView } from "@/components/motion";
+import { naira, rider, RText } from "@/components/rider/kit";
+import type { ScheduledRide } from "@/lib/api";
 import { useAppLocation } from "@/lib/location";
 import { useAppNotifications } from "@/lib/notifications";
-import { useRiderHistory } from "@/lib/rider-history";
-import {
-  parseRideItineraryParam,
-  serializeRideItinerary,
-  type RideItinerary,
-} from "@/lib/ride-route";
+import { useRiderTrips } from "@/lib/rider-trips";
+import { serializeRideItinerary, type RideItinerary } from "@/lib/ride-route";
+import { useRideSession } from "@/lib/ride-session";
+import { useSavedPlaces, type SavedPlace } from "@/lib/saved-places";
+import { useScheduledRides } from "@/lib/scheduled-rides";
 import { useWalletOverview } from "@/lib/wallet-overview";
-import { theme } from "@/theme";
 
-const riderServices = [
-  {
-    id: "book-ride",
-    label: "Book ride",
-    tag: "Now",
-    cardColor: theme.colors.orangeLight,
-    route: "/destination-search" as Href,
-  },
-  {
-    id: "schedule-ride",
-    label: "Schedule",
-    tag: "Later",
-    cardColor: "#FFF4CC",
-    route: "/schedule-ride" as Href,
-  },
-  {
-    id: "group-ride",
-    label: "Group Ride",
-    tag: "Split",
-    cardColor: "#E8FFF7",
-    route: "/group-ride" as Href,
-  },
-] as const;
+const { colors, fonts, radius, gutter } = rider;
 
 const riderHomeCenter = {
   lat: 6.4473,
   lng: 3.4729,
 };
 
+const SHEET_MS = 280;
+/** Kept between the top row and the sheet so some map always shows. */
+const MAP_PEEK = 40;
 
-type HistoryRouteSource = Record<string, unknown>;
+/* ── last ride ─────────────────────────────────────────────────────────── */
 
-function readString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+type RoutePair = { pickup: string; destination: string };
+
+/** "12 Herbert Macaulay Way" from "12 Herbert Macaulay Way, Yaba, Lagos": the short name shown on a card. */
+function shortPlace(address: string): string {
+  return address.split(",")[0]?.trim() || address;
 }
 
-function readNestedString(source: HistoryRouteSource, keys: string[]): string {
-  let current: unknown = source;
+/* ── scheduled ride ────────────────────────────────────────────────────── */
 
-  for (const key of keys) {
-    if (!current || typeof current !== "object") return "";
-    current = (current as Record<string, unknown>)[key];
-  }
-
-  return readString(current);
-}
-
-function firstHistoryString(
-  source: HistoryRouteSource,
-  directKeys: string[],
-  nestedKeys: string[][] = [],
-): string {
-  for (const key of directKeys) {
-    const value = readString(source[key]);
-    if (value) return value;
-  }
-
-  for (const path of nestedKeys) {
-    const value = readNestedString(source, path);
-    if (value) return value;
-  }
-
-  return "";
-}
-
-function parseHistoryRoutePair(value: unknown): { pickup: string; destination: string } | null {
-  const text = readString(value);
-  if (!text) return null;
-
-  const separators = ["→", "->", " to ", " To ", " TO "];
-  for (const separator of separators) {
-    const parts = text.split(separator).map((part) => part.trim()).filter(Boolean);
-    if (parts.length >= 2) {
-      return {
-        pickup: parts[0],
-        destination: parts.slice(1).join(separator).trim(),
-      };
+function nextScheduledRide(rides: ScheduledRide[]): ScheduledRide | null {
+  const now = Date.now();
+  let next: ScheduledRide | null = null;
+  let nextAt = Infinity;
+  for (const ride of rides) {
+    if (ride.status !== "SCHEDULED" && ride.status !== "DISPATCHING") continue;
+    const at = new Date(ride.scheduledFor).getTime();
+    if (!Number.isFinite(at) || at < now) continue;
+    if (at < nextAt) {
+      next = ride;
+      nextAt = at;
     }
   }
-
-  return null;
+  return next;
 }
 
-function getHistoryRideItinerary(ride: unknown): RideItinerary | null {
-  if (!ride || typeof ride !== "object") return null;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  const source = ride as HistoryRouteSource;
-
-  if (typeof source.itinerary === "string") {
-    const parsed = parseRideItineraryParam(source.itinerary);
-    const parsedDestination = parsed.stops[parsed.stops.length - 1] ?? "";
-    if (parsed.pickup.trim() && parsedDestination.trim()) {
-      return parsed;
-    }
-  }
-
-  if (source.itinerary && typeof source.itinerary === "object") {
-    const rawItinerary = source.itinerary as Partial<RideItinerary>;
-    const pickup = rawItinerary.pickup?.trim() ?? "";
-    const destination = rawItinerary.stops?.[rawItinerary.stops.length - 1]?.trim() ?? "";
-    if (pickup && destination) {
-      return { pickup, stops: rawItinerary.stops ?? [destination] };
-    }
-  }
-
-  const pickup = firstHistoryString(
-    source,
-    ["pickup", "pickupLabel", "pickupAddress", "from", "origin", "originAddress", "start", "startAddress"],
-    [["route", "pickup"], ["route", "from"], ["pickup", "address"], ["origin", "address"]],
-  );
-  const destination = firstHistoryString(
-    source,
-    ["destination", "destinationLabel", "destinationAddress", "to", "dropoff", "dropoffAddress", "end", "endAddress"],
-    [["route", "destination"], ["route", "to"], ["destination", "address"], ["dropoff", "address"]],
-  );
-
-  if (pickup && destination) {
-    return { pickup, stops: [destination] };
-  }
-
-  const titlePair = parseHistoryRoutePair(source.title);
-  if (titlePair) {
-    return { pickup: titlePair.pickup, stops: [titlePair.destination] };
-  }
-
-  const metaPair = parseHistoryRoutePair(source.meta);
-  if (metaPair) {
-    return { pickup: metaPair.pickup, stops: [metaPair.destination] };
-  }
-
-  return null;
+/** "tomorrow, 7:30 am" */
+function formatScheduledFor(value: string): string {
+  const date = new Date(value);
+  const now = new Date();
+  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((dayStart(date) - dayStart(now)) / 86_400_000);
+  const day =
+    days === 0
+      ? "today"
+      : days === 1
+        ? "tomorrow"
+        : `${WEEKDAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  const hour = date.getHours() % 12 === 0 ? 12 : date.getHours() % 12;
+  const minute = date.getMinutes().toString().padStart(2, "0");
+  return `${day}, ${hour}:${minute} ${date.getHours() < 12 ? "am" : "pm"}`;
 }
 
-function formatHistoryRouteTitle(ride: unknown): string {
-  const itinerary = getHistoryRideItinerary(ride);
-  if (!itinerary) {
-    const source = ride as HistoryRouteSource;
-    return readString(source?.title) || "Previous ride";
-  }
-
-  const destination = itinerary.stops[itinerary.stops.length - 1] ?? "";
-  return `${itinerary.pickup} → ${destination}`;
+function firstPart(address: string): string {
+  const part = address.split(",")[0]?.trim();
+  return part && part.length > 0 ? part : address;
 }
 
-function ClockBadge() {
-  return (
-    <View style={styles.clockBadge}>
-      <View style={styles.clockFace}>
-        <View style={styles.clockHandVertical} />
-        <View style={styles.clockHandHorizontal} />
-      </View>
-    </View>
-  );
-}
-
-function SvgPersonOne() {
-  return (
-    <Svg width={34} height={88} viewBox="0 0 140 360">
-      <Ellipse cx="70" cy="345" rx="34" ry="10" fill="#D9DCE5" />
-      <Rect x="52" y="258" width="12" height="84" rx="6" fill="#2E3552" />
-      <Rect x="77" y="258" width="12" height="84" rx="6" fill="#2E3552" />
-      <Rect x="47" y="338" width="22" height="8" rx="4" fill="#1E2235" />
-      <Rect x="72" y="338" width="22" height="8" rx="4" fill="#1E2235" />
-      <Path d="M35 178H105L95 265H45L35 178Z" fill="#7E6AD6" />
-      <Rect x="32" y="95" width="76" height="92" rx="18" fill="#F4F7FF" />
-      <Rect x="14" y="106" width="18" height="86" rx="9" fill="#B97958" />
-      <Rect x="108" y="106" width="18" height="70" rx="9" fill="#B97958" />
-      <Rect x="16" y="105" width="16" height="72" rx="8" fill="#F4F7FF" />
-      <Rect x="108" y="104" width="16" height="60" rx="8" fill="#F4F7FF" />
-      <Rect x="51" y="165" width="40" height="28" rx="4" fill="#D84F6A" />
-      <Rect x="61" y="82" width="16" height="18" rx="6" fill="#B97958" />
-      <Circle cx="69" cy="58" r="26" fill="#B97958" />
-      <Path
-        d="M43 61C43 36 56 24 69 24C86 24 95 35 95 55V70H87V58C87 43 80 35 67 35C55 35 51 47 51 58V70H43V61Z"
-        fill="#1F2948"
-      />
-      <Circle cx="61" cy="59" r="2.2" fill="#2D1F1F" />
-      <Circle cx="77" cy="59" r="2.2" fill="#2D1F1F" />
-    </Svg>
-  );
-}
-
-function SvgPersonTwo() {
-  return (
-    <Svg width={34} height={88} viewBox="0 0 145 365">
-      <Ellipse cx="72" cy="358" rx="36" ry="10" fill="#D9DCE5" />
-      <Rect x="52" y="254" width="14" height="95" rx="7" fill="#1F2740" />
-      <Rect x="80" y="254" width="14" height="95" rx="7" fill="#1F2740" />
-      <Rect x="47" y="344" width="24" height="8" rx="4" fill="#161A29" />
-      <Rect x="77" y="344" width="24" height="8" rx="4" fill="#161A29" />
-      <Path
-        d="M36 118C36 108 44 100 54 100H90C100 100 108 108 108 118V255H36V118Z"
-        fill="#4964E1"
-      />
-      <Path d="M72 118L58 150H86L72 118Z" fill="#F9FBFF" />
-      <Rect x="64" y="143" width="16" height="70" rx="7" fill="#B23949" />
-      <Path d="M72 213L60 233H84L72 213Z" fill="#8E2438" />
-      <Rect x="16" y="122" width="18" height="86" rx="9" fill="#A96E51" />
-      <Rect x="110" y="122" width="18" height="86" rx="9" fill="#A96E51" />
-      <Rect
-        x="14"
-        y="118"
-        width="18"
-        height="74"
-        rx="9"
-        transform="rotate(8 14 118)"
-        fill="#4964E1"
-      />
-      <Rect
-        x="110"
-        y="118"
-        width="18"
-        height="74"
-        rx="9"
-        transform="rotate(-8 110 118)"
-        fill="#4964E1"
-      />
-      <Rect x="64" y="82" width="16" height="20" rx="6" fill="#A96E51" />
-      <Circle cx="72" cy="56" r="27" fill="#A96E51" />
-      <Path
-        d="M47 54C47 34 58 20 74 20C92 20 101 35 100 55V68H92L88 56L79 67H62L56 58L52 68H47V54Z"
-        fill="#24304E"
-      />
-      <Path
-        d="M56 61C56 77 63 86 72 86C81 86 88 77 88 61C84 70 79 74 72 74C65 74 60 70 56 61Z"
-        fill="#1C2239"
-      />
-      <Rect
-        x="56"
-        y="53"
-        width="12"
-        height="9"
-        rx="2"
-        stroke="#26324F"
-        strokeWidth="2"
-      />
-      <Rect
-        x="76"
-        y="53"
-        width="12"
-        height="9"
-        rx="2"
-        stroke="#26324F"
-        strokeWidth="2"
-      />
-      <Rect x="68" y="56.5" width="8" height="2" fill="#26324F" />
-    </Svg>
-  );
-}
-
-function GroupRideArtwork() {
-  const leftFloat = useSharedValue(0);
-  const rightFloat = useSharedValue(0);
-
-  useEffect(() => {
-    leftFloat.value = withRepeat(
-      withSequence(
-        withTiming(-3, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      false,
-    );
-    rightFloat.value = withRepeat(
-      withSequence(
-        withTiming(-2, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      false,
-    );
-  }, [leftFloat, rightFloat]);
-
-  const leftStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: leftFloat.value }],
-  }));
-  const rightStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: rightFloat.value }],
-  }));
-
-  return (
-    <View style={styles.groupRideArtwork}>
-      <Animated.View style={[styles.groupPersonLeft, leftStyle]}>
-        <View style={styles.groupPersonScale}>
-          <SvgPersonOne />
-        </View>
-      </Animated.View>
-      <Animated.View style={[styles.groupPersonRight, rightStyle]}>
-        <View style={styles.groupPersonScale}>
-          <SvgPersonTwo />
-        </View>
-      </Animated.View>
-      <View style={styles.groupRideVehicle}>
-        <ElectricVehicle accentColor={theme.colors.green} />
-      </View>
-    </View>
-  );
-}
-
-function ElectricVehicle({ accentColor }: { accentColor: string }) {
-  return (
-    <View style={styles.evWrap}>
-      <View style={[styles.evBody, { backgroundColor: accentColor }]}>
-        <View style={styles.evCabin} />
-        <View style={styles.evWindow} />
-        <View
-          style={[styles.evBolt, { backgroundColor: theme.colors.white }]}
-        />
-        <View style={[styles.evLight, styles.evHeadlight]} />
-        <View style={[styles.evLight, styles.evTaillight]} />
-      </View>
-      <View style={[styles.evWheel, styles.evWheelLeft]}>
-        <View style={styles.evWheelHub} />
-      </View>
-      <View style={[styles.evWheel, styles.evWheelRight]}>
-        <View style={styles.evWheelHub} />
-      </View>
-    </View>
-  );
-}
-
-function ServiceArtwork({
-  serviceId,
-}: {
-  serviceId: (typeof riderServices)[number]["id"];
-}) {
-  if (serviceId === "group-ride") {
-    return <GroupRideArtwork />;
-  }
-
-  if (serviceId === "schedule-ride") {
-    return (
-      <View style={styles.vehicleArtwork}>
-        <ElectricVehicle accentColor={theme.colors.warning} />
-        <ClockBadge />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.vehicleArtwork}>
-      <ElectricVehicle accentColor={theme.colors.orange} />
-    </View>
-  );
-}
-
-function formatHomeBalance(amountNgn: number | undefined): string {
-  const value =
-    typeof amountNgn === "number" && Number.isFinite(amountNgn) ? amountNgn : 0;
-  const rounded = Math.round(value);
-  return rounded.toLocaleString("en-NG");
+function savedPlaceIcon(place: SavedPlace): keyof typeof Ionicons.glyphMap {
+  const label = place.label.toLowerCase();
+  return label === "home" ? "home-outline" : label === "work" ? "briefcase-outline" : "location-outline";
 }
 
 export default function RiderHomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
   const { permissionState, requestLocationAccess } = useAppLocation();
-  const { permissionGranted, requestNotificationAccess } =
-    useAppNotifications();
-  const { items: historyItems, isLoading: isLoadingHistory } =
-    useRiderHistory(3);
+  const { permissionGranted, requestNotificationAccess } = useAppNotifications();
+  const { trips: pastTrips } = useRiderTrips(10);
   const { overview } = useWalletOverview();
-  const historyPreview = historyItems.slice(0, 2);
-  const hasHistoryPreview = historyPreview.length > 0;
+  const { rawItems: scheduledRides, refresh: refreshScheduledRides } = useScheduledRides();
+  const { places: savedPlaces } = useSavedPlaces();
+  const { currentRide } = useRideSession();
 
-  const handleHistoryRidePress = (ride: unknown) => {
-    const itinerary = getHistoryRideItinerary(ride);
+  /* ── permissions: one ask at a time ─────────────────────────────────── */
 
-    if (!itinerary) {
-      router.push("/rider/history" as Href);
-      return;
-    }
-
-    router.push({
-      pathname: "/ride-selection",
-      params: {
-        itinerary: serializeRideItinerary(itinerary),
-        source: "history",
-      },
-    } as Href);
-  };
-
-  // Large enough that map always fills behind the sheet regardless of sheet height
-  const mapFillHeight = 800;
-
-  const [historyMeasuredHeight, setHistoryMeasuredHeight] = useState<
-    number | null
-  >(null);
-
-  // expandProgress: 0 = no-history/default home (cars + search only)
-  //                 1 = history-default home (cars + search + history)
-  const expandProgress = useSharedValue(0);
-
-  const historyExistsRef = useRef(false);
   const notificationPromptedRef = useRef(false);
-
-  useEffect(() => {
-    if (!hasHistoryPreview) return;
-    historyExistsRef.current = true;
-    expandProgress.value = 1;
-  }, [expandProgress, hasHistoryPreview]);
-
-  // Swipe down — return to default position, hide history
-  const collapseSheet = () => {
-    expandProgress.value = withTiming(0, { duration: 220 });
-  };
-
-  // Swipe up — only allow expansion when there is history to reveal
-  const expandSheet = () => {
-    if (!historyExistsRef.current) {
-      return;
-    }
-    expandProgress.value = withTiming(1, { duration: 220 });
-  };
 
   useEffect(() => {
     if (permissionState !== "idle") return;
@@ -454,698 +125,523 @@ export default function RiderHomeScreen() {
     // One consent conversation at a time: wait until the LOCATION flow has
     // settled (granted or declined) before opening the notifications ask —
     // both used to fire on mount and stack their dialogs on top of each other.
-    if (permissionState === 'idle') return;
+    if (permissionState === "idle") return;
     notificationPromptedRef.current = true;
     void requestNotificationAccess();
   }, [permissionGranted, permissionState, requestNotificationAccess]);
 
-  useEffect(() => {
-    if (isLoadingHistory) return;
+  /* ── data for the sheet ─────────────────────────────────────────────── */
 
-    historyExistsRef.current = hasHistoryPreview;
-    if (!hasHistoryPreview) {
-      setHistoryMeasuredHeight(null);
-      expandProgress.value = withTiming(0, { duration: 180 });
+  // A ride scheduled on another screen should show here on the way back.
+  const firstFocusRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocusRef.current) {
+        firstFocusRef.current = false;
+        return;
+      }
+      void refreshScheduledRides();
+    }, [refreshScheduledRides]),
+  );
+
+  const scheduled = useMemo(() => nextScheduledRide(scheduledRides), [scheduledRides]);
+
+  // The full addresses as booked, so Repeat and Reverse find the same places again.
+  const lastRide = useMemo<RoutePair | null>(() => {
+    const ride = pastTrips.find(
+      (trip) => trip.status === "COMPLETED" && trip.pickupAddress.trim() && trip.destAddress.trim(),
+    );
+    return ride ? { pickup: ride.pickupAddress.trim(), destination: ride.destAddress.trim() } : null;
+  }, [pastTrips]);
+
+  const liveStatus = currentRide?.status;
+  const rideIsSearching =
+    liveStatus === "requesting" || liveStatus === "bidding" || liveStatus === "matching";
+  const rideIsOn = liveStatus === "matched" || liveStatus === "active";
+  const liveRide = currentRide && (rideIsSearching || rideIsOn) ? currentRide : null;
+
+  const openLiveRide = () => {
+    if (!liveRide) return;
+    const itinerary = serializeRideItinerary(liveRide.itinerary);
+    if (rideIsOn) {
+      router.push({ pathname: "/rider/active-trip", params: { itinerary } } as Href);
       return;
     }
+    router.push({
+      pathname: "/matching",
+      params:
+        typeof liveRide.riderOfferNgn === "number"
+          ? { itinerary, offer: String(liveRide.riderOfferNgn) }
+          : { itinerary },
+    } as Href);
+  };
 
-    // History is the default home state when there is ride history.
-    expandProgress.value = withTiming(1, { duration: 220 });
-  }, [hasHistoryPreview, expandProgress, isLoadingHistory]);
+  const bookRoute = (itinerary: RideItinerary) => {
+    router.push({
+      pathname: "/ride-selection",
+      params: { itinerary: serializeRideItinerary(itinerary), source: "history" },
+    } as Href);
+  };
 
-  // Capture-phase PanResponder on the whole sheet.
-  // Vertical swipes are claimed by the sheet; taps pass through to Pressable children.
-  const sheetSwipeResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onStartShouldSetPanResponderCapture: () => false,
-      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-        Math.abs(gestureState.dy) > 8 &&
-        Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5,
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 20) {
-          collapseSheet();
-          return;
-        }
-        if (gestureState.dy < -20) expandSheet();
-      },
-      onPanResponderTerminate: (_, gestureState) => {
-        if (gestureState.dy > 20) {
-          collapseSheet();
-          return;
-        }
-        if (gestureState.dy < -20) expandSheet();
-      },
-    }),
-  ).current;
+  /* ── the sheet: up to book, down to see the map ─────────────────────── */
 
-  // Keep the sheet anchored to the bottom; only the history content expands.
-  const bottomSheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: 0 }],
+  const [open, setOpen] = useState(true);
+  const [rootHeight, setRootHeight] = useState(0);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const [peekHeight, setPeekHeight] = useState(0);
+  const [bodyHeight, setBodyHeight] = useState(0);
+
+  const screenHeight = rootHeight > 0 ? rootHeight : window.height;
+  const topRowBottom = insets.top + 12 + 48;
+  const maxSheetHeight = Math.max(240, screenHeight - topRowBottom - MAP_PEEK);
+  const maxBodyHeight = Math.max(0, maxSheetHeight - peekHeight);
+  const bodyScrolls = bodyHeight > maxBodyHeight + 1;
+  const closedOffset = peekHeight > 0 ? Math.max(0, sheetHeight - peekHeight) : 0;
+
+  const translateY = useSharedValue(0);
+  const closedY = useSharedValue(0);
+  const dragStart = useSharedValue(0);
+  const sheetH = useSharedValue(0);
+
+  useEffect(() => {
+    closedY.value = closedOffset;
+    sheetH.value = sheetHeight;
+    translateY.value = withTiming(open ? 0 : closedOffset, { duration: SHEET_MS });
+  }, [closedOffset, closedY, open, sheetH, sheetHeight, translateY]);
+
+  const [headerPan, bodyPan] = useMemo(() => {
+    const make = (enabled: boolean) =>
+      Gesture.Pan()
+        .enabled(enabled)
+        .activeOffsetY([-10, 10])
+        .failOffsetX([-24, 24])
+        .onStart(() => {
+          dragStart.value = translateY.value;
+        })
+        .onUpdate((event) => {
+          translateY.value = Math.min(
+            closedY.value,
+            Math.max(0, dragStart.value + event.translationY),
+          );
+        })
+        .onEnd((event) => {
+          const goDown =
+            event.velocityY > 500 ||
+            (event.velocityY > -500 && translateY.value > closedY.value / 2);
+          translateY.value = withTiming(goDown ? closedY.value : 0, { duration: SHEET_MS });
+          runOnJS(setOpen)(!goDown);
+        });
+    // When the sheet's lower part is tall enough to scroll, swipes there
+    // scroll it; the top part still moves the sheet.
+    return [make(true), make(!bodyScrolls)];
+  }, [bodyScrolls, closedY, dragStart, translateY]);
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
   }));
 
-  // History fades + grows in without exposing the map below the sheet.
-  const historyAnimatedStyle = useAnimatedStyle(() => ({
-    height:
-      historyMeasuredHeight == null
-        ? undefined
-        : historyMeasuredHeight * expandProgress.value,
-    opacity: expandProgress.value,
-    transform: [{ translateY: (1 - expandProgress.value) * 18 }],
-    overflow: "hidden",
+  // The map's middle (where the rider is) stays in the part the sheet leaves
+  // uncovered, whichever way the sheet is.
+  const mapStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -Math.max(0, sheetH.value - translateY.value) / 2 }],
   }));
+
+  const walletLabel = overview ? naira(overview.balanceNgn) : "Wallet";
 
   return (
-    <AppScreen
-      backgroundColor={theme.colors.offWhite}
-      contentStyle={styles.container}
-      safeAreaEdges={["top", "left", "right"]}
-    >
-      <StatusBar style="dark" backgroundColor="#D4E6D4" />
+    <View
+      onLayout={(event) => setRootHeight(event.nativeEvent.layout.height)}
+      style={styles.root}>
+      <StatusBar style="dark" />
 
-      {/* ── Map ── */}
-      <View style={styles.mapWrap}>
+      <Animated.View style={[styles.map, mapStyle]}>
         <LiveMap
-          height={mapFillHeight}
+          height={screenHeight}
           initialCenter={riderHomeCenter}
           initialDelta={{ latitudeDelta: 0.038, longitudeDelta: 0.03 }}
-        >
-          <FloatingView style={styles.triangle} distance={12} rotate={8}>
-            <TriangleShape color="rgba(240,145,63,0.15)" />
-          </FloatingView>
-          <FloatingView
-            style={styles.star}
-            delay={180}
-            distance={10}
-            rotate={-10}
-          >
-            <StarBurst color="rgba(13,13,13,0.12)" width={38} height={38} />
-          </FloatingView>
-          <View style={styles.mapTopRow}>
-            <View style={styles.titleRow}>
-              <AppText variant="h2">Wheelers</AppText>
-            </View>
-            <View style={styles.topActions}>
-              <FloatingView distance={6}>
-                <Pressable
-                  onPress={() => router.push("/rider/wallet" as Href)}
-                  style={styles.balance}
-                >
-                  <AppText
-                    variant="monoSmall"
-                    color={theme.colors.white}
-                    style={styles.balanceValue}
-                  >
-                    {formatHomeBalance(overview?.balanceNgn)}
-                  </AppText>
-                  <AppText
-                    variant="bodySmall"
-                    color={theme.colors.white}
-                    style={styles.balanceUnit}
-                  >
-                    NGN
-                  </AppText>
-                </Pressable>
-              </FloatingView>
-              <View style={styles.accountRow}>
-                <Pressable
-                  onPress={() => router.push("/rider/notifications" as Href)}
-                  style={styles.iconButton}
-                >
-                  <MaterialIcons
-                    name="notifications-none"
-                    size={18}
-                    color={theme.colors.white}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/rider/profile" as Href)}
-                  style={styles.profileButton}
-                >
-                  <AppText variant="monoSmall">CA</AppText>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </LiveMap>
+        />
+      </Animated.View>
+
+      <View pointerEvents="box-none" style={[styles.topRow, { top: insets.top + 12 }]}>
+        <Pressable
+          accessibilityLabel="Your account"
+          accessibilityRole="button"
+          onPress={() => router.push("/rider/profile" as Href)}
+          style={({ pressed }) => [styles.logo, pressed ? styles.pressed : null]}>
+          <BrandLogo size={48} />
+        </Pressable>
+        <Pressable
+          accessibilityLabel={overview ? `Wallet balance ${walletLabel}` : "Wallet"}
+          accessibilityRole="button"
+          onPress={() => router.push("/rider/wallet" as Href)}
+          style={({ pressed }) => [styles.wallet, pressed ? styles.pressed : null]}>
+          <Ionicons color={colors.orange} name="wallet-outline" size={18} />
+          <RText color={colors.cream} maxFontSizeMultiplier={1.15} style={styles.walletText}>
+            {walletLabel}
+          </RText>
+        </Pressable>
       </View>
 
-      {/* ── Unified Bottom Sheet ─────────────────────────────────────── */}
-      {/* Default state = Image 2: handle + heading + cards + search fully visible.  */}
-      {/* Swipe UP → whole sheet translates upward, history slides into view below.  */}
-      {/* No collapsed / hidden state exists below Image 2.                          */}
       <Animated.View
-        style={[styles.bottomSheet, bottomSheetAnimatedStyle]}
-        {...sheetSwipeResponder.panHandlers}
-      >
-        {/* Swipe handle */}
-        <View style={styles.swipeHandleWrap}>
-          <View style={styles.swipeHandle} />
-        </View>
+        onLayout={(event) => setSheetHeight(event.nativeEvent.layout.height)}
+        style={[styles.sheet, sheetStyle]}>
+        <GestureDetector gesture={headerPan}>
+          <View
+            onLayout={(event) => setPeekHeight(event.nativeEvent.layout.height)}
+            style={styles.peek}>
+            <Pressable
+              accessibilityLabel={open ? "Swipe down to see the map" : "Swipe up to book a ride"}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: open }}
+              onPress={() => setOpen((current) => !current)}
+              style={styles.handleButton}>
+              <View style={styles.handle} />
+            </Pressable>
 
-        {/* "Let's Wheel" heading */}
-        <RevealView delay={80}>
-          <AppText
-            variant="h3"
-            color={theme.colors.orange}
-            style={styles.serviceHeading}
-          >
-            Let&apos;s Wheel
-          </AppText>
-        </RevealView>
+            <RText accessibilityRole="header" variant="title">
+              Where are you going?
+            </RText>
 
-        {/* Service cards */}
-        <View style={styles.serviceRow}>
-          {riderServices.map((service, index) => (
-            <RevealView
-              key={service.id}
-              delay={110 + index * 60}
-              style={styles.serviceSlot}
-            >
+            <View style={styles.searchRow}>
               <Pressable
-                onPress={() => router.push(service.route)}
-                style={[
-                  styles.serviceCard,
-                  { backgroundColor: service.cardColor },
-                  index === 1 ? styles.serviceCardRaised : null,
-                ]}
-              >
-                <View style={styles.serviceTop}>
-                  <ServiceArtwork serviceId={service.id} />
-                  <View style={styles.serviceTag}>
-                    <AppText variant="monoSmall" style={styles.serviceTagText}>
-                      {service.tag}
-                    </AppText>
-                  </View>
-                </View>
-                <AppText
-                  variant="bodyMedium"
-                  color={theme.colors.black}
-                  style={styles.serviceLabel}
-                >
-                  {service.label}
-                </AppText>
+                accessibilityLabel="Search destination"
+                accessibilityRole="button"
+                onPress={() => router.push("/destination-search" as Href)}
+                style={({ pressed }) => [styles.search, pressed ? styles.pressed : null]}>
+                <Ionicons color={colors.ink} name="search" size={22} />
+                <RText color={colors.muted} numberOfLines={1} style={styles.searchText}>
+                  Search destination
+                </RText>
               </Pressable>
-            </RevealView>
-          ))}
-        </View>
-
-        {/* Search box — always visible in default state */}
-        <Pressable
-          onPress={() => router.push("/destination-search")}
-          style={styles.searchBox}
-        >
-          <View style={styles.searchCopy}>
-            <AppText variant="bodyMedium">Wheel to?</AppText>
-            <AppText variant="bodySmall" color={theme.colors.muted}>
-              Search destination...
-            </AppText>
+              <Pressable
+                accessibilityLabel="Later: schedule a ride"
+                accessibilityRole="button"
+                onPress={() => router.push("/schedule-ride" as Href)}
+                style={({ pressed }) => [styles.later, pressed ? styles.pressed : null]}>
+                <Ionicons color={colors.orange} name="calendar-outline" size={18} />
+                <RText color={colors.cream} maxFontSizeMultiplier={1.15} variant="bodyBold">
+                  Later
+                </RText>
+              </Pressable>
+            </View>
           </View>
-          <View style={styles.searchAction}>
-            <MaterialIcons
-              name="north-east"
-              size={18}
-              color={theme.colors.black}
-            />
-          </View>
-        </Pressable>
+        </GestureDetector>
 
-        {/* History — lives inside the sheet, animates height as sheet expands */}
-        {hasHistoryPreview ? (
-          <Animated.View style={historyAnimatedStyle}>
-            <RevealView delay={180}>
+        <GestureDetector gesture={bodyPan}>
+          <View
+            accessibilityElementsHidden={!open}
+            importantForAccessibility={open ? "auto" : "no-hide-descendants"}
+            style={{ maxHeight: maxBodyHeight }}>
+            <ScrollView
+              bounces={false}
+              scrollEnabled={bodyScrolls}
+              showsVerticalScrollIndicator={false}>
               <View
-                style={styles.historyPanel}
-                onLayout={({ nativeEvent }) => {
-                  setHistoryMeasuredHeight(nativeEvent.layout.height);
-                }}
-              >
-                <View style={styles.historyHeader}>
-                  <AppText variant="bodySmall" color={theme.colors.muted}>
-                    Ride history
-                  </AppText>
+                onLayout={(event) => setBodyHeight(event.nativeEvent.layout.height)}
+                style={styles.body}>
+                {liveRide ? (
                   <Pressable
-                    onPress={() => router.push("/rider/history" as Href)}
-                  >
-                    <AppText variant="monoSmall" color={theme.colors.orange}>
-                      See all
-                    </AppText>
+                    accessibilityLabel="Your ride. Return to it"
+                    accessibilityRole="button"
+                    onPress={openLiveRide}
+                    style={({ pressed }) => [styles.liveRide, pressed ? styles.pressed : null]}>
+                    <View style={styles.liveRideIcon}>
+                      <Ionicons color={colors.ink} name="car-sport" size={20} />
+                    </View>
+                    <View style={styles.flexText}>
+                      <RText color={colors.orange} variant="bodyBold">
+                        Your ride
+                      </RText>
+                      <RText color={colors.onInkSoft} numberOfLines={1} variant="small">
+                        {rideIsSearching
+                          ? "Finding you a driver"
+                          : liveStatus === "active"
+                            ? "Trip in progress"
+                            : "Your driver is on the way"}
+                      </RText>
+                    </View>
+                    <Ionicons color={colors.onInkMuted} name="chevron-forward" size={18} />
                   </Pressable>
-                </View>
-                <View style={styles.historySection}>
-                  {historyPreview.map((ride, index) => (
-                    <RevealView key={ride.id} delay={220 + index * 70}>
-                      <Pressable onPress={() => handleHistoryRidePress(ride)}>
-                        <AppCard style={styles.historyCard}>
-                          <View style={styles.historyIcon}>
-                            <MaterialIcons
-                              name={
-                                ride.icon as keyof typeof MaterialIcons.glyphMap
-                              }
-                              size={16}
-                              color={theme.colors.black}
-                            />
-                          </View>
-                          <View style={styles.historyCopy}>
-                            <AppText variant="bodyMedium" numberOfLines={1}>
-                              {formatHistoryRouteTitle(ride)}
-                            </AppText>
-                            <AppText
-                              variant="bodySmall"
-                              color={theme.colors.muted}
-                              numberOfLines={1}
-                            >
-                              Tap to book this route again
-                            </AppText>
-                          </View>
-                          <AppText
-                            variant="monoSmall"
-                            color={theme.colors.orange}
-                            style={styles.historyFare}
-                          >
-                            {ride.fare}
-                          </AppText>
-                        </AppCard>
+                ) : null}
+
+                {scheduled ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/rider/history",
+                        params: { tab: "scheduled" },
+                      } as Href)
+                    }
+                    style={({ pressed }) => [styles.scheduled, pressed ? styles.pressed : null]}>
+                    <View style={styles.flexText}>
+                      <RText numberOfLines={1} style={styles.scheduledTitle}>
+                        Scheduled ride: {formatScheduledFor(scheduled.scheduledFor)}
+                      </RText>
+                      <RText color={colors.muted} numberOfLines={1} variant="small">
+                        {firstPart(scheduled.pickupAddress)} to {firstPart(scheduled.destAddress)}
+                      </RText>
+                    </View>
+                    <Ionicons color={colors.muted} name="chevron-forward" size={16} />
+                  </Pressable>
+                ) : null}
+
+                {/* A second ride cannot be booked while one is live. */}
+                {lastRide && !liveRide ? (
+                  <View style={styles.group}>
+                    <RText variant="label">LAST RIDE</RText>
+                    <View style={styles.pairRow}>
+                      <Pressable
+                        accessibilityLabel={`Repeat: ${shortPlace(lastRide.pickup)} to ${shortPlace(lastRide.destination)}`}
+                        accessibilityRole="button"
+                        onPress={() =>
+                          bookRoute({ pickup: lastRide.pickup, stops: [lastRide.destination] })
+                        }
+                        style={({ pressed }) => [
+                          styles.lastRide,
+                          styles.lastRideInk,
+                          pressed ? styles.pressed : null,
+                        ]}>
+                        <View style={styles.lastRideHead}>
+                          <Ionicons color={colors.orange} name="refresh" size={18} />
+                          <RText color={colors.orange} variant="bodyBold">
+                            Repeat
+                          </RText>
+                        </View>
+                        <RText color={colors.onInkSoft} numberOfLines={1} variant="small">
+                          {shortPlace(lastRide.pickup)} to {shortPlace(lastRide.destination)}
+                        </RText>
                       </Pressable>
-                    </RevealView>
-                  ))}
-                </View>
+                      <Pressable
+                        accessibilityLabel={`Reverse: ${shortPlace(lastRide.destination)} to ${shortPlace(lastRide.pickup)}`}
+                        accessibilityRole="button"
+                        onPress={() =>
+                          bookRoute({ pickup: lastRide.destination, stops: [lastRide.pickup] })
+                        }
+                        style={({ pressed }) => [
+                          styles.lastRide,
+                          styles.lastRideCard,
+                          pressed ? styles.pressed : null,
+                        ]}>
+                        <View style={styles.lastRideHead}>
+                          <Ionicons color={colors.ink} name="swap-horizontal" size={18} />
+                          <RText variant="bodyBold">Reverse</RText>
+                        </View>
+                        <RText color={colors.muted} numberOfLines={1} variant="small">
+                          {shortPlace(lastRide.destination)} to {shortPlace(lastRide.pickup)}
+                        </RText>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : null}
+
+                {savedPlaces.length > 0 ? (
+                  <View style={styles.pairRow}>
+                    <ScrollView
+                      contentContainerStyle={styles.chips}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.chipScroll}>
+                      {savedPlaces.map((place) => (
+                        <Pressable
+                          accessibilityLabel={`Go to ${place.label}`}
+                          accessibilityRole="button"
+                          key={place.id}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/destination-search",
+                              params: { destination: place.address },
+                            } as Href)
+                          }
+                          style={({ pressed }) => [
+                            styles.chip,
+                            savedPlaces.length <= 2 ? styles.chipWide : null,
+                            pressed ? styles.pressed : null,
+                          ]}>
+                          <Ionicons color={colors.orangeText} name={savedPlaceIcon(place)} size={18} />
+                          <RText numberOfLines={1} style={styles.chipText}>
+                            {place.label}
+                          </RText>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                    <Pressable
+                      accessibilityLabel="Saved places"
+                      accessibilityRole="button"
+                      onPress={() => router.push("/saved-places" as Href)}
+                      style={({ pressed }) => [styles.addChip, pressed ? styles.pressed : null]}>
+                      <Ionicons color={colors.ink} name="add" size={24} />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => router.push("/saved-places" as Href)}
+                    style={({ pressed }) => [styles.addPlace, pressed ? styles.pressed : null]}>
+                    <Ionicons color={colors.ink} name="add" size={22} />
+                    <RText style={styles.chipText}>Add a place</RText>
+                  </Pressable>
+                )}
               </View>
-            </RevealView>
-          </Animated.View>
-        ) : null}
+            </ScrollView>
+          </View>
+        </GestureDetector>
       </Animated.View>
-    </AppScreen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 0,
-    paddingBottom: 0,
-  },
+  root: { flex: 1, backgroundColor: colors.tint, overflow: "hidden" },
+  pressed: { opacity: 0.72 },
+  flexText: { flex: 1, minWidth: 0 },
 
-  // ── Map ────────────────────────────────────────────────────────────
-  mapWrap: {
+  map: { position: "absolute", top: 0, left: 0, right: 0 },
+
+  topRow: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: "hidden",
-  },
-  mapTopRow: {
-    position: "absolute",
-    top: 14,
-    left: theme.spacing.gutter,
-    right: theme.spacing.gutter,
+    left: gutter,
+    right: gutter,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
   },
-  titleRow: {
+  logo: { width: 48, height: 48 },
+  wallet: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.sm,
+    gap: 8,
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: colors.ink,
   },
-  topActions: {
-    alignItems: "flex-end",
-    gap: theme.spacing.sm,
-  },
-  balance: {
-    width: 72,
-    height: 72,
-    backgroundColor: theme.colors.orange,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: theme.spacing.xs,
-    ...theme.shadows.card,
-  },
-  balanceValue: {
-    fontSize: 13,
-    lineHeight: 16,
-  },
-  balanceUnit: {
-    opacity: 0.92,
-  },
-  accountRow: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: theme.radius.pill,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    backgroundColor: theme.colors.orange,
-    alignItems: "center",
-    justifyContent: "center",
-    ...theme.shadows.card,
-  },
-  profileButton: {
-    minWidth: 38,
-    height: 38,
-    borderRadius: theme.radius.pill,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    backgroundColor: theme.colors.orangeLight,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: theme.spacing.sm,
-    ...theme.shadows.card,
-  },
-  triangle: {
-    position: "absolute",
-    top: "22%",
-    left: "18%",
-  },
-  star: {
-    position: "absolute",
-    right: "6%",
-    bottom: "10%",
-  },
+  walletText: { fontFamily: fonts.bold, fontSize: 16, fontVariant: ["tabular-nums"] },
 
-  // ── Unified Bottom Sheet ───────────────────────────────────────────
-  // Default = Image 2: fully visible at bottom, translateY = 0.
-  // Swipe UP → translateY goes negative (sheet rises), history appears.
-  // Swipe DOWN → back to translateY = 0 (Image 2). Never goes lower.
-  bottomSheet: {
+  sheet: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: theme.colors.offWhite,
-    paddingHorizontal: theme.spacing.gutter,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-    zIndex: 1,
+    backgroundColor: colors.cream,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    paddingHorizontal: gutter,
   },
-
-  // ── Swipe handle ───────────────────────────────────────────────────
-  swipeHandleWrap: {
+  peek: { gap: 14, paddingBottom: 14 },
+  handleButton: {
+    height: 44,
+    marginBottom: -22,
     alignItems: "center",
-    marginBottom: theme.spacing.xs,
+    justifyContent: "flex-start",
   },
-  swipeHandle: {
-    width: 52,
-    height: 6,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.black,
-    opacity: 0.18,
-  },
+  handle: { width: 48, height: 5, marginTop: 10, borderRadius: 3, backgroundColor: "#B8AE9E" },
 
-  // ── Heading ────────────────────────────────────────────────────────
-  serviceHeading: {
-    fontFamily: "Shrikhand_400Regular",
-    fontSize: 28,
-    lineHeight: 32,
-    letterSpacing: 0.1,
-  },
-
-  // ── Service cards ──────────────────────────────────────────────────
-  serviceRow: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  serviceSlot: {
+  searchRow: { flexDirection: "row", gap: 10 },
+  search: {
     flex: 1,
-  },
-  serviceCard: {
-    minHeight: 92,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    ...theme.shadows.card,
-  },
-  serviceCardRaised: {
-    transform: [{ translateY: -6 }],
-  },
-  serviceTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  serviceTag: {
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    marginLeft: theme.spacing.xs,
-    flexShrink: 0,
-  },
-  serviceTagText: {
-    fontSize: 10,
-    lineHeight: 11,
-    letterSpacing: 0.2,
-  },
-  serviceLabel: {
-    fontSize: 13,
-    lineHeight: 16,
-  },
-
-  // ── Search box ─────────────────────────────────────────────────────
-  searchBox: {
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.offWhite,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  searchCopy: {
-    gap: 0,
-  },
-  searchAction: {
-    width: 28,
-    height: 28,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.orangeLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // ── History ────────────────────────────────────────────────────────
-  historyPanel: {
-    gap: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
-  },
-  historyHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  historySection: {
-    gap: theme.spacing.sm,
-  },
-  historyCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    backgroundColor: theme.colors.offWhite,
-  },
-  historyIcon: {
-    width: 34,
-    height: 34,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.orangeLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  historyCopy: {
-    flex: 1,
-    gap: 2,
     minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    height: 60,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
-  historyFare: {
-    flexShrink: 0,
-    maxWidth: 86,
-    textAlign: "right",
+  searchText: { fontFamily: fonts.medium, fontSize: 17 },
+  later: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 60,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    backgroundColor: colors.ink,
   },
 
-  // ── Vehicle / artwork helpers ──────────────────────────────────────
-  vehicleArtwork: {
-    position: "relative",
-    width: 58,
-    height: 42,
+  body: { gap: 14, paddingBottom: 16 },
+
+  liveRide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 68,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: radius.lg,
+    backgroundColor: colors.ink,
   },
-  groupRideArtwork: {
-    position: "relative",
-    width: 58,
-    height: 42,
-    overflow: "visible",
+  liveRideIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.orange,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  groupPersonLeft: {
-    position: "absolute",
-    top: -2,
-    left: -4,
-    zIndex: 3,
+
+  scheduled: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.orangeSoft,
   },
-  groupPersonRight: {
-    position: "absolute",
-    right: -4,
-    top: -2,
-    zIndex: 3,
+  scheduledTitle: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20 },
+
+  group: { gap: 8 },
+  pairRow: { flexDirection: "row", gap: 10 },
+  lastRide: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: radius.lg,
   },
-  groupPersonScale: {
-    transform: [{ scale: 0.24 }],
-    width: 10,
-    height: 22,
-    overflow: "hidden",
-  },
-  groupRideVehicle: {
-    position: "absolute",
-    left: 2,
-    bottom: -1,
-    zIndex: 1,
-    transform: [{ scale: 0.82 }],
-  },
-  evWrap: {
-    position: "relative",
-    width: 58,
-    height: 38,
-    marginLeft: 0,
-    marginTop: 4,
-  },
-  evBody: {
-    position: "absolute",
-    left: 6,
-    right: 4,
-    bottom: 8,
-    height: 20,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: 10,
-  },
-  evCabin: {
-    position: "absolute",
-    left: 12,
-    top: -10,
-    width: 24,
-    height: 12,
-    borderWidth: theme.borders.thick,
-    borderBottomWidth: 0,
-    borderColor: theme.colors.black,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 8,
-    backgroundColor: theme.colors.white,
-  },
-  evWindow: {
-    position: "absolute",
-    left: 16,
-    top: -7,
-    width: 16,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#D9F3FF",
-    borderWidth: 1.5,
-    borderColor: theme.colors.black,
-  },
-  evBolt: {
-    position: "absolute",
-    top: 4,
-    left: 26,
-    width: 6,
-    height: 10,
-    transform: [{ skewX: "-18deg" }],
-    borderRadius: 1,
-  },
-  evLight: {
-    position: "absolute",
-    top: 6,
-    width: 5,
-    height: 7,
-    borderRadius: 3,
+  lastRideInk: { backgroundColor: colors.ink },
+  lastRideCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line },
+  lastRideHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+
+  chipScroll: { flex: 1 },
+  chips: { flexGrow: 1, gap: 10 },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minHeight: 52,
+    maxWidth: 180,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: theme.colors.black,
+    borderColor: colors.line,
   },
-  evHeadlight: {
-    right: 2,
-    backgroundColor: "#FFF4CC",
-  },
-  evTaillight: {
-    left: 2,
-    backgroundColor: "#FFC4C4",
-  },
-  evWheel: {
-    position: "absolute",
-    bottom: 0,
-    width: 14,
-    height: 14,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.black,
+  chipWide: { flex: 1, maxWidth: undefined },
+  chipText: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20 },
+  addChip: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
     alignItems: "center",
     justifyContent: "center",
   },
-  evWheelLeft: {
-    left: 12,
-  },
-  evWheelRight: {
-    right: 8,
-  },
-  evWheelHub: {
-    width: 5,
-    height: 5,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.white,
-  },
-  clockBadge: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 22,
-    height: 22,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    backgroundColor: "#FFF4CC",
+  addPlace: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-  },
-  clockFace: {
-    width: 11,
-    height: 11,
-    borderWidth: 1.5,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  clockHandVertical: {
-    position: "absolute",
-    width: 1.5,
-    height: 4,
-    backgroundColor: theme.colors.black,
-    top: 1.5,
-  },
-  clockHandHorizontal: {
-    position: "absolute",
-    width: 3.5,
-    height: 1.5,
-    backgroundColor: theme.colors.black,
-    right: 1.5,
+    gap: 8,
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
 });

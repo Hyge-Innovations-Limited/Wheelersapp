@@ -17,6 +17,8 @@ import {
   isBackendConfigured,
   type ReferralSummaryResponse,
 } from "@/lib/api";
+import QRCodeStyled from "react-native-qrcode-styled";
+
 import { theme } from "@/theme";
 
 function formatNgn(value: number | null | undefined): string {
@@ -29,6 +31,7 @@ export default function ReferralScreen() {
   const [summary, setSummary] = useState<ReferralSummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,12 +79,15 @@ export default function ReferralScreen() {
   }, [getAccessToken, isReady, user]);
 
   const referralCode = summary?.code ?? "";
+  const shareLink = summary?.shareLink ?? "";
   const shareMessage = useMemo(
     () =>
       referralCode
-        ? `Use my Wheelers referral code ${referralCode} after onboarding and book your rides on Wheelers.`
+        ? shareLink
+          ? `Ride with Wheelers and name your own price. Tap to start with my referral code ${referralCode}: ${shareLink}`
+          : `Use my Wheelers referral code ${referralCode} after onboarding and book your rides on Wheelers.`
         : "Join me on Wheelers.",
-    [referralCode],
+    [referralCode, shareLink],
   );
 
   async function handleShare() {
@@ -91,6 +97,13 @@ export default function ReferralScreen() {
     }
 
     await Share.share({ message: shareMessage });
+  }
+
+  async function handleCopyLink() {
+    if (!shareLink) return;
+    await Clipboard.setStringAsync(shareLink);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 1600);
   }
 
   async function handleCopy() {
@@ -146,6 +159,39 @@ export default function ReferralScreen() {
         </View>
       </AppCard>
 
+      {shareLink ? (
+        <AppCard style={styles.qrCard}>
+          <AppText variant="monoSmall" color={theme.colors.orange}>
+            YOUR QR CODE
+          </AppText>
+          <View
+            accessibilityLabel={`QR code for your referral code ${referralCode}`}
+            accessibilityRole="image"
+            style={styles.qrFrame}
+          >
+            <QRCodeStyled
+              color={theme.colors.black}
+              data={shareLink}
+              padding={12}
+              pieceSize={5}
+              style={styles.qr}
+            />
+          </View>
+          <AppText variant="bodySmall" color={theme.colors.muted} style={styles.qrHint}>
+            Let a rider scan this with their phone camera. It opens a chat with
+            Wheelers with your code already filled in.
+          </AppText>
+          <AppText variant="bodySmall" numberOfLines={2} selectable style={styles.qrLink}>
+            {shareLink}
+          </AppText>
+          <AppButton
+            onPress={handleCopyLink}
+            title={linkCopied ? "Link copied" : "Copy link"}
+            variant="inverse"
+          />
+        </AppCard>
+      ) : null}
+
       {errorMessage ? (
         <AppCard borderColor={theme.colors.danger} style={styles.noticeCard}>
           <AppText variant="bodyMedium" color={theme.colors.danger}>
@@ -188,7 +234,7 @@ export default function ReferralScreen() {
           disabled={!referralCode}
           onPress={handleShare}
           style={styles.primaryAction}
-          title="Share code"
+          title={shareLink ? "Share link" : "Share code"}
         />
         <AppButton
           disabled={!referralCode}
@@ -240,6 +286,17 @@ function RuleRow({ text }: { text: string }) {
 }
 
 const styles = StyleSheet.create({
+  qrCard: { alignItems: "center", gap: theme.spacing.md },
+  qrFrame: {
+    borderRadius: theme.radii.md,
+    borderWidth: theme.borders.thick,
+    borderColor: theme.colors.black,
+    backgroundColor: theme.colors.white,
+    overflow: "hidden",
+  },
+  qr: { backgroundColor: theme.colors.white },
+  qrHint: { textAlign: "center" },
+  qrLink: { textAlign: "center" },
   container: {
     gap: theme.spacing.lg,
     paddingTop: theme.spacing.lg,

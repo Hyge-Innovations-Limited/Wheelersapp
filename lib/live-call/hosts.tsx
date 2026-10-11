@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { RiderCallScreen } from '@/components/rider/call-screen';
 import { useDriverSession } from '@/lib/driver-session';
 import { LiveCallProvider } from '@/lib/live-call/call-session';
 import { useRideSession } from '@/lib/ride-session';
@@ -10,8 +11,8 @@ export function DriverLiveCallHost({ children }: { children: ReactNode }) {
   return <LiveCallProvider send={sendCallMessage}>{children}</LiveCallProvider>;
 }
 
-/** Live call in the rider app, on the ride session's socket. */
+/** Live call in the rider app, on the ride session's socket, with the rider side's call screen. */
 export function RiderLiveCallHost({ children }: { children: ReactNode }) {
   const { sendCallMessage } = useRideSession();
-  return <LiveCallProvider send={sendCallMessage}>{children}</LiveCallProvider>;
+  return <LiveCallProvider send={sendCallMessage} Screen={RiderCallScreen}>{children}</LiveCallProvider>;
 }

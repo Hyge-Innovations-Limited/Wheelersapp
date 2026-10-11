@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { AppState, Vibration } from 'react-native';
 
 import { LiveCallScreen } from '@/components/LiveCallScreen';
@@ -83,9 +83,11 @@ type Props = {
   children: ReactNode;
   /** Sends one message on this app's socket (the driver or rider session). */
   send: (type: string, payload: Record<string, unknown>) => Promise<void>;
+  /** The call screen to show. Left out (the driver app): the standard one. */
+  Screen?: ComponentType;
 };
 
-export function LiveCallProvider({ children, send }: Props) {
+export function LiveCallProvider({ children, send, Screen = LiveCallScreen }: Props) {
   const [call, setCall] = useState<LiveCallView | null>(null);
   const callRef = useRef<LiveCallView | null>(null);
   const iceRef = useRef<IceServer[]>([]);
@@ -410,7 +412,7 @@ export function LiveCallProvider({ children, send }: Props) {
   return (
     <LiveCallContext.Provider value={value}>
       {children}
-      {liveCallSupported ? <LiveCallScreen /> : null}
+      {liveCallSupported ? <Screen /> : null}
     </LiveCallContext.Provider>
   );
 }

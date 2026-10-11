@@ -99,6 +99,9 @@ export interface ReferralSummaryResponse {
   qualifiedReferrals: number;
   expiredNoRideReferrals: number;
   closedReferrals: number;
+  /** Opens a chat with Wheelers with the code already typed: what the QR code holds. Absent on older servers. */
+  shareLink?: string | null;
+  shareMessage?: string | null;
 }
 
 export interface ApplyReferralCodeResponse {

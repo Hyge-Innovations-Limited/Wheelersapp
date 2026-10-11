@@ -1,3 +1,4 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
@@ -241,6 +242,20 @@ export default function DriverSettingsScreen() {
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Your papers</AppText>
               <AppText variant="bodySmall" color={theme.colors.muted}>Licence details and your car&apos;s papers</AppText>
+            </View>
+            <ChevronRightIcon size={responsive.scale(18)} />
+          </Pressable>
+          <View style={[styles.menuDivider, dividerInset, { borderBottomColor: dividerColor }]} />
+          <Pressable
+            onPress={() => router.push('/growth/referral' as Href)}
+            style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
+          >
+            <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <MaterialIcons color={theme.colors.orange} name="qr-code-2" size={glyphSize} />
+            </View>
+            <View style={styles.menuInfo}>
+              <AppText variant="bodyMedium">Refer riders</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>Your QR code, link and referral code</AppText>
             </View>
             <ChevronRightIcon size={responsive.scale(18)} />
           </Pressable>

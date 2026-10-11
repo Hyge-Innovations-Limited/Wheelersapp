@@ -1,9 +1,9 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useAuth } from "@/lib/auth";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   Pressable,
@@ -13,27 +13,23 @@ import {
   View,
 } from "react-native";
 
-import { AppButton } from "@/components/app-button";
-import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
-import { BackArrow } from "@/components/back-arrow";
+import { RBack, RButton, rider, RScreen, RText } from "@/components/rider/kit";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
-import {
-  applyReferralCode,
-  getRideEstimate,
-  isBackendConfigured,
-} from "@/lib/api";
+import { getRideEstimate, isBackendConfigured } from "@/lib/api";
+import type { RideEstimateResponse } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { toUserMessage } from "@/lib/error-messages";
 import {
   fetchGooglePlaceSuggestions,
   isGoogleMapsConfigured,
   resolvePlaceQuery,
   type PlaceSuggestion,
 } from "@/lib/google-places";
+import { useAppLocation } from "@/lib/location";
 import {
   readRecentPlaceSearches,
   saveRecentPlaceSearch,
 } from "@/lib/place-search-history";
-import type { RideEstimateResponse } from "@/lib/api";
 import {
   buildInstantRideEstimate,
   serializeRideEstimate,
@@ -48,18 +44,21 @@ import {
   type RideItinerary,
 } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
-import { toUserMessage } from "@/lib/error-messages";
-import { useAppLocation } from "@/lib/location";
-import { theme } from "@/theme";
+
+const { colors, fonts, radius } = rider;
 
 // "pickup" targets the from field; a number targets routeStops[index]
 // (intermediate stops + the final destination).
 type InlineTarget = "pickup" | number;
-type ScreenMode = "launcher" | "form";
 type FlowMode = "booking" | "trip-edit";
+type Route = { pickup: string; stops: string[] };
 
 const SEARCH_DEBOUNCE_MS = 280;
-const FORM_HISTORY_PREVIEW_LIMIT = 3;
+const RECENT_PREVIEW_LIMIT = 5;
+
+function firstParam(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+}
 
 function formatSuggestionValue(item: { title: string; subtitle: string }) {
   return item.subtitle ? `${item.title}, ${item.subtitle}` : item.title;
@@ -100,23 +99,57 @@ function isExactSearchMatch(place: PlaceSuggestion, query: string) {
   ].some((part) => normalizeSearchText(part) === normalizedQuery);
 }
 
+function findFirstIncompleteTarget(route: Route): InlineTarget | null {
+  if (!route.pickup.trim()) return "pickup";
+
+  const emptyStopIndex = route.stops
+    .slice(0, -1)
+    .findIndex((stop) => stop.trim().length === 0);
+  if (emptyStopIndex >= 0) return emptyStopIndex;
+
+  const finalDestinationIndex = route.stops.length - 1;
+  if (!route.stops[finalDestinationIndex]?.trim()) return finalDestinationIndex;
+
+  return null;
+}
+
+function writeRouteValue(route: Route, target: InlineTarget, value: string): Route {
+  if (target === "pickup") {
+    return { pickup: value, stops: route.stops };
+  }
+  return {
+    pickup: route.pickup,
+    stops: route.stops.map((stop, index) => (index === target ? value : stop)),
+  };
+}
+
+const placeIcons: Record<PlaceSuggestion["icon"], keyof typeof Ionicons.glyphMap> = {
+  "location-on": "location-outline",
+  storefront: "storefront-outline",
+  flight: "airplane-outline",
+  history: "time-outline",
+};
+
 export default function DestinationSearchScreen() {
   const router = useRouter();
-  const { getAccessToken, isReady, user } = useAuth();
+  const { getAccessToken } = useAuth();
   const { updateRideRoute } = useRideSession();
   const params = useLocalSearchParams<{
     flowMode?: string | string[];
     itinerary?: string | string[];
+    /** An address to start the To field with (a saved place). */
+    destination?: string | string[];
+    /** ISO time of a ride being scheduled; passed on to the price screen. */
+    scheduledAt?: string | string[];
   }>();
   const initialItinerary = useMemo(
     () => parseRideItineraryParam(params.itinerary),
     [params.itinerary],
   );
   const flowMode: FlowMode =
-    (Array.isArray(params.flowMode) ? params.flowMode[0] : params.flowMode) ===
-    "trip-edit"
-      ? "trip-edit"
-      : "booking";
+    firstParam(params.flowMode) === "trip-edit" ? "trip-edit" : "booking";
+  const destinationParam = firstParam(params.destination);
+  const scheduledAt = firstParam(params.scheduledAt);
   const seededItinerary = useMemo(() => {
     if (flowMode === "trip-edit") {
       return initialItinerary;
@@ -133,21 +166,21 @@ export default function DestinationSearchScreen() {
         stop === DEFAULT_DESTINATION_LABEL;
       return isOnlyDefaultDestination ? "" : stop;
     });
+    const seededStops = stops.length > 0 ? stops : [""];
+    if (destinationParam) {
+      seededStops[seededStops.length - 1] = destinationParam;
+    }
 
     return {
       pickup,
-      stops: stops.length > 0 ? stops : [""],
+      stops: seededStops,
     };
-  }, [flowMode, initialItinerary]);
+  }, [destinationParam, flowMode, initialItinerary]);
 
-  const formScrollRef = useRef<ScrollView>(null);
-  const searchInputRef = useRef<TextInput>(null);
-  // trip-edit starts straight in the editor; booking starts on the launcher.
-  const [mode, setMode] = useState<ScreenMode>(
-    flowMode === "trip-edit" ? "form" : "launcher",
-  );
+  const listScrollRef = useRef<ScrollView>(null);
+  const inputRefs = useRef<Record<string, TextInput | null>>({});
   const [pickupValue, setPickupValue] = useState(seededItinerary.pickup);
-  const { currentLocation } = useAppLocation();
+  const { currentLocation, requestLocationAccess, refreshLocation } = useAppLocation();
 
   // Show the rider where they will actually be collected. The pickup field
   // used to sit on a hardcoded neighbourhood, so a rider anywhere else was
@@ -157,22 +190,23 @@ export default function DestinationSearchScreen() {
     setPickupValue((existing) => (isCurrentLocationLabel(existing) ? currentLocation.address : existing));
   }, [currentLocation?.address]);
   const [routeStops, setRouteStops] = useState(seededItinerary.stops);
-  // Single shared search query — drives the inline results for whichever field is active.
+  // What is being typed into the active field. It becomes that field's value
+  // when a place is picked, the keyboard's search key is pressed, the rider
+  // moves to another field, or they continue.
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [providerSuggestions, setProviderSuggestions] = useState<PlaceSuggestion[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [recentPlaces, setRecentPlaces] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  // Which field is currently being edited inline on the editor page.
+  // Which field is currently being edited.
   const [activeInline, setActiveInline] = useState<InlineTarget | null>(null);
   const [isSubmittingRoute, setIsSubmittingRoute] = useState(false);
-  const [prefetchedEstimate, setPrefetchedEstimate] =
-    useState<RideEstimateResponse | null>(null);
-  const [referralCode, setReferralCode] = useState("");
-  const [isApplyingReferral, setIsApplyingReferral] = useState(false);
-  const [referralMessage, setReferralMessage] = useState<string | null>(null);
-  const [referralApplied, setReferralApplied] = useState(false);
+  const [prefetchedEstimate, setPrefetchedEstimate] = useState<{
+    key: string;
+    estimate: RideEstimateResponse;
+  } | null>(null);
   const estimateRequestRef = useRef(0);
 
   const destinationValue = routeStops[routeStops.length - 1] ?? "";
@@ -210,7 +244,7 @@ export default function DestinationSearchScreen() {
     [recentPlaces, trimmedSearchQuery],
   );
   const matchingRecentPlacesPreview = useMemo(
-    () => matchingRecentPlaces.slice(0, FORM_HISTORY_PREVIEW_LIMIT),
+    () => matchingRecentPlaces.slice(0, RECENT_PREVIEW_LIMIT),
     [matchingRecentPlaces],
   );
   const hasExactRecentMatch = useMemo(
@@ -227,15 +261,11 @@ export default function DestinationSearchScreen() {
       ),
     [recentPlaces, searchQuery],
   );
-  const recentPlacesPreview = useMemo(
-    () => recentPlaces.slice(0, FORM_HISTORY_PREVIEW_LIMIT),
-    [recentPlaces],
-  );
 
   // Google place search runs whenever the current query changes.
   //
   // Every early return below is logged, because they are indistinguishable on
-  // screen: the box just stays empty. Filter the console for `[search]`.
+  // screen: the list just stays empty. Filter the console for `[search]`.
   useEffect(() => {
     if (!isGoogleMapsConfigured()) {
       if (__DEV__) console.log("[search] skipped — no Google Maps key in this build");
@@ -247,19 +277,13 @@ export default function DestinationSearchScreen() {
     const normalized = debouncedSearchQuery.trim();
 
     if (!normalized) {
-      if (__DEV__) {
-        console.log("[search] skipped — debounced query is empty", {
-          searchQuery,
-          debouncedSearchQuery,
-        });
-      }
       setProviderSuggestions([]);
       setIsSearching(false);
       return;
     }
 
     if (hasExactRecentMatch) {
-      // A saved place already matches this text exactly, so the history row is
+      // A recent place already matches this text exactly, so the history row is
       // shown instead of asking Google the same question.
       if (__DEV__) {
         console.log("[search] skipped — an exact recent place already matches", {
@@ -287,10 +311,8 @@ export default function DestinationSearchScreen() {
         }
       } catch (searchError) {
         if (!cancelled) {
-          // This used to swallow every failure into an empty list, so a missing
-          // API key, a denied request and "no such place" were indistinguishable
-          // — all three rendered as an empty box that looked like nothing had
-          // happened. Say what went wrong instead.
+          // A failed search is not an empty search: a missing API key, a denied
+          // request and "no such place" must not all look like an empty list.
           if (__DEV__) console.warn("[search] failed", searchError);
           setProviderSuggestions([]);
           setSearchError(
@@ -307,7 +329,7 @@ export default function DestinationSearchScreen() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearchQuery, hasExactRecentMatch, searchQuery]);
+  }, [debouncedSearchQuery, hasExactRecentMatch]);
 
   const shouldUseProviderResults =
     isGoogleMapsConfigured() &&
@@ -335,241 +357,65 @@ export default function DestinationSearchScreen() {
     [matchingRecentPlacesPreview, uniqueProviderSuggestions],
   );
 
-  // ─── Navigation between launcher (page 1) and search editor (page 2) ─────
-  const focusInlineField = (target: InlineTarget) => {
+  /* ── moving between the fields ──────────────────────────────────────── */
+
+  const currentRoute = (): Route => ({ pickup: pickupValue, stops: routeStops });
+
+  /** The route with whatever is half-typed in the active field written in. */
+  const routeWithDraft = (): Route => {
+    const route = currentRoute();
+    if (activeInline === null || !isDraftDirty) return route;
+    return writeRouteValue(route, activeInline, searchQuery.trim());
+  };
+
+  const applyRoute = (route: Route) => {
+    setPickupValue(route.pickup);
+    setRouteStops(route.stops);
+  };
+
+  const resetDraft = () => {
+    setSearchQuery("");
+    setIsDraftDirty(false);
+  };
+
+  /** Make a field the active one and put the cursor in it. */
+  const moveTo = (target: InlineTarget, delayMs = 50) => {
     setActiveInline(target);
-    setSearchQuery("");
-
-    requestAnimationFrame(() => {
-      formScrollRef.current?.scrollTo({ y: 0, animated: true });
-      searchInputRef.current?.focus();
-    });
+    resetDraft();
+    setTimeout(() => {
+      listScrollRef.current?.scrollTo({ y: 0, animated: false });
+      inputRefs.current[String(target)]?.focus();
+    }, delayMs);
   };
 
-  const openEditor = (target: InlineTarget = destinationIndex) => {
-    setMode("form");
-    focusInlineField(target);
+  /** The rider tapped into a field themselves. */
+  const handleFieldFocus = (target: InlineTarget) => {
+    if (activeInline === target) return;
+    applyRoute(routeWithDraft());
+    setActiveInline(target);
+    resetDraft();
   };
 
-  const handleBack = () => {
-    if (mode === "form" && flowMode === "booking") {
-      setMode("launcher");
-      setActiveInline(null);
-      setSearchQuery("");
-      Keyboard.dismiss();
-      return;
+  const handleFieldChange = (target: InlineTarget, value: string) => {
+    if (activeInline !== target) {
+      applyRoute(routeWithDraft());
+      setActiveInline(target);
     }
-
-    router.back();
-  };
-
-  const writeRouteValue = (
-    target: InlineTarget,
-    value: string,
-    pickup = pickupValue,
-    stops = routeStops,
-  ) => {
-    if (target === "pickup") {
-      return { pickup: value, stops };
-    }
-
-    return {
-      pickup,
-      stops: stops.map((stop, index) => (index === target ? value : stop)),
-    };
-  };
-
-  const findFirstIncompleteTarget = (
-    pickup = pickupValue,
-    stops = routeStops,
-  ): InlineTarget | null => {
-    if (!pickup.trim()) return "pickup";
-
-    const emptyStopIndex = stops
-      .slice(0, -1)
-      .findIndex((stop) => stop.trim().length === 0);
-
-    if (emptyStopIndex >= 0) return emptyStopIndex;
-
-    const finalDestinationIndex = stops.length - 1;
-    if (!stops[finalDestinationIndex]?.trim()) return finalDestinationIndex;
-
-    return null;
-  };
-
-  const getLauncherTarget = () => {
-    const missingTarget = findFirstIncompleteTarget();
-    return missingTarget ?? destinationIndex;
-  };
-
-  const handleSearchQueryChange = (value: string) => {
     setSearchQuery(value);
+    setIsDraftDirty(true);
   };
 
-  const handleClearActiveSearch = () => {
-    setSearchQuery("");
-  };
+  // Booking opens with the cursor in To (or in whichever field still needs
+  // filling); changing a trip in progress opens showing the whole route.
+  useEffect(() => {
+    if (flowMode !== "booking") return;
+    const missing = findFirstIncompleteTarget(seededItinerary);
+    moveTo(missing ?? seededItinerary.stops.length - 1, 320);
+    // Once, when the screen opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const clearRouteField = (target: InlineTarget) => {
-    if (target === "pickup") {
-      setPickupValue("");
-    } else {
-      setRouteStops((current) =>
-        current.map((stop, index) => (index === target ? "" : stop)),
-      );
-    }
-
-    if (activeInline === target) {
-      setSearchQuery("");
-    }
-  };
-
-  const handleSuggestionPress = (value: string) => {
-    const target = activeInline ?? destinationIndex;
-    const nextRoute = writeRouteValue(target, value);
-
-    Keyboard.dismiss();
-    setPickupValue(nextRoute.pickup);
-    setRouteStops(nextRoute.stops);
-    setSearchQuery("");
-
-    const nextIncompleteTarget = findFirstIncompleteTarget(
-      nextRoute.pickup,
-      nextRoute.stops,
-    );
-
-    if (flowMode === "booking") {
-      if (nextIncompleteTarget !== null) {
-        // Keep the user on the search page until the next required field is filled.
-        // Once From + To are filled, do NOT auto-close the page; the rider may still
-        // want to add a stop before returning to the main screen.
-        setMode("form");
-        focusInlineField(nextIncompleteTarget);
-        return;
-      }
-
-      setMode("form");
-      setActiveInline(null);
-      return;
-    }
-
-    setActiveInline(null);
-  };
-
-  const handlePlaceSelection = (place: PlaceSuggestion) => {
-    void saveRecentPlaceSearch(place)
-      .then((next) => setRecentPlaces(next))
-      .catch(() => {});
-
-    handleSuggestionPress(formatSuggestionValue(place));
-  };
-
-  const handleLauncherPlaceSelection = (place: PlaceSuggestion) => {
-    const value = formatSuggestionValue(place);
-
-    void saveRecentPlaceSearch(place)
-      .then((next) => setRecentPlaces(next))
-      .catch(() => {});
-
-    setRouteStops((current) =>
-      current.map((stop, index) =>
-        index === current.length - 1 ? value : stop,
-      ),
-    );
-
-    if (!pickupValue.trim()) {
-      openEditor("pickup");
-    }
-  };
-
-  const handleSearchSubmit = () => {
-    const value = searchQuery.trim();
-    if (!value) return;
-    handleSuggestionPress(value);
-  };
-
-  const handleAddStop = () => {
-    if (intermediateStops.length >= MAX_ADDITIONAL_STOPS) return;
-
-    const insertIndex = routeStops.length - 1;
-    setRouteStops((current) => {
-      const next = [...current];
-      next.splice(insertIndex, 0, "");
-      return next;
-    });
-
-    openEditor(insertIndex);
-  };
-
-  const handleRemoveStop = (index: number) => {
-    if (intermediateStops.length === 0) return;
-
-    setActiveInline((current) => {
-      if (typeof current !== "number") return current;
-      if (current === index) {
-        setSearchQuery("");
-        return null;
-      }
-      return current > index ? current - 1 : current;
-    });
-
-    setRouteStops((current) => current.filter((_, i) => i !== index));
-  };
-
-  const getActiveSearchPlaceholder = () => {
-    if (activeInline === "pickup") return "Search pickup";
-
-    if (typeof activeInline === "number") {
-      return activeInline === destinationIndex
-        ? "Search destination"
-        : `Search stop ${activeInline + 1}`;
-    }
-
-    return "Tap From, Stop, or To";
-  };
-
-  const handleReferralCodeChange = (value: string) => {
-    setReferralCode(value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
-    setReferralMessage(null);
-  };
-
-  const handleApplyReferralCode = async () => {
-    const code = referralCode.trim();
-    if (!code || referralApplied || isApplyingReferral) {
-      return;
-    }
-
-    if (!isBackendConfigured() || !isReady || !user) {
-      setReferralMessage("Sign in first to apply a referral code.");
-      return;
-    }
-
-    setIsApplyingReferral(true);
-    setReferralMessage(null);
-
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) {
-        throw new Error("Sign in again to apply this code.");
-      }
-
-      const result = await applyReferralCode({ accessToken, code });
-      setReferralApplied(true);
-      setReferralMessage(
-        result.unlockedCashback
-          ? `Code applied. NGN ${Math.round(result.unlockedCashback.amountNgn).toLocaleString("en-NG")} cashback unlocked.`
-          : "Code applied. Your referral is now linked.",
-      );
-    } catch (error) {
-      setReferralMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not apply this referral code.",
-      );
-    } finally {
-      setIsApplyingReferral(false);
-    }
-  };
+  /* ── the estimate, fetched ahead ────────────────────────────────────── */
 
   // Eager prefetch: resolve geocodes + call getRideEstimate as soon as pickup & destination are set
   useEffect(() => {
@@ -578,6 +424,7 @@ export default function DestinationSearchScreen() {
     if (!pickup || !destination || !isBackendConfigured()) return;
 
     const requestId = ++estimateRequestRef.current;
+    const key = serializeRideItinerary({ pickup: pickupValue, stops: routeStops });
     let cancelled = false;
 
     void (async () => {
@@ -603,7 +450,7 @@ export default function DestinationSearchScreen() {
         });
 
         if (!cancelled && estimateRequestRef.current === requestId) {
-          setPrefetchedEstimate(response);
+          setPrefetchedEstimate({ key, estimate: response });
         }
       } catch {
         // Non-blocking — ride-selection will fetch its own estimate
@@ -615,89 +462,50 @@ export default function DestinationSearchScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickupValue, destinationValue, intermediateStops.length]);
 
-  const itinerary = useMemo<RideItinerary>(
-    () => ({ pickup: pickupValue, stops: routeStops }),
-    [pickupValue, routeStops],
-  );
-  const canAddStop =
-    intermediateStops.length < MAX_ADDITIONAL_STOPS &&
-    intermediateStops.every((stop) => stop.trim().length > 0);
-  const isConfirmDisabled =
-    !pickupValue.trim() ||
-    !destinationValue.trim() ||
-    intermediateStops.some((stop) => stop.trim().length === 0);
-  const serializedItinerary = serializeRideItinerary(itinerary);
-  const instantEstimate = useMemo(
-    () => buildInstantRideEstimate(itinerary),
-    [itinerary],
-  );
-  const maxStopsReached = intermediateStops.length >= MAX_ADDITIONAL_STOPS;
-  const hasExtraStops = intermediateStops.length > 0;
-  const filledStopsCount = intermediateStops.filter(
-    (stop) => stop.trim().length > 0,
-  ).length;
-  const hasRouteDraft =
-    pickupValue.trim().length > 0 ||
-    destinationValue.trim().length > 0 ||
-    filledStopsCount > 0;
+  /* ── leaving with a route ───────────────────────────────────────────── */
 
-  const launcherTitle = destinationValue.trim() || "Where are you going?";
-  const launcherSubtitle = !hasRouteDraft
-    ? "Set pickup, destination, and extra stops"
-    : pickupValue.trim()
-    ? `From ${pickupValue.trim()}`
-    : "Tap to add pickup location";
-
-  // Show results panel in form mode whenever a route field is focused.
-  // The results list only renders while a route field is being edited. A
-  // successful search with `activeInline` null therefore shows nothing at all,
-  // which is indistinguishable on screen from the search having failed — so the
-  // gate is logged alongside what it is gating.
-  const showInlineResults = activeInline != null;
-  if (__DEV__ && trimmedSearchQuery.length > 0) {
-    console.log("[search] render gate", {
-      typed: trimmedSearchQuery,
-      activeInline,
-      showInlineResults,
-      shouldUseProviderResults,
-      providerSuggestions: providerSuggestions.length,
-      recentMatches: matchingRecentPlacesPreview.length,
-      searchError,
-    });
-  }
-
-  const isCondensedForm = showInlineResults || hasExtraStops;
-  const isUltraCondensedForm = showInlineResults || intermediateStops.length > 1;
-  const shouldShowIdleHistory = !showInlineResults && recentPlacesPreview.length > 0;
-  const handleFinishEditingRoute = () => {
-    const missingTarget = findFirstIncompleteTarget();
-
-    if (missingTarget !== null) {
-      openEditor(missingTarget);
-      return;
-    }
+  const continueToPrice = (route: Route) => {
+    const itinerary: RideItinerary = { pickup: route.pickup, stops: route.stops };
+    const serializedItinerary = serializeRideItinerary(itinerary);
+    // An estimate fetched for an earlier version of the route is not this
+    // route's estimate; the price screen fetches its own when given the
+    // instant one.
+    const estimate =
+      prefetchedEstimate && prefetchedEstimate.key === serializedItinerary
+        ? prefetchedEstimate.estimate
+        : buildInstantRideEstimate(itinerary);
 
     Keyboard.dismiss();
-    setMode("launcher");
-    setActiveInline(null);
-    setSearchQuery("");
+    router.push({
+      pathname: "/ride-selection",
+      params: {
+        itinerary: serializedItinerary,
+        estimate: serializeRideEstimate(estimate),
+        ...(scheduledAt ? { scheduledAt } : null),
+      },
+    });
   };
 
   const handleConfirmRoute = async () => {
-    const missingTarget = findFirstIncompleteTarget();
+    const route = routeWithDraft();
+    applyRoute(route);
 
+    const missingTarget = findFirstIncompleteTarget(route);
     if (missingTarget !== null) {
-      openEditor(missingTarget);
+      moveTo(missingTarget);
       return;
     }
 
+    resetDraft();
+
     if (flowMode === "trip-edit") {
+      const itinerary: RideItinerary = { pickup: route.pickup, stops: route.stops };
       setIsSubmittingRoute(true);
       try {
         await updateRideRoute(itinerary);
         router.replace({
           pathname: "/rider/active-trip",
-          params: { itinerary: serializedItinerary },
+          params: { itinerary: serializeRideItinerary(itinerary) },
         });
       } catch (error) {
         const message =
@@ -711,430 +519,368 @@ export default function DestinationSearchScreen() {
       return;
     }
 
-    router.push({
-      pathname: "/ride-selection",
-      params: {
-        itinerary: serializedItinerary,
-        estimate: serializeRideEstimate(prefetchedEstimate ?? instantEstimate),
-      },
-    });
+    continueToPrice(route);
   };
 
+  /* ── choosing a place ───────────────────────────────────────────────── */
+
+  const handleSuggestionPress = (value: string) => {
+    const target = activeInline ?? destinationIndex;
+    const nextRoute = writeRouteValue(currentRoute(), target, value);
+
+    applyRoute(nextRoute);
+    resetDraft();
+
+    const nextIncompleteTarget = findFirstIncompleteTarget(nextRoute);
+    if (nextIncompleteTarget !== null) {
+      // Keep the rider here until every field is filled.
+      moveTo(nextIncompleteTarget);
+      return;
+    }
+
+    if (flowMode === "booking") {
+      if (target === nextRoute.stops.length - 1) {
+        // The destination was the last thing missing: on to the price.
+        Keyboard.dismiss();
+        setActiveInline(null);
+        continueToPrice(nextRoute);
+        return;
+      }
+      if (target === "pickup") {
+        moveTo(nextRoute.stops.length - 1);
+        return;
+      }
+    }
+
+    Keyboard.dismiss();
+    setActiveInline(null);
+  };
+
+  const handlePlaceSelection = (place: PlaceSuggestion) => {
+    void saveRecentPlaceSearch(place)
+      .then((next) => setRecentPlaces(next))
+      .catch(() => {});
+
+    handleSuggestionPress(formatSuggestionValue(place));
+  };
+
+  const handleSearchSubmit = () => {
+    const value = searchQuery.trim();
+    if (isDraftDirty && value) {
+      handleSuggestionPress(value);
+      return;
+    }
+    if (findFirstIncompleteTarget(routeWithDraft()) === null) {
+      void handleConfirmRoute();
+    }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (currentLocation?.address) {
+      handleSuggestionPress(currentLocation.address);
+      return;
+    }
+    // No fix yet: ask for it. An empty From takes the address once it arrives.
+    setPickupValue("");
+    resetDraft();
+    void requestLocationAccess().then(() => refreshLocation());
+  };
+
+  const handleClearDestination = () => {
+    const route = writeRouteValue(currentRoute(), destinationIndex, "");
+    applyRoute(route);
+    moveTo(destinationIndex);
+  };
+
+  const canAddStop =
+    intermediateStops.length < MAX_ADDITIONAL_STOPS &&
+    intermediateStops.every((stop) => stop.trim().length > 0);
+  const maxStopsReached = intermediateStops.length >= MAX_ADDITIONAL_STOPS;
+
+  const handleAddStop = () => {
+    if (!canAddStop) return;
+
+    const route = routeWithDraft();
+    const insertIndex = route.stops.length - 1;
+    const stops = [...route.stops];
+    stops.splice(insertIndex, 0, "");
+    applyRoute({ pickup: route.pickup, stops });
+    moveTo(insertIndex, 80);
+  };
+
+  const handleRemoveStop = (index: number) => {
+    if (intermediateStops.length === 0) return;
+
+    if (typeof activeInline === "number") {
+      if (activeInline === index) {
+        resetDraft();
+        setActiveInline(null);
+      } else if (activeInline > index) {
+        setActiveInline(activeInline - 1);
+      }
+    }
+
+    setRouteStops((current) => current.filter((_, i) => i !== index));
+  };
+
+  /* ── what the list shows ────────────────────────────────────────────── */
+
+  const isTyping = trimmedSearchQuery.length > 0;
+  const fromIsActive = activeInline === "pickup";
+  const listedRecents = isTyping
+    ? matchingRecentPlacesPreview
+    : recentPlaces.slice(0, RECENT_PREVIEW_LIMIT);
+  const listedProviderResults = isTyping ? providerResults : [];
+  const hasResults = listedRecents.length > 0 || listedProviderResults.length > 0;
+  const heading = isTyping
+    ? "MATCHING PLACES"
+    : fromIsActive
+      ? "PICKUP"
+      : listedRecents.length > 0
+        ? "RECENT PLACES"
+        : "";
+
+  const fieldText = (target: InlineTarget, committed: string) =>
+    activeInline === target && isDraftDirty ? searchQuery : committed;
+  const destinationText = fieldText(destinationIndex, destinationValue);
+
   return (
-    <AppScreen
-      backgroundColor={theme.colors.offWhite}
-      scroll={false}
-      contentStyle={styles.container}
-    >
-      <StatusBar style="dark" backgroundColor={theme.colors.offWhite} />
+    <RScreen contentStyle={styles.container} scroll={false}>
+      <StatusBar style="dark" />
 
-      <View style={styles.content}>
-        {mode === "launcher" ? (
-          <View style={styles.modeLayout}>
-            <View style={styles.formTopBar}>
-              <BackArrow onPress={handleBack} />
-              <View style={styles.formTopCopy}>
-                <AppText variant="monoSmall" color={theme.colors.muted}>
-                  SEARCH RIDE
-                </AppText>
-                <AppText variant="bodySmall" color={theme.colors.muted}>
-                  Where are you going today?
-                </AppText>
-              </View>
-            </View>
-
-            <ScrollView
-              bounces={false}
-              contentContainerStyle={styles.formScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.launcherRouteBlock}>
-                <MainRouteLauncherCard
-                  hasRouteDraft={hasRouteDraft}
-                  onPress={() => openEditor(getLauncherTarget())}
-                  pickupValue={pickupValue}
-                  stopsCount={filledStopsCount}
-                  subtitle={launcherSubtitle}
-                  title={launcherTitle}
-                />
-
-                {hasRouteDraft ? (
-                  <Pressable
-                    disabled={!canAddStop}
-                    onPress={handleAddStop}
-                    style={[
-                      styles.launcherAddStopButton,
-                      !canAddStop ? styles.launcherAddStopButtonDisabled : null,
-                    ]}
-                  >
-                    <View style={styles.launcherAddStopIcon}>
-                      <MaterialIcons color={theme.colors.black} name="add" size={17} />
-                    </View>
-                    <AppText variant="bodyMedium">
-                      {maxStopsReached ? "Maximum stops reached" : "Add stop"}
-                    </AppText>
-                  </Pressable>
-                ) : null}
-              </View>
-
-              <ReferralCodeCard
-                applied={referralApplied}
-                code={referralCode}
-                isApplying={isApplyingReferral}
-                message={referralMessage}
-                onApply={handleApplyReferralCode}
-                onChangeCode={handleReferralCodeChange}
-              />
-
-              {recentPlacesPreview.length > 0 ? (
-                <View style={styles.historySection}>
-                  <View style={styles.sectionHeading}>
-                    <AppText variant="monoSmall" color={theme.colors.muted}>
-                      HISTORY
-                    </AppText>
-                    <AppText variant="bodySmall" color={theme.colors.muted}>
-                      Recent places saved on this device
-                    </AppText>
-                  </View>
-                  <View style={styles.resultsListContent}>
-                    {recentPlacesPreview.map((item, index) => (
-                      <PlaceResultRow
-                        icon="history"
-                        item={item}
-                        key={`${item.id}-${index}-launcher-recent`}
-                        onPress={() => handleLauncherPlaceSelection(item)}
-                      />
-                    ))}
-                  </View>
-                </View>
-              ) : null}
-            </ScrollView>
-
-            <View style={styles.footerActionBar}>
-              <AppButton
-                disabled={isSubmittingRoute}
-                title={
-                  flowMode === "trip-edit"
-                    ? isSubmittingRoute
-                      ? "Updating route..."
-                      : "Update trip route"
-                    : isConfirmDisabled
-                    ? "Continue"
-                    : "Confirm route"
-                }
-                onPress={handleConfirmRoute}
-              />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.modeLayout}>
-            <View style={styles.searchHeader}>
-              <BackArrow onPress={handleBack} />
-              <View style={styles.searchBar}>
-                <MaterialIcons
-                  color={theme.colors.muted}
-                  name="search"
-                  size={18}
-                />
-                <TextInput
-                  autoCorrect={false}
-                  editable={activeInline !== null}
-                  onChangeText={handleSearchQueryChange}
-                  onSubmitEditing={handleSearchSubmit}
-                  placeholder={getActiveSearchPlaceholder()}
-                  placeholderTextColor="#A59B92"
-                  ref={searchInputRef}
-                  returnKeyType="search"
-                  style={styles.searchInput}
-                  value={searchQuery}
-                />
-                {searchQuery.length > 0 ? (
-                  <Pressable
-                    onPress={handleClearActiveSearch}
-                    style={styles.inlineClearButton}
-                  >
-                    <MaterialIcons color={theme.colors.black} name="close" size={15} />
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-
-            <ScrollView
-              bounces={false}
-              contentContainerStyle={[
-                styles.formScrollContent,
-                isCondensedForm ? styles.formScrollContentCondensed : null,
-                isUltraCondensedForm ? styles.formScrollContentCompact : null,
-              ]}
-              keyboardShouldPersistTaps="handled"
-              ref={formScrollRef}
-              showsVerticalScrollIndicator={false}
-            >
-              <View
-                style={[
-                  styles.formSheet,
-                  isCondensedForm ? styles.formSheetDense : null,
-                  isCondensedForm ? styles.formSheetCondensed : null,
-                  isUltraCondensedForm ? styles.formSheetCompact : null,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.formConnector,
-                    isCondensedForm ? styles.formConnectorDense : null,
-                    isCondensedForm ? styles.formConnectorCondensed : null,
-                    {
-                      height: isUltraCondensedForm
-                        ? 24 + (intermediateStops.length + 1) * 58
-                        : isCondensedForm
-                        ? 28 + (intermediateStops.length + 1) * 68
-                        : 40 + (intermediateStops.length + 1) * 78,
-                    },
-                  ]}
-                />
-
-                <RouteSummaryRow
-                  active={activeInline === "pickup"}
-                  color={theme.colors.green}
-                  compact={isUltraCondensedForm}
-                  dense={isCondensedForm}
-                  label="From"
-                  marker="circle"
-                  onClear={() => clearRouteField("pickup")}
-                  onPress={() => focusInlineField("pickup")}
-                  placeholder="Where from?"
-                  value={pickupValue}
-                />
-
-                {hasExtraStops
-                  ? intermediateStops.map((stop, index) => (
-                      <RouteSummaryRow
-                        active={activeInline === index}
-                        color={theme.colors.orangeLight}
-                        compact={isUltraCondensedForm}
-                        dense={isCondensedForm}
-                        key={`route-stop-${index}`}
-                        label={`Stop ${index + 1}`}
-                        marker="square"
-                        onPress={() => focusInlineField(index)}
-                        onRemove={() => handleRemoveStop(index)}
-                        placeholder="Add a stop"
-                        value={stop}
-                      />
-                    ))
-                  : null}
-
-                <RouteSummaryRow
-                  active={activeInline === destinationIndex}
-                  color={theme.colors.orange}
-                  compact={isUltraCondensedForm}
-                  dense={isCondensedForm}
-                  label="To"
-                  marker="square"
-                  onClear={() => clearRouteField(destinationIndex)}
-                  onPress={() => focusInlineField(destinationIndex)}
-                  placeholder="Where to?"
-                  value={destinationValue}
-                />
-
-                <Pressable
-                  disabled={!canAddStop}
-                  onPress={handleAddStop}
-                  style={[
-                    styles.addStopRow,
-                    isCondensedForm ? styles.addStopRowDense : null,
-                    isCondensedForm ? styles.addStopRowCompact : null,
-                    isUltraCondensedForm ? styles.addStopRowUltraCompact : null,
-                    !canAddStop ? styles.addStopRowDisabled : null,
-                  ]}
-                >
-                  <View style={styles.addStopIcon}>
-                    <MaterialIcons color={theme.colors.black} name="add" size={18} />
-                  </View>
-                  <View style={styles.addStopCopy}>
-                    <AppText variant="bodyMedium">
-                      {maxStopsReached ? "Maximum stops reached" : "Add stop"}
-                    </AppText>
-                  </View>
-                </Pressable>
-              </View>
-
-              {shouldShowIdleHistory ? (
-                <View style={styles.historySection}>
-                  <View style={styles.sectionHeading}>
-                    <AppText variant="monoSmall" color={theme.colors.muted}>
-                      HISTORY
-                    </AppText>
-                    <AppText variant="bodySmall" color={theme.colors.muted}>
-                      Recent places saved on this device
-                    </AppText>
-                  </View>
-                  <View style={styles.resultsListContent}>
-                    {recentPlacesPreview.map((item, index) => (
-                      <PlaceResultRow
-                        icon="history"
-                        item={item}
-                        key={`${item.id}-${index}-recent`}
-                        onPress={() => handlePlaceSelection(item)}
-                      />
-                    ))}
-                  </View>
-                </View>
-              ) : null}
-
-              {showInlineResults ? (
-                <View style={styles.resultsSection}>
-                  {/* A failed search is not an empty search. Saying so is the
-                      difference between "no such place" and "your key is
-                      rejected", which used to look identical. */}
-                  {searchError && !isSearching ? (
-                    <View style={styles.searchErrorBanner}>
-                      <MaterialIcons
-                        name="error-outline"
-                        size={18}
-                        color={theme.colors.danger}
-                      />
-                      <AppText
-                        variant="bodySmall"
-                        color={theme.colors.danger}
-                        style={styles.searchErrorText}
-                      >
-                        {searchError}
-                      </AppText>
-                    </View>
-                  ) : null}
-
-                  {isSearching ? (
-                    <View style={styles.emptyState}>
-                      <AppText variant="bodyMedium">Searching places...</AppText>
-                      <AppText variant="bodySmall" color={theme.colors.muted}>
-                        Finding matching locations.
-                      </AppText>
-                    </View>
-                  ) : matchingRecentPlacesPreview.length > 0 || providerResults.length > 0 ? (
-                    <View style={styles.resultsListContent}>
-                      {trimmedSearchQuery.length === 0 && matchingRecentPlacesPreview.length > 0 ? (
-                        <View style={styles.sectionHeading}>
-                          <AppText variant="monoSmall" color={theme.colors.muted}>
-                            HISTORY
-                          </AppText>
-                          <AppText variant="bodySmall" color={theme.colors.muted}>
-                            Recent places saved on this device
-                          </AppText>
-                        </View>
-                      ) : null}
-                      {matchingRecentPlacesPreview.map((item, index) => (
-                        <PlaceResultRow
-                          icon="history"
-                          item={item}
-                          key={`${item.id}-${index}-history`}
-                          onPress={() => handlePlaceSelection(item)}
-                        />
-                      ))}
-                      {providerResults.map((item, index) => (
-                        <PlaceResultRow
-                          item={item}
-                          key={`${item.id}-${index}-provider`}
-                          onPress={() => handlePlaceSelection(item)}
-                        />
-                      ))}
-                    </View>
-                  ) : trimmedSearchQuery.length > 0 ? (
-                    <View style={styles.emptyState}>
-                      <AppText variant="bodyMedium">No places found</AppText>
-                      <AppText variant="bodySmall" color={theme.colors.muted}>
-                        Keep typing to search for a location.
-                      </AppText>
-                    </View>
-                  ) : (
-                    <View style={styles.emptyState}>
-                      <AppText variant="bodyMedium">Search Lagos addresses</AppText>
-                      <AppText variant="bodySmall" color={theme.colors.muted}>
-                        Start typing a street, estate, building, or bus stop.
-                      </AppText>
-                    </View>
-                  )}
-                </View>
-              ) : null}
-            </ScrollView>
-
-            <View style={styles.footerActionBar}>
-              <AppButton
-                disabled={flowMode === "trip-edit" ? isSubmittingRoute : isConfirmDisabled}
-                title={
-                  flowMode === "trip-edit"
-                    ? isSubmittingRoute
-                      ? "Updating route..."
-                      : "Update trip route"
-                    : "Done"
-                }
-                onPress={flowMode === "trip-edit" ? handleConfirmRoute : handleFinishEditingRoute}
-              />
-            </View>
-          </View>
-        )}
+      <View style={styles.header}>
+        <RBack />
+        <RText accessibilityRole="header" style={styles.title} variant="heading">
+          {flowMode === "trip-edit" ? "Change your route" : "Plan your trip"}
+        </RText>
       </View>
-    </AppScreen>
+
+      <View style={styles.card}>
+        <RouteField
+          active={fromIsActive}
+          inputRef={(node) => {
+            inputRefs.current.pickup = node;
+          }}
+          label="FROM"
+          marker="dot"
+          onChangeText={(value) => handleFieldChange("pickup", value)}
+          onFocus={() => handleFieldFocus("pickup")}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search pickup"
+          value={fieldText("pickup", pickupValue)}
+        />
+
+        {intermediateStops.map((stop, index) => (
+          <RouteField
+            accessory={
+              <Pressable
+                accessibilityLabel={`Remove stop ${index + 1}`}
+                accessibilityRole="button"
+                onPress={() => handleRemoveStop(index)}
+                style={({ pressed }) => [styles.fieldButton, pressed ? styles.pressed : null]}>
+                <Ionicons color={colors.muted} name="trash-outline" size={19} />
+              </Pressable>
+            }
+            active={activeInline === index}
+            inputRef={(node) => {
+              inputRefs.current[String(index)] = node;
+            }}
+            key={`route-stop-${index}`}
+            label={`STOP ${index + 1}`}
+            marker="ring"
+            onChangeText={(value) => handleFieldChange(index, value)}
+            onFocus={() => handleFieldFocus(index)}
+            onSubmit={handleSearchSubmit}
+            placeholder="Search stop"
+            value={fieldText(index, stop)}
+          />
+        ))}
+
+        <RouteField
+          accessory={
+            destinationText.length > 0 ? (
+              <Pressable
+                accessibilityLabel="Clear destination"
+                accessibilityRole="button"
+                onPress={handleClearDestination}
+                style={({ pressed }) => [styles.fieldButton, pressed ? styles.pressed : null]}>
+                <Ionicons color={colors.muted} name="close-circle" size={21} />
+              </Pressable>
+            ) : null
+          }
+          active={activeInline === destinationIndex}
+          inputRef={(node) => {
+            inputRefs.current[String(destinationIndex)] = node;
+          }}
+          label="TO"
+          last
+          marker="square"
+          onChangeText={(value) => handleFieldChange(destinationIndex, value)}
+          onFocus={() => handleFieldFocus(destinationIndex)}
+          onSubmit={handleSearchSubmit}
+          placeholder="Where are you going?"
+          value={destinationText}
+        />
+      </View>
+
+      <View style={styles.listHead}>
+        <RText style={styles.flexText} variant="label">
+          {heading}
+        </RText>
+        {isSearching ? <ActivityIndicator color={colors.orangeText} size="small" /> : null}
+        <Pressable
+          accessibilityLabel={maxStopsReached ? "Maximum stops reached" : "Add stop"}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canAddStop }}
+          disabled={!canAddStop}
+          onPress={handleAddStop}
+          style={({ pressed }) => [
+            styles.addStop,
+            !canAddStop ? styles.dimmed : null,
+            pressed ? styles.pressed : null,
+          ]}>
+          {maxStopsReached ? null : <Ionicons color={colors.orangeText} name="add" size={18} />}
+          <RText color={colors.orangeText} variant="smallBold">
+            {maxStopsReached ? "Maximum stops reached" : "Add stop"}
+          </RText>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        bounces={false}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        ref={listScrollRef}
+        showsVerticalScrollIndicator={false}
+        style={styles.list}>
+        {fromIsActive && !isTyping ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleUseCurrentLocation}
+            style={({ pressed }) => [styles.resultRow, pressed ? styles.pressed : null]}>
+            <View style={[styles.resultIcon, styles.resultIconInk]}>
+              <Ionicons color={colors.orange} name="locate" size={19} />
+            </View>
+            <View style={styles.flexText}>
+              <RText numberOfLines={1} variant="bodyBold">
+                Use my current location
+              </RText>
+              <RText color={colors.muted} numberOfLines={1} variant="small">
+                {currentLocation?.address ?? "Turn on location to use this"}
+              </RText>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {/* A failed search is not an empty search. */}
+        {isTyping && searchError && !isSearching ? (
+          <View accessibilityLiveRegion="polite" style={styles.searchError}>
+            <Ionicons color={colors.danger} name="alert-circle-outline" size={18} />
+            <RText color={colors.danger} style={styles.flexText} variant="small">
+              {searchError}
+            </RText>
+          </View>
+        ) : null}
+
+        {listedRecents.map((item, index) => (
+          <PlaceResultRow
+            icon="time-outline"
+            item={item}
+            key={`${item.id}-${index}-recent`}
+            onPress={() => handlePlaceSelection(item)}
+          />
+        ))}
+        {listedProviderResults.map((item, index) => (
+          <PlaceResultRow
+            icon={placeIcons[item.icon]}
+            item={item}
+            key={`${item.id}-${index}-provider`}
+            onPress={() => handlePlaceSelection(item)}
+          />
+        ))}
+
+        {isTyping && !hasResults && !isSearching && !searchError && debouncedSearchQuery === searchQuery ? (
+          <RText color={colors.muted} style={styles.nothing}>
+            No place found. Check the spelling.
+          </RText>
+        ) : null}
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <RButton
+          loading={isSubmittingRoute}
+          onPress={() => void handleConfirmRoute()}
+          title={flowMode === "trip-edit" ? "Update trip route" : "Continue"}
+        />
+      </View>
+    </RScreen>
   );
 }
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
+/* ── pieces ────────────────────────────────────────────────────────────── */
 
-function MainRouteLauncherCard({
-  hasRouteDraft,
-  onPress,
-  pickupValue,
-  stopsCount,
-  subtitle,
-  title,
+function RouteField({
+  accessory,
+  active,
+  inputRef,
+  label,
+  last,
+  marker,
+  onChangeText,
+  onFocus,
+  onSubmit,
+  placeholder,
+  value,
 }: {
-  hasRouteDraft: boolean;
-  onPress: () => void;
-  pickupValue: string;
-  stopsCount: number;
-  subtitle: string;
-  title: string;
+  accessory?: ReactNode;
+  active: boolean;
+  inputRef: (node: TextInput | null) => void;
+  label: string;
+  last?: boolean;
+  marker: "dot" | "ring" | "square";
+  onChangeText: (value: string) => void;
+  onFocus: () => void;
+  onSubmit: () => void;
+  placeholder: string;
+  value: string;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.launcherRouteCard}>
-      <View style={styles.launcherRouteIcon}>
-        <MaterialIcons
-          color={theme.colors.black}
-          name={hasRouteDraft ? "route" : "search"}
-          size={20}
+    <View>
+      <View style={styles.field}>
+        <View
+          style={[
+            styles.marker,
+            marker === "dot" ? styles.markerDot : marker === "ring" ? styles.markerRing : styles.markerSquare,
+          ]}
         />
+        <RText maxFontSizeMultiplier={1.1} style={styles.fieldLabel}>
+          {label}
+        </RText>
+        <TextInput
+          accessibilityLabel={label === "FROM" ? "From" : label === "TO" ? "To" : label}
+          autoCapitalize="words"
+          autoCorrect={false}
+          maxFontSizeMultiplier={1.2}
+          onChangeText={onChangeText}
+          onFocus={onFocus}
+          onSubmitEditing={onSubmit}
+          placeholder={placeholder}
+          placeholderTextColor="#8C837A"
+          ref={inputRef}
+          returnKeyType="search"
+          selectTextOnFocus
+          style={styles.fieldInput}
+          submitBehavior="submit"
+          value={value}
+        />
+        {accessory}
       </View>
-      <View style={styles.launcherRouteBody}>
-        <AppText
-          numberOfLines={1}
-          variant="bodyMedium"
-          color={hasRouteDraft ? theme.colors.black : theme.colors.muted}
-        >
-          {title}
-        </AppText>
-        <AppText numberOfLines={1} variant="bodySmall" color={theme.colors.muted}>
-          {subtitle}
-        </AppText>
-        {hasRouteDraft ? (
-          <View style={styles.launcherRouteBadgeRow}>
-            {pickupValue.trim() ? (
-              <View style={styles.launcherRouteBadge}>
-                <AppText variant="monoSmall">Pickup set</AppText>
-              </View>
-            ) : null}
-            {stopsCount > 0 ? (
-              <View style={styles.launcherRouteBadge}>
-                <AppText variant="monoSmall">
-                  {stopsCount} {stopsCount === 1 ? "stop" : "stops"}
-                </AppText>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
-      <MaterialIcons color={theme.colors.muted} name="chevron-right" size={22} />
-    </Pressable>
+      {active ? (
+        <View style={styles.activeBar} />
+      ) : (
+        <View style={[styles.divider, last ? styles.dividerHidden : null]} />
+      )}
+    </View>
   );
 }
 
@@ -1143,564 +889,123 @@ function PlaceResultRow({
   item,
   onPress,
 }: {
-  icon?: PlaceSuggestion["icon"];
+  icon: keyof typeof Ionicons.glyphMap;
   item: PlaceSuggestion;
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.resultRow}>
-      <View style={styles.resultIcon}>
-        <MaterialIcons
-          color={theme.colors.black}
-          name={icon ?? item.icon}
-          size={18}
-        />
-      </View>
-      <View style={styles.resultCopy}>
-        <AppText variant="bodyMedium">{item.title}</AppText>
-        <AppText variant="bodySmall" color={theme.colors.muted}>
-          {item.subtitle}
-        </AppText>
-      </View>
-    </Pressable>
-  );
-}
-
-function ReferralCodeCard({
-  applied,
-  code,
-  isApplying,
-  message,
-  onApply,
-  onChangeCode,
-}: {
-  applied: boolean;
-  code: string;
-  isApplying: boolean;
-  message: string | null;
-  onApply: () => void;
-  onChangeCode: (value: string) => void;
-}) {
-  const canApply = code.trim().length > 0 && !applied && !isApplying;
-
-  return (
-    <View style={styles.referralCard}>
-      <View style={styles.referralHeader}>
-        <View style={styles.referralIcon}>
-          <MaterialIcons
-            color={theme.colors.black}
-            name="card-giftcard"
-            size={18}
-          />
-        </View>
-        <View style={styles.referralCopy}>
-          <AppText variant="bodyMedium">Referral code</AppText>
-          <AppText variant="bodySmall" color={theme.colors.muted}>
-            Optional. Add a friend's code once after onboarding.
-          </AppText>
-        </View>
-      </View>
-
-      <View style={styles.referralInputRow}>
-        <TextInput
-          autoCapitalize="characters"
-          editable={!applied && !isApplying}
-          onChangeText={onChangeCode}
-          placeholder="WHLXXXXXX"
-          placeholderTextColor="#A59B92"
-          style={styles.referralInput}
-          value={code}
-        />
-        {code.length > 0 && !applied ? (
-          <Pressable
-            onPress={() => onChangeCode("")}
-            style={styles.inlineClearButton}
-          >
-            <MaterialIcons color={theme.colors.black} name="close" size={15} />
-          </Pressable>
-        ) : null}
-        <Pressable
-          disabled={!canApply}
-          onPress={onApply}
-          style={[
-            styles.referralApplyButton,
-            !canApply ? styles.referralApplyButtonDisabled : null,
-          ]}
-        >
-          <AppText variant="label" color={theme.colors.offWhite}>
-            {applied ? "Applied" : isApplying ? "Applying" : "Apply"}
-          </AppText>
-        </Pressable>
-      </View>
-
-      {message ? (
-        <AppText
-          variant="bodySmall"
-          color={applied ? theme.colors.green : theme.colors.danger}
-        >
-          {message}
-        </AppText>
-      ) : null}
-    </View>
-  );
-}
-
-type RouteSummaryRowProps = {
-  active: boolean;
-  color: string;
-  compact?: boolean;
-  dense?: boolean;
-  label: string;
-  marker: "circle" | "square";
-  onClear?: () => void;
-  onPress: () => void;
-  onRemove?: () => void;
-  placeholder: string;
-  value: string;
-};
-
-function RouteSummaryRow({
-  active,
-  color,
-  compact,
-  dense,
-  label,
-  marker,
-  onClear,
-  onPress,
-  onRemove,
-  placeholder,
-  value,
-}: RouteSummaryRowProps) {
-  const hasValue = value.trim().length > 0;
-  const trailingAction = onRemove ?? (hasValue ? onClear : undefined);
-
-  return (
     <Pressable
+      accessibilityLabel={formatSuggestionValue(item)}
+      accessibilityRole="button"
       onPress={onPress}
-      style={[
-        styles.triggerField,
-        dense ? styles.triggerFieldDense : null,
-        compact ? styles.triggerFieldCompact : null,
-        active ? styles.routeInputActive : null,
-      ]}
-    >
-      <View
-        style={[
-          marker === "circle" ? styles.markerCircle : styles.markerSquare,
-          { backgroundColor: color },
-        ]}
-      />
-      <View style={styles.routeSummaryCopy}>
-        <AppText variant="bodySmall" color={theme.colors.muted}>
-          {label}
-        </AppText>
-        <AppText
-          numberOfLines={1}
-          variant="bodyMedium"
-          color={hasValue ? theme.colors.black : theme.colors.muted}
-        >
-          {hasValue ? value : placeholder}
-        </AppText>
+      style={({ pressed }) => [styles.resultRow, pressed ? styles.pressed : null]}>
+      <View style={styles.resultIcon}>
+        <Ionicons color={colors.orangeText} name={icon} size={19} />
       </View>
-      {trailingAction ? (
-        <Pressable onPress={trailingAction} style={styles.inlineClearButton}>
-          <MaterialIcons color={theme.colors.black} name="close" size={15} />
-        </Pressable>
-      ) : null}
+      <View style={styles.flexText}>
+        <RText numberOfLines={1} variant="bodyBold">
+          {item.title}
+        </RText>
+        {item.subtitle ? (
+          <RText color={colors.muted} numberOfLines={1} variant="small">
+            {item.subtitle}
+          </RText>
+        ) : null}
+      </View>
+      <Ionicons color={colors.muted} name="chevron-forward" size={16} />
     </Pressable>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  searchErrorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.dangerLight,
-  },
-  searchErrorText: { flex: 1 },
   container: {
     flex: 1,
-    paddingTop: theme.spacing.lg,
+    paddingTop: 12,
     paddingBottom: 0,
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  content: {
-    flex: 1,
-  },
-  modeLayout: {
-    flex: 1,
-    gap: theme.spacing.md,
-    overflow: "hidden",
-  },
-  formTopBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-  },
-  formTopCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  formScrollContent: {
-    flexGrow: 1,
-    paddingBottom: theme.spacing.xl,
-    gap: theme.spacing.md,
-  },
-  formScrollContentCondensed: {
-    paddingBottom: theme.spacing.lg,
-    gap: theme.spacing.sm,
-  },
-  formScrollContentCompact: {
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.xs,
-  },
-  footerActionBar: {
-    paddingTop: theme.spacing.xs,
-    paddingBottom: theme.spacing.xl,
-    backgroundColor: theme.colors.offWhite,
-  },
-  launcherRouteBlock: {
-    gap: theme.spacing.sm,
-  },
-  launcherAddStopButton: {
-    alignSelf: "flex-start",
-    minHeight: 42,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    backgroundColor: "#FFF4EA",
-    ...theme.shadows.subtle,
-  },
-  launcherAddStopButtonDisabled: {
-    opacity: 0.55,
-  },
-  launcherAddStopIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: theme.radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    backgroundColor: theme.colors.white,
-  },
-  launcherRouteCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.white,
-    ...theme.shadows.card,
-  },
-  launcherRouteIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: theme.radius.pill,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    backgroundColor: "#FFF4EA",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  launcherRouteBody: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  launcherRouteBadgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.xs,
-    paddingTop: 4,
-  },
-  launcherRouteBadge: {
-    paddingHorizontal: theme.spacing.xs,
-    paddingVertical: 3,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.offWhite,
-  },
-  formSheet: {
-    position: "relative",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.white,
-    ...theme.shadows.card,
-  },
-  formSheetCondensed: {
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-  },
-  formSheetDense: {
-    gap: 6,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 10,
-  },
-  formSheetCompact: {
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  formConnector: {
-    position: "absolute",
-    left: 27,
-    top: 56,
-    width: 2,
-    backgroundColor: theme.colors.borderLight,
-  },
-  formConnectorCondensed: {
-    left: 23,
-    top: 48,
-  },
-  formConnectorDense: {
-    left: 23,
-    top: 50,
-  },
-  triggerField: {
-    minHeight: 54,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-  },
-  triggerFieldCompact: {
-    minHeight: 46,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-  },
-  triggerFieldDense: {
-    minHeight: 50,
-    paddingHorizontal: theme.spacing.sm,
+  pressed: { opacity: 0.72 },
+  dimmed: { opacity: 0.45 },
+  flexText: { flex: 1, minWidth: 0 },
+
+  header: { flexDirection: "row", alignItems: "center", gap: 12 },
+  title: { flex: 1, fontSize: 24, lineHeight: 28 },
+
+  card: {
     paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
-  routeSummaryCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 1,
-  },
-  inlineClearButton: {
-    width: 26,
-    height: 26,
-    borderRadius: theme.radius.pill,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    backgroundColor: theme.colors.white,
-    alignItems: "center",
-    justifyContent: "center",
+  field: { flexDirection: "row", alignItems: "center", gap: 12 },
+  marker: { width: 12, height: 12 },
+  markerDot: { borderRadius: 6, backgroundColor: colors.ink },
+  markerRing: { borderRadius: 6, borderWidth: 3, borderColor: colors.ink },
+  markerSquare: { borderRadius: 3, backgroundColor: colors.orange },
+  fieldLabel: {
+    width: 48,
     flexShrink: 0,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.muted,
   },
-  markerCircle: {
-    width: 8,
-    height: 8,
-    borderRadius: theme.radius.pill,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-  },
-  markerSquare: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-  },
-  searchHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-  },
-  searchBar: {
+  fieldInput: {
     flex: 1,
-    minHeight: 54,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: theme.spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-    ...theme.shadows.card,
+    minWidth: 0,
+    height: 44,
+    padding: 0,
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    color: colors.ink,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: theme.fonts.body,
-    fontSize: 14,
-    color: theme.colors.black,
-    paddingVertical: 0,
-  },
-  routeInputActive: {
-    borderColor: theme.colors.orange,
-    backgroundColor: "#FFF8F2",
-  },
-  addStopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-    minHeight: 58,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: "#FFF4EA",
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    ...theme.shadows.card,
-  },
-  addStopRowCompact: {
-    minHeight: 48,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-  },
-  addStopRowDense: {
-    minHeight: 52,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-  },
-  addStopRowUltraCompact: {
-    minHeight: 44,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  addStopRowDisabled: {
-    opacity: 0.55,
-  },
-  addStopIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.radius.pill,
+  fieldButton: {
+    width: 44,
+    height: 44,
+    marginRight: -10,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    backgroundColor: theme.colors.white,
   },
-  addStopCopy: {
-    flex: 1,
-  },
-  resultsSection: {
-    gap: theme.spacing.sm,
-  },
-  historySection: {
-    gap: theme.spacing.sm,
-  },
-  sectionHeading: {
-    gap: 2,
-    paddingHorizontal: theme.spacing.xs,
-  },
-  resultsListContent: {
-    gap: theme.spacing.sm,
-    paddingBottom: theme.spacing.xs,
-  },
+  activeBar: { height: 3, borderRadius: 2, backgroundColor: colors.orange },
+  divider: { height: 1, marginVertical: 1, backgroundColor: colors.line },
+  dividerHidden: { backgroundColor: "transparent" },
+
+  listHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  addStop: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44 },
+
+  list: { flex: 1, marginTop: -10 },
+  listContent: { paddingBottom: 12 },
   resultRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.sm,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.white,
-    ...theme.shadows.card,
+    gap: 12,
+    minHeight: 56,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
   },
   resultIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.orangeLight,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.orangeSoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  resultCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  emptyState: {
-    paddingVertical: theme.spacing.md,
-    gap: theme.spacing.xs,
-  },
-  referralCard: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.md,
-    backgroundColor: "#FFF4EA",
-    ...theme.shadows.card,
-  },
-  referralHeader: {
+  resultIconInk: { backgroundColor: colors.ink },
+  nothing: { paddingVertical: 16, fontSize: 15, lineHeight: 22 },
+  searchError: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.sm,
+    gap: 10,
+    marginTop: 8,
+    padding: 12,
+    borderRadius: radius.sm,
+    backgroundColor: colors.dangerSoft,
   },
-  referralIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: theme.radius.pill,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    backgroundColor: theme.colors.white,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  referralCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  referralInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.xs,
-  },
-  referralInput: {
-    flex: 1,
-    minHeight: 44,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: theme.spacing.sm,
-    fontFamily: theme.fonts.body,
-    fontSize: 14,
-    color: theme.colors.black,
-  },
-  referralApplyButton: {
-    minHeight: 44,
-    paddingHorizontal: theme.spacing.md,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.orange,
-    alignItems: "center",
-    justifyContent: "center",
-    ...theme.shadows.subtle,
-  },
-  referralApplyButtonDisabled: {
-    opacity: 0.45,
-  },
+
+  footer: { paddingTop: 4, paddingBottom: 16 },
 });
