@@ -5,6 +5,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 
 import { AuthEntryScreen, type AuthProvider } from "@/components/auth-entry";
 import { signInWithApple, signInWithGoogle } from "@/lib/api";
+import { offersBothSides, switchAppSide } from "@/lib/app-variant";
 import { storeLocalAccessToken } from "@/lib/access-token";
 import { persistAuthenticatedRole } from "@/lib/auth-state";
 import { resolvePostAuthRoute } from "@/lib/post-auth";
@@ -136,6 +137,9 @@ export default function DriverAuthScreen() {
       }
       onEmailSignIn={() =>
         router.push({ pathname: "/account-auth", params: { mode: "signin" } })
+      }
+      onSwitchSide={
+        offersBothSides ? () => void switchAppSide("rider") : undefined
       }
     />
   );

@@ -7,6 +7,7 @@ const store = (globalThis.__WHEELERS_TEST_SECURE_STORE__ ??= new Map());
 
 module.exports = {
   __store: store,
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
   getItemAsync: async (k) => (store.has(k) ? store.get(k) : null),
   setItemAsync: async (k, v) => { store.set(k, v); },
   deleteItemAsync: async (k) => { store.delete(k); },

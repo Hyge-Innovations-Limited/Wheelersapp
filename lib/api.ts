@@ -755,6 +755,44 @@ export async function signInWithGoogle(input: {
 
 
 
+export interface PhoneLoginCodeResponse {
+  sent: boolean;
+  /** How the code went out. */
+  channel: "whatsapp" | "sms";
+  phone: string;
+  expiresInSeconds: number;
+}
+
+export interface PhoneLoginResponse {
+  accessToken: string;
+  tokenType: "Bearer";
+  /** True when this number had no Wheelers account until now. */
+  isNewUser: boolean;
+  user: BackendUser;
+}
+
+/** Riders sign in with their phone number. `phone` is +234… */
+export async function sendPhoneLoginCode(input: {
+  phone: string;
+}): Promise<PhoneLoginCodeResponse> {
+  return postJson<PhoneLoginCodeResponse>(
+    "/auth/phone/login/send-otp",
+    { phone: input.phone },
+    { fallbackError: "We could not send your code. Please try again." },
+  );
+}
+
+export async function verifyPhoneLoginCode(input: {
+  phone: string;
+  code: string;
+}): Promise<PhoneLoginResponse> {
+  return postJson<PhoneLoginResponse>(
+    "/auth/phone/login/verify-otp",
+    { phone: input.phone, code: input.code },
+    { fallbackError: "We could not check that code. Please try again." },
+  );
+}
+
 export async function getCurrentProfile(input: {
   accessToken: string;
 }): Promise<CurrentProfileResponse> {

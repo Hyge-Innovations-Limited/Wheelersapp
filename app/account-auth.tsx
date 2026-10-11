@@ -194,7 +194,7 @@ export default function AccountAuthScreen() {
       <RevealView delay={40} from="down" style={styles.headerWrap}>
         <FlowHeader
           showBack
-          backHref={publicEntryRoute === "/rider-auth" ? "/rider-auth" : undefined}
+          backHref={isDriverApp ? undefined : "/rider-auth"}
           overline={isDriverApp ? "WHEELERS DRIVER" : "WHEELERS ACCOUNT"}
           title={
             isDriverApp

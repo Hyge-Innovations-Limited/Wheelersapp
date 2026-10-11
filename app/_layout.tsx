@@ -3,6 +3,17 @@ import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { useFonts } from "expo-font";
+import {
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+} from "@expo-google-fonts/bricolage-grotesque";
+import {
+  HankenGrotesk_400Regular,
+  HankenGrotesk_500Medium,
+  HankenGrotesk_600SemiBold,
+  HankenGrotesk_700Bold,
+  HankenGrotesk_800ExtraBold,
+} from "@expo-google-fonts/hanken-grotesk";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -42,6 +53,15 @@ export default function RootLayout() {
     ClashDisplay_600Semibold: require("../assets/fonts/ClashDisplay-Semibold.ttf"),
     ClashDisplay_700Bold: require("../assets/fonts/ClashDisplay-Bold.ttf"),
     Shrikhand_400Regular: require("../assets/fonts/Shrikhand-Regular.ttf"),
+    // The rider side's type: Bricolage Grotesque for headings and prices,
+    // Hanken Grotesk for everything else.
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+    HankenGrotesk_400Regular,
+    HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold,
+    HankenGrotesk_700Bold,
+    HankenGrotesk_800ExtraBold,
   });
 
   if (!loaded) {

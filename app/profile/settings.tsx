@@ -1,3 +1,4 @@
+import { publicEntryRoute } from "@/lib/app-variant";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useAuth } from "@/lib/auth";
 import { Href, useFocusEffect, useRouter } from "expo-router";
@@ -185,7 +186,7 @@ export default function SettingsScreen() {
       await markLogoutPending();
       await clearStoredAuthState();
       router.replace({
-        pathname: "/rider-auth",
+        pathname: publicEntryRoute,
         params: { logout: "1" },
       });
       void logout().finally(() => {

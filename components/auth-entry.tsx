@@ -39,6 +39,8 @@ export function AuthEntryScreen({
   onGoogle,
   onEmailSignUp,
   onEmailSignIn,
+  onSwitchSide,
+  switchSideLabel,
 }: {
   /** Short variant label under the wordmark, e.g. "DRIVER". */
   label?: string;
@@ -48,6 +50,9 @@ export function AuthEntryScreen({
   onGoogle: () => void;
   onEmailSignUp: () => void;
   onEmailSignIn: () => void;
+  /** In the app that has both sides: the way back to the other one. */
+  onSwitchSide?: () => void;
+  switchSideLabel?: string;
 }) {
   const busy = loadingProvider !== null;
 
@@ -163,6 +168,20 @@ export function AuthEntryScreen({
             Sign up
           </AppText>
         </Pressable>
+
+        {onSwitchSide ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            hitSlop={8}
+            onPress={onSwitchSide}
+            style={({ pressed }) => [styles.signInRow, pressed && styles.signInPressed]}
+          >
+            <AppText variant="label" color={brand.ink}>
+              {switchSideLabel ?? "I want to ride instead"}
+            </AppText>
+          </Pressable>
+        ) : null}
 
         <AppText variant="bodySmall" color={brand.muted} style={styles.terms}>
           By continuing you agree to our Terms of Service and Privacy Policy

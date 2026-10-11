@@ -1,120 +1,53 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
-import { theme } from "@/theme";
+import { rider } from "@/constants/rider-theme";
 
-function TabIconFrame({
-  children,
-  focused,
-  tilt = 0,
-}: {
-  children: ReactNode;
-  focused: boolean;
-  tilt?: number;
-}) {
+type IconName = keyof typeof Ionicons.glyphMap;
+
+/** A tab's icon under the short orange bar that marks where you are. */
+function TabIcon({ name, focused, color }: { name: IconName; focused: boolean; color: string }) {
   return (
-    <View
-      style={[
-        styles.iconFrame,
-        focused ? styles.iconFrameFocused : styles.iconFrameIdle,
-        { transform: [{ rotate: `${focused ? tilt : 0}deg` }] },
-      ]}
-    >
-      {children}
+    <View style={styles.icon}>
+      <View style={[styles.bar, focused ? styles.barOn : null]} />
+      <Ionicons color={color} name={name} size={23} />
     </View>
   );
 }
 
-function RidesTabIcon({
-  color,
-  size,
-  focused,
-}: {
-  color: string;
-  size: number;
-  focused: boolean;
-}) {
-  return (
-    <TabIconFrame focused={focused} tilt={-4}>
-      <View style={[styles.ridesIcon, { width: size + 8, height: size + 6 }]}>
-        <MaterialIcons name="calendar-today" color={color} size={size} />
-        <View style={styles.historyBadge}>
-          <MaterialIcons name="history" color={color} size={size * 0.55} />
-        </View>
-      </View>
-    </TabIconFrame>
-  );
-}
+const hidden = { href: null, tabBarStyle: { display: "none" } } as const;
 
 export default function RiderLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        sceneStyle: {
-          backgroundColor: theme.colors.offWhite,
-        },
-        tabBarActiveTintColor: theme.colors.orange,
-        tabBarInactiveTintColor: theme.colors.muted,
+        sceneStyle: { backgroundColor: rider.colors.cream },
+        tabBarActiveTintColor: rider.colors.ink,
+        tabBarInactiveTintColor: rider.colors.muted,
         tabBarButton: HapticTab,
         tabBarHideOnKeyboard: true,
-        tabBarLabelStyle: {
-          ...theme.typography.monoSmall,
-          marginTop: 4,
-          marginBottom: 4,
-        },
-        tabBarIconStyle: {
-          marginTop: 2,
-          marginBottom: 2,
-        },
-        tabBarItemStyle: {
-          paddingTop: 4,
-        },
-        tabBarStyle: {
-          height: 82,
-          paddingTop: 8,
-          paddingBottom: 10,
-          backgroundColor: theme.colors.white,
-          borderTopWidth: theme.borders.thick,
-          borderTopColor: theme.colors.black,
-        },
+        tabBarLabelStyle: styles.label,
+        tabBarStyle: styles.tabBar,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIconFrame focused={focused} tilt={3}>
-              <MaterialIcons
-                name={focused ? "home-filled" : "home"}
-                color={color}
-                size={size}
-              />
-            </TabIconFrame>
+          title: "Ride",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon color={color} focused={focused} name={focused ? "home" : "home-outline"} />
           ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: "Rides",
-          tabBarIcon: ({ color, size, focused }) => (
-            <RidesTabIcon color={color} size={size} focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="interstate"
-        options={{
-          title: "Travel",
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIconFrame focused={focused} tilt={-3}>
-              <MaterialIcons name="directions-bus" color={color} size={size} />
-            </TabIconFrame>
+          title: "Trips",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon color={color} focused={focused} name={focused ? "time" : "time-outline"} />
           ),
         }}
       />
@@ -122,92 +55,41 @@ export default function RiderLayout() {
         name="wallet"
         options={{
           title: "Wallet",
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIconFrame focused={focused} tilt={-3}>
-              <MaterialIcons
-                name="account-balance-wallet"
-                color={color}
-                size={size}
-              />
-            </TabIconFrame>
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon color={color} focused={focused} name={focused ? "wallet" : "wallet-outline"} />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="transactions"
-        options={{
-          href: null,
-          tabBarStyle: { display: "none" },
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIconFrame focused={focused} tilt={2}>
-              <MaterialIcons name="person-outline" color={color} size={size} />
-            </TabIconFrame>
+          title: "You",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon color={color} focused={focused} name={focused ? "person" : "person-outline"} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="active-trip"
-        options={{
-          href: null,
-          tabBarStyle: { display: "none" },
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          href: null,
-          tabBarStyle: { display: "none" },
-        }}
-      />
-      <Tabs.Screen
-        name="trip-rating"
-        options={{
-          href: null,
-          tabBarStyle: { display: "none" },
-        }}
-      />
+      {/* Reached from other screens, never from the bar. */}
+      <Tabs.Screen name="interstate" options={hidden} />
+      <Tabs.Screen name="transactions" options={hidden} />
+      <Tabs.Screen name="active-trip" options={hidden} />
+      <Tabs.Screen name="notifications" options={hidden} />
+      <Tabs.Screen name="trip-rating" options={hidden} />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  iconFrame: {
-    width: 38,
-    height: 32,
-    borderRadius: theme.radii.sm,
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
-    alignItems: "center",
-    justifyContent: "center",
+  tabBar: {
+    height: 78,
+    paddingTop: 0,
+    paddingBottom: 12,
+    backgroundColor: rider.colors.cream,
+    borderTopWidth: 1,
+    borderTopColor: rider.colors.line,
   },
-  iconFrameFocused: {
-    backgroundColor: theme.colors.orangeLight,
-    ...theme.shadows.subtle,
-  },
-  iconFrameIdle: {
-    backgroundColor: theme.colors.white,
-  },
-  ridesIcon: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  historyBadge: {
-    position: "absolute",
-    right: -1,
-    bottom: -1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: theme.colors.white,
-    borderWidth: 1.5,
-    borderColor: theme.colors.black,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  label: { fontFamily: rider.fonts.bold, fontSize: 12, marginTop: 6 },
+  icon: { alignItems: "center", gap: 6 },
+  bar: { width: 24, height: 4, borderRadius: 2, backgroundColor: "transparent" },
+  barOn: { backgroundColor: rider.colors.orange },
 });
