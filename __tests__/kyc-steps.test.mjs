@@ -1,6 +1,7 @@
 /**
  * Fixing a rejection walks only what was sent back, in order, and the last
- * of those steps sends. A new application walks all five.
+ * of those steps sends. A new application walks all six: the name and licence
+ * details are typed right after the licence, and are never a step to fix.
  *
  *   node --test __tests__/kyc-steps.test.mjs
  */
@@ -17,14 +18,17 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = join(here, '..');
 const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-kyc-steps-')), 'bundle.cjs');
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/kyc-steps.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { fixStepsFrom, nextKycStep, kycProgress, stepsToWalk, KYC_STEPS } = createRequire(import.meta.url)(outFile);
+const { fixStepsFrom, nextKycStep, kycProgress, stepsToWalk, KYC_STEPS, FIXABLE_STEPS } = createRequire(import.meta.url)(outFile);
 
 test('a new application walks every step, and the photos send it', () => {
   assert.deepEqual(stepsToWalk(null), [...KYC_STEPS]);
+  assert.deepEqual([...KYC_STEPS], ['nin', 'licence', 'details', 'selfie', 'vehicle', 'vehiclePhotos']);
   assert.equal(nextKycStep('nin', null), 'licence');
+  assert.equal(nextKycStep('licence', null), 'details', 'the licence\'s details are typed right after its photo');
+  assert.equal(nextKycStep('details', null), 'selfie');
   assert.equal(nextKycStep('vehicle', null), 'vehiclePhotos');
   assert.equal(nextKycStep('vehiclePhotos', null), null);
-  assert.deepEqual(kycProgress('nin', null), { count: 6, active: 1 }, 'the welcome screen is step 0');
+  assert.deepEqual(kycProgress('nin', null), { count: 7, active: 1 }, 'the welcome screen is step 0');
 });
 
 test('sent back for the licence only: one step, and it sends', () => {
@@ -42,6 +46,11 @@ test('several items: in the order a driver fills them in, skipping everything ap
 });
 
 test('nothing named means the whole application', () => {
-  assert.deepEqual(fixStepsFrom([]), [...KYC_STEPS]);
-  assert.deepEqual(fixStepsFrom(undefined), [...KYC_STEPS]);
+  assert.deepEqual(fixStepsFrom([]), [...FIXABLE_STEPS]);
+  assert.deepEqual(fixStepsFrom(undefined), [...FIXABLE_STEPS]);
+  assert.deepEqual([...FIXABLE_STEPS], ['nin', 'licence', 'selfie', 'vehicle', 'vehiclePhotos']);
+  // The typed details are never a step to fix: they are corrected from Your papers.
+  assert.deepEqual(fixStepsFrom(['details']), [...FIXABLE_STEPS]);
+  assert.deepEqual(fixStepsFrom(['details', 'licence']), ['licence']);
+  assert.equal(nextKycStep('licence', fixStepsFrom(['licence', 'selfie'])), 'selfie', 'fixing skips the details step');
 });

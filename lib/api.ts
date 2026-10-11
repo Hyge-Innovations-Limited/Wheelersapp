@@ -1517,10 +1517,18 @@ export async function submitDriverKyc(input: {
   vehiclePlate: string;
   vehicleYear: number;
   phone?: string;
+  /** As on the licence. */
+  legalName: string;
+  licenceNumber: string;
+  /** YYYY-MM-DD */
+  licenceExpiresOn: string;
 }): Promise<{ status: string }> {
   return postJson<{ status: string }>(
     "/drivers/kyc/submit",
     {
+      legalName: input.legalName,
+      licenceNumber: input.licenceNumber,
+      licenceExpiresOn: input.licenceExpiresOn,
       ninImage: input.ninImage,
       licenceImage: input.licenceImage,
       selfieImage: input.selfieImage,
@@ -1622,6 +1630,10 @@ export interface DriverPaperNeed {
 }
 
 export interface DriverPapersResponse {
+  /** The day from which papers are needed to go online (YYYY-MM-DD). Null: no such day is set. */
+  requiredFrom?: string | null;
+  /** That day has come and something is still to do: the driver cannot go online. */
+  blocked?: boolean;
   details: {
     legalName: string | null;
     licenceNumber: string | null;

@@ -15,6 +15,7 @@ import { useDriverOnboarding } from "@/lib/driver-onboarding";
 const STEPS = [
   { icon: "id-card-outline" as const, label: "NIN card photo" },
   { icon: "car-outline" as const, label: "Driver's licence (photo or PDF)" },
+  { icon: "person-outline" as const, label: "Your name and licence number" },
   { icon: "camera-outline" as const, label: "Face verification" },
   { icon: "speedometer-outline" as const, label: "Vehicle details" },
   { icon: "images-outline" as const, label: "Vehicle photos (7-10)" },

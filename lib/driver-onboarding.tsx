@@ -12,7 +12,15 @@ export interface VehicleInfo {
   phone: string;
 }
 
+/** The driver's name as on the licence, its number, and the day it expires (YYYY-MM-DD). */
+export interface LegalDetails {
+  legalName: string;
+  licenceNumber: string;
+  licenceExpiresOn: string;
+}
+
 export interface OnboardingData {
+  legalDetails: LegalDetails | null;
   ninUri: string | null;
   licenceUri: string | null;
   licenceType: 'image' | 'pdf';
@@ -34,6 +42,7 @@ interface DriverOnboardingContextValue {
   addVehiclePhoto: (uri: string) => void;
   removeVehiclePhoto: (index: number) => void;
   setVehicleInfo: (info: VehicleInfo) => void;
+  setLegalDetails: (details: LegalDetails) => void;
   /** Walk only these steps; the last one sends just them. */
   startFix: (steps: KycStep[], vehicleDraft?: Partial<VehicleInfo> | null) => void;
   /** Walk every step (a new application). */
@@ -65,6 +74,7 @@ function firstMissing(data: OnboardingData, steps: readonly KycStep[]): KycStep 
   for (const step of steps) {
     if (step === 'nin' && !data.ninUri) return step;
     if (step === 'licence' && !data.licenceUri) return step;
+    if (step === 'details' && !data.legalDetails) return step;
     if (step === 'selfie' && !data.selfieUri) return step;
     if (step === 'vehicle' && !data.vehicleInfo) return step;
     if (step === 'vehiclePhotos' && data.vehiclePhotos.length < 7) return step;
@@ -74,6 +84,7 @@ function firstMissing(data: OnboardingData, steps: readonly KycStep[]): KycStep 
 
 export function DriverOnboardingProvider({ children }: { children: ReactNode }) {
   const [current, setData] = useState<OnboardingData>({
+    legalDetails: null,
     ninUri: null,
     licenceUri: null,
     licenceType: 'image',
@@ -117,6 +128,10 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
 
   const setVehicleInfo = useCallback((info: VehicleInfo) => {
     setData((prev) => ({ ...prev, vehicleInfo: info }));
+  }, []);
+
+  const setLegalDetails = useCallback((details: LegalDetails) => {
+    setData((prev) => ({ ...prev, legalDetails: details }));
   }, []);
 
   const startFix = useCallback((steps: KycStep[], vehicleDraft: Partial<VehicleInfo> | null = null) => {
@@ -174,6 +189,7 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
           vehiclePlate: data.vehicleInfo!.plate,
           vehicleYear: data.vehicleInfo!.year,
           phone: data.vehicleInfo!.phone || undefined,
+          ...data.legalDetails!,
         });
       }
     } finally {
@@ -184,7 +200,7 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
   const data = current;
 
   return (
-    <DriverOnboardingContext.Provider value={{ data, setNinUri, setLicenceUri, setSelfieUri, setVehiclePhotos, addVehiclePhoto, removeVehiclePhoto, setVehicleInfo, startFix, startFull, submit, submitting }}>
+    <DriverOnboardingContext.Provider value={{ data, setNinUri, setLicenceUri, setSelfieUri, setVehiclePhotos, addVehiclePhoto, removeVehiclePhoto, setVehicleInfo, setLegalDetails, startFix, startFull, submit, submitting }}>
       {children}
     </DriverOnboardingContext.Provider>
   );

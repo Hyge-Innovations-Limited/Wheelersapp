@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Alert, AppState, type AppStateStatus } from 'react-native';
 import { bidCeilingNgn } from '@/lib/bid-limits';
 import { useAuth } from '@/lib/auth';
@@ -261,6 +262,25 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         setSession(defaultDriverSession);
         Alert.alert('Verification needed', getString(payload.message) ?? 'Finish your verification before you can drive.');
         emitKycRequired();
+        return;
+      }
+
+      if (type === 'error' && payload.code === 'PAPERS_REQUIRED') {
+        // The server will not put a driver on shift with papers missing or
+        // expired: undo the optimistic "online" and point them at what to send.
+        shouldMaintainConnectionRef.current = false;
+        wantsOnlineRef.current = false;
+        lastOnlineCoordsRef.current = null;
+        void stopDriverLivenessUpdates().catch(() => undefined);
+        setSession(defaultDriverSession);
+        Alert.alert(
+          'Your papers are needed',
+          getString(payload.message) ?? 'Send your papers before you go online.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open Your papers', onPress: () => router.push('/driver/docs' as never) },
+          ],
+        );
         return;
       }
 

@@ -69,7 +69,7 @@ export default function LicenceUploadScreen() {
     <AppScreen scroll contentStyle={styles.container}>
       <FlowHeader
         title="Driver's Licence"
-        subtitle="Take a photo or upload a PDF of your driver's licence"
+        subtitle="Take a photo or upload a PDF of your driver's licence. You will type its details next."
         showBack
         progress={step.progress}
       />

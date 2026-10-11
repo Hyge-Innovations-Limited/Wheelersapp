@@ -14,7 +14,7 @@ import { noteDriverKyc } from "@/lib/driver-kyc";
 import { knownDriverKyc } from "@/lib/driver-kyc-store";
 import { getDriverKycStatus, type DriverKycStatusResponse } from "@/lib/api";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
-import { KYC_STEP_LABELS, KYC_STEP_ROUTES, KYC_STEPS, fixStepsFrom } from "@/lib/kyc-steps";
+import { FIXABLE_STEPS, KYC_STEP_LABELS, KYC_STEP_ROUTES, fixStepsFrom } from "@/lib/kyc-steps";
 import { OnboardingSignOut } from "@/components/onboarding-sign-out";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 
@@ -91,7 +91,7 @@ export default function PendingScreen() {
   if (kycStatus === "REJECTED") {
     // Only what was sent back; everything else stays approved.
     const toFix = fixStepsFrom(rejectedFields);
-    const everything = toFix.length === KYC_STEPS.length;
+    const everything = toFix.length === FIXABLE_STEPS.length;
     const startFixing = () => {
       startFix(toFix, submission ? {
         make: submission.vehicleMake ?? undefined,

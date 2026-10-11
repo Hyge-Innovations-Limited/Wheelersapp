@@ -91,6 +91,21 @@ export default function DriverPapersScreen() {
                 : papers.toDo === 1 ? '1 thing still to send' : `${papers.toDo} things still to send`}
             </AppText>
           </View>
+          {papers.blocked ? (
+            <View style={[styles.summary, styles.summarySoon]}>
+              <Ionicons name="lock-closed-outline" size={22} color={theme.colors.danger} />
+              <AppText variant="bodySmall" style={styles.flex}>
+                You cannot go online until what is marked Required below has been sent.
+              </AppText>
+            </View>
+          ) : papers.requiredFrom && papers.toDo > 0 ? (
+            <View style={styles.summary}>
+              <Ionicons name="calendar-outline" size={22} color={theme.colors.orange} />
+              <AppText variant="bodySmall" style={styles.flex}>
+                From {isoToWords(papers.requiredFrom)} you will need these in to go online. Send them before then.
+              </AppText>
+            </View>
+          ) : null}
           {papers.expiringSoon.length > 0 ? (
             <View style={[styles.summary, styles.summarySoon]}>
               <Ionicons name="calendar-outline" size={22} color={theme.colors.danger} />

@@ -1,15 +1,23 @@
 /**
  * The verification steps, in the order a driver fills them in. A new driver
- * walks all five; a driver sent back to fix something walks only what was
+ * walks all six; a driver sent back to fix something walks only what was
  * rejected (fix mode), and the last of those sends it.
+ *
+ * "details" (the name as on the licence, its number and expiry) is typed
+ * right after the licence is photographed. A reviewer never sends it back as
+ * a step: it is corrected from Your papers, so it is not part of fix mode.
  */
-export type KycStep = "nin" | "licence" | "selfie" | "vehicle" | "vehiclePhotos";
+export type KycStep = "nin" | "licence" | "details" | "selfie" | "vehicle" | "vehiclePhotos";
 
-export const KYC_STEPS: readonly KycStep[] = ["nin", "licence", "selfie", "vehicle", "vehiclePhotos"];
+export const KYC_STEPS: readonly KycStep[] = ["nin", "licence", "details", "selfie", "vehicle", "vehiclePhotos"];
+
+/** What a reviewer can send back. */
+export const FIXABLE_STEPS: readonly KycStep[] = ["nin", "licence", "selfie", "vehicle", "vehiclePhotos"];
 
 export const KYC_STEP_ROUTES = {
   nin: "/driver/onboarding/nin-upload",
   licence: "/driver/onboarding/licence-upload",
+  details: "/driver/onboarding/your-details",
   selfie: "/driver/onboarding/face-verification",
   vehicle: "/driver/onboarding/vehicle-info",
   vehiclePhotos: "/driver/onboarding/vehicle-photos",
@@ -18,6 +26,7 @@ export const KYC_STEP_ROUTES = {
 export const KYC_STEP_LABELS: Record<KycStep, string> = {
   nin: "NIN card",
   licence: "Driver's licence",
+  details: "Your name and licence details",
   selfie: "Face check",
   vehicle: "Vehicle details",
   vehiclePhotos: "Vehicle photos",
@@ -27,10 +36,11 @@ export function isKycStep(value: unknown): value is KycStep {
   return typeof value === "string" && (KYC_STEPS as readonly string[]).includes(value);
 }
 
-/** What the server sent back, in step order; nothing named means everything. */
+/** What the server sent back, in step order; nothing named means everything a reviewer can send back. */
 export function fixStepsFrom(rejectedFields: readonly string[] | null | undefined): KycStep[] {
   const named = new Set((rejectedFields ?? []).filter(isKycStep));
-  return named.size === 0 ? [...KYC_STEPS] : KYC_STEPS.filter((s) => named.has(s));
+  const fixable = FIXABLE_STEPS.filter((s) => named.has(s));
+  return fixable.length === 0 ? [...FIXABLE_STEPS] : fixable;
 }
 
 /** The steps this driver walks: all of them, or only those to fix. */
