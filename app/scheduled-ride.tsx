@@ -91,7 +91,7 @@ export default function ScheduledRideScreen() {
   const searching = ride.status === "DISPATCHING";
 
   const steps = [
-    { title: "We find your driver", body: "The search starts 5 minutes before your pickup time." },
+    { title: "We find your driver", body: "The search starts shortly before your pickup time." },
     { title: "You get the driver details", body: "Name, car and plate number." },
     {
       title: when ? `Your driver arrives at ${timeWords(when)}` : "Your driver arrives",

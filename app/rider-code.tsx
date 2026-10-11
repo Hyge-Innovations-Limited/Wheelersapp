@@ -26,6 +26,7 @@ export default function RiderCodeScreen() {
   const { refreshAuthState } = useAuth();
 
   const inputRef = useRef<TextInput>(null);
+  const checkingRef = useRef(false);
   const [code, setCode] = useState("");
   const [channel, setChannel] = useState(params.channel === "whatsapp" ? "whatsapp" : "sms");
   const [checking, setChecking] = useState(false);
@@ -49,7 +50,10 @@ export default function RiderCodeScreen() {
   const waitLeft = secondsUntil(resendAt, now);
 
   async function check(entered: string) {
-    if (checking || entered.length !== CODE_LENGTH) return;
+    // A ref, not the state: SMS autofill can deliver the digits twice in one
+    // tick, before a state change would be seen.
+    if (checkingRef.current || entered.length !== CODE_LENGTH) return;
+    checkingRef.current = true;
     setChecking(true);
     setError(null);
     try {
@@ -57,6 +61,10 @@ export default function RiderCodeScreen() {
       await storeLocalAccessToken(result.accessToken);
       await persistAuthenticatedRole("RIDER");
       await refreshAuthState();
+
+      // The sign-in screens are done with: Back from inside the app must not
+      // walk into them again.
+      if (router.canDismiss()) router.dismissAll();
 
       const name = result.user.name?.trim() ?? "";
       if (result.isNewUser || !name) {
@@ -72,6 +80,7 @@ export default function RiderCodeScreen() {
       setCode("");
       inputRef.current?.focus();
     } finally {
+      checkingRef.current = false;
       setChecking(false);
     }
   }

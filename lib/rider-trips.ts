@@ -151,6 +151,12 @@ const TRIPS_FRESH_MS = 30_000;
 let cachedTrips: RiderTrip[] = [];
 let cachedTripsAt = 0;
 
+/** Forget the kept list: the next person to sign in must not see this one's rides. */
+export function clearRiderTripsCache(): void {
+  cachedTrips = [];
+  cachedTripsAt = 0;
+}
+
 export function useRiderTrips(limit = 30): {
   trips: RiderTrip[];
   isLoading: boolean;

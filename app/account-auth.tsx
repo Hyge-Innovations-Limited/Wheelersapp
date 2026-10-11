@@ -170,7 +170,7 @@ export default function AccountAuthScreen() {
               {mode === "signup" ? "Creating your account" : "Signing you in"}
             </AppText>
             <AppText variant="bodySmall" color={theme.colors.muted} style={styles.loadingText}>
-              {isDriverApp ? "Taking you to your driver dashboard..." : "Taking you to phone verification..."}
+              {isDriverApp ? "Taking you to your driver dashboard..." : "Taking you into the app..."}
             </AppText>
           </View>
         </RevealView>

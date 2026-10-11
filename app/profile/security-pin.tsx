@@ -1,3 +1,4 @@
+import { publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -108,7 +109,7 @@ export default function SecurityPinScreen() {
       await clearPin();
       await logout();
       await clearStoredAuthState();
-      router.replace("/rider-auth");
+      router.replace(publicEntryRoute);
     } finally {
       setIsResetting(false);
     }

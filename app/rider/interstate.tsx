@@ -1,3 +1,4 @@
+import { BackArrow } from "@/components/back-arrow";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -54,6 +55,8 @@ export default function RiderInterstateScreen() {
       safeAreaEdges={["top", "left", "right"]}
     >
       <StatusBar style="dark" />
+
+      <BackArrow onPress={() => router.navigate("/rider/profile")} />
 
       <View style={styles.header}>
         <View style={styles.headerCopy}>
@@ -339,7 +342,7 @@ function TripsTab({
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push("/rider")}
+        onPress={() => router.navigate("/rider")}
         style={styles.footerLink}
       >
         <AppText variant="bodySmall" color={theme.colors.muted}>

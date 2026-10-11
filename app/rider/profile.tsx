@@ -11,6 +11,8 @@ import { getCurrentProfile, isBackendConfigured } from "@/lib/api";
 import { offersBothSides, publicEntryRoute, switchAppSide } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { clearLogoutPending, clearStoredAuthState, markLogoutPending } from "@/lib/auth-state";
+import { clearRiderTripsCache } from "@/lib/rider-trips";
+import { clearSavedPlaces } from "@/lib/saved-places";
 import { useWalletOverview } from "@/lib/wallet-overview";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -171,6 +173,9 @@ export default function RiderYouScreen() {
     try {
       await markLogoutPending();
       await clearStoredAuthState();
+      // Nothing of this rider's is left for the next person on this phone.
+      clearRiderTripsCache();
+      await clearSavedPlaces();
       router.replace({
         pathname: publicEntryRoute,
         params: { logout: "1" },
@@ -188,14 +193,23 @@ export default function RiderYouScreen() {
     }
   }
 
-  async function handleSwitchToDriver() {
+  /**
+   * Driving is a separate account, so the rider is signed out first; the app
+   * then restarts on the driver side at driver sign-in. Switching while still
+   * signed in as a rider left the app half on each side.
+   */
+  async function switchToDriver() {
     if (isSwitching) {
       return;
     }
 
     setIsSwitching(true);
     try {
-      // The app restarts on the driver side; nothing after this runs when it does.
+      await clearStoredAuthState();
+      clearRiderTripsCache();
+      await clearSavedPlaces();
+      await logout().catch(() => undefined);
+      // The app restarts here; nothing after this runs when it does.
       await switchAppSide("driver");
     } catch (error) {
       Alert.alert(
@@ -205,6 +219,17 @@ export default function RiderYouScreen() {
     } finally {
       setIsSwitching(false);
     }
+  }
+
+  function handleSwitchToDriver() {
+    Alert.alert(
+      "Switch to driver?",
+      "You will be signed out of your rider account and taken to driver sign-in.",
+      [
+        { text: "Stay", style: "cancel" },
+        { text: "Switch", onPress: () => void switchToDriver() },
+      ],
+    );
   }
 
   return (
@@ -271,18 +296,18 @@ export default function RiderYouScreen() {
 
       {offersBothSides ? (
         <Pressable
-          accessibilityLabel="Switch to driver. Use the same account to drive"
+          accessibilityLabel="Switch to driver. Sign in to your driver account"
           accessibilityRole="button"
           accessibilityState={{ busy: isSwitching, disabled: isSwitching }}
           disabled={isSwitching}
-          onPress={() => void handleSwitchToDriver()}
+          onPress={handleSwitchToDriver}
           style={({ pressed }) => [styles.switchCard, pressed || isSwitching ? styles.pressed : null]}>
           <View style={styles.switchCopy}>
             <RText color={rider.colors.orange} variant="bodyBold">
               Switch to driver
             </RText>
             <RText color={rider.colors.onInkMuted} variant="small">
-              Use the same account to drive
+              Sign in to your driver account
             </RText>
           </View>
           <Ionicons color={rider.colors.orange} name="arrow-forward" size={20} />

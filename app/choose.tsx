@@ -44,7 +44,7 @@ export default function ChooseScreen() {
         <RText variant="display" style={styles.headline}>
           How would you like to use Wheelers?
         </RText>
-        <RText color={rider.colors.muted}>You can switch at any time from your profile.</RText>
+        <RText color={rider.colors.muted}>Riding and driving use separate accounts.</RText>
       </View>
 
       <Pressable

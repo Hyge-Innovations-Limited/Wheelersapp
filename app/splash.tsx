@@ -6,7 +6,13 @@ import { Animated, Image, Pressable, StyleSheet, View, useColorScheme } from "re
 
 import { BrandLogo } from "@/components/brand-logo";
 
-import { publicEntryRoute, type VariantPublicRoute } from "@/lib/app-variant";
+import {
+  appVariant,
+  offersBothSides,
+  publicEntryRoute,
+  switchAppSide,
+  type VariantPublicRoute,
+} from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import {
   clearLogoutPending,
@@ -107,6 +113,13 @@ export default function SplashScreen() {
 
       const storedAuthState = await readStoredAuthState();
       if (cancelled || hasNavigated.current) return;
+
+      // Signed in on one side with the app started on the other (the side is
+      // read once, at start): restart on the side the account belongs to.
+      if (offersBothSides && storedAuthState) {
+        const side = storedAuthState.role === "DRIVER" ? "driver" : "rider";
+        if (side !== appVariant && (await switchAppSide(side))) return;
+      }
 
       if (storedAuthState?.role === "DRIVER") {
         // A driver's place depends on their KYC, which only the server knows.

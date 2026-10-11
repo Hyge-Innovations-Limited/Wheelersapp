@@ -130,6 +130,8 @@ export default function MatchingScreen() {
   const [pendingSearch, setPendingSearch] = useState<{ offerNgn?: number } | null>(null);
   const [requestSettled, setRequestSettled] = useState(false);
   const requestFiredRef = useRef(false);
+  /** A ride that had already ended when this screen opened. */
+  const staleRideIdRef = useRef<string | null>(null);
   const navigatedRef = useRef(false);
   const rideAtMountRef = useRef(currentRide);
 
@@ -188,6 +190,17 @@ export default function MatchingScreen() {
       void updateOffer(requestedOfferNgn).catch(() => undefined);
     }
 
+    // A ride that already ended (cancelled, or finished and never rated) is
+    // still in memory: put it away, then search. Left there, its "cancelled"
+    // status sent this screen home while the new request went out.
+    if (open && (open.status === "cancelled" || open.status === "completed")) {
+      staleRideIdRef.current = open.rideId;
+      setAskedNgn(requestedOfferNgn);
+      setPendingSearch({ offerNgn: requestedOfferNgn });
+      clearRide();
+      return;
+    }
+
     void sendRequest(requestedOfferNgn, () => router.back());
     // Once per mount on purpose: re-running this on every render would publish
     // the same trip to drivers over and over.
@@ -232,11 +245,13 @@ export default function MatchingScreen() {
       return;
     }
 
-    if (status === "cancelled") {
+    // Only a ride cancelled while this screen was searching for it sends the
+    // rider home, not the leftover of an earlier one.
+    if (status === "cancelled" && currentRide?.rideId !== staleRideIdRef.current) {
       navigatedRef.current = true;
       router.replace("/rider");
     }
-  }, [status, router, serializedItinerary]);
+  }, [status, router, serializedItinerary, currentRide?.rideId]);
 
   /* ── how long the search stays open ────────────────────────────────── */
 
@@ -327,6 +342,8 @@ export default function MatchingScreen() {
       // The rider is leaving either way; the stale-ride sweep expires an orphan.
     } finally {
       navigatedRef.current = true;
+      // Put the cancelled search away so the next booking starts clean.
+      clearRide();
       router.replace("/rider");
     }
   }, [cancelRide, router]);

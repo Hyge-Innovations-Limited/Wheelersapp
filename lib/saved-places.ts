@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 
 /**
  * Places a rider saves to book in one tap: Home, Work, and any others they
- * name. Kept on this phone only — the server has no saved places yet, so
- * they do not follow the rider to another phone or to WhatsApp.
+ * name. Kept on this phone only, until they log out — the server has no saved
+ * places yet, so they do not follow the rider to another phone or to WhatsApp.
  */
 export type SavedPlace = {
   id: string;
@@ -82,6 +82,12 @@ export async function savePlace(label: string, address: string): Promise<SavedPl
 
 export async function removeSavedPlace(id: string): Promise<SavedPlace[]> {
   return write((await readSavedPlaces()).filter((place) => place.id !== id));
+}
+
+/** Forget every saved place: done when a rider logs out, so the next one starts empty. */
+export async function clearSavedPlaces(): Promise<void> {
+  await AsyncStorage.removeItem(SAVED_PLACES_KEY).catch(() => undefined);
+  listeners.forEach((listener) => listener([]));
 }
 
 /** The rider's saved places, kept current on every screen showing them. */

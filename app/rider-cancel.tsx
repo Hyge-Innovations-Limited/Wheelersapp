@@ -23,7 +23,7 @@ const REASONS = [
 /** "Cancel this ride?": one reason, then cancel. Used while searching and once a driver is confirmed. */
 export default function RiderCancelScreen() {
   const router = useRouter();
-  const { cancelRide, currentRide } = useRideSession();
+  const { cancelRide, currentRide, clearRide } = useRideSession();
   const [reason, setReason] = useState<(typeof REASONS)[number]>(REASONS[0]);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +68,8 @@ export default function RiderCancelScreen() {
     leavingRef.current = true;
     try {
       await cancelRide(reason);
+      // Put the cancelled ride away so the next booking starts clean.
+      clearRide();
       router.replace("/rider");
     } catch (failure) {
       leavingRef.current = false;

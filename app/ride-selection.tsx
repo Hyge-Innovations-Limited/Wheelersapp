@@ -299,7 +299,10 @@ export default function RideSelectionScreen() {
   const handleEditRoute = () => {
     router.push({
       pathname: "/destination-search",
-      params: { itinerary: serializedItinerary },
+      // Editing the route of a ride for later keeps it a ride for later.
+      params: scheduledAt
+        ? { itinerary: serializedItinerary, scheduledAt }
+        : { itinerary: serializedItinerary },
     });
   };
 
@@ -542,6 +545,9 @@ export default function RideSelectionScreen() {
           </RText>
         )}
         <RButton
+          // Until the server's price for this route is in, the figure is a
+          // guess that may be under the minimum: nothing is sent at a guess.
+          disabled={isFareResolving}
           loading={isSubmitting}
           onPress={() => void handleBookRide()}
           title={scheduledAt ? "Schedule ride" : `Find drivers at ${naira(effectiveOfferNgn)}`}

@@ -233,6 +233,15 @@ export default function TripRatingScreen() {
         title="Submit rating"
       />
       <RLink
+        color={rider.colors.muted}
+        onPress={() => {
+          leavingRef.current = true;
+          clearRide();
+          router.replace("/rider");
+        }}
+        title="Skip for now"
+      />
+      <RLink
         accessibilityLabel="Report a problem with this trip"
         color={colors.muted}
         onPress={() => router.push("/support/chat")}

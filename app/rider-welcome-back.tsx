@@ -9,7 +9,6 @@ import { updateCurrentProfile } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
-import { useRiderHistory } from "@/lib/rider-history";
 import { looksLikeEmail } from "@/lib/rider-sign-in";
 import { useWalletOverview } from "@/lib/wallet-overview";
 
@@ -22,7 +21,6 @@ export default function RiderWelcomeBackScreen() {
 
   const { getAccessToken } = useAuth();
   const { overview } = useWalletOverview();
-  const { items: trips } = useRiderHistory(20);
 
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
@@ -58,8 +56,6 @@ export default function RiderWelcomeBackScreen() {
     }
   }
 
-  const tripCount = trips.length >= 20 ? "20+" : String(trips.length);
-
   return (
     <RScreen contentStyle={styles.content} scroll>
       <BrandLogo size={56} />
@@ -78,12 +74,6 @@ export default function RiderWelcomeBackScreen() {
           <RText color={rider.colors.onInkMuted} variant="caption">
             in your wallet
           </RText>
-        </RCard>
-        <RCard style={styles.stat}>
-          <RText variant="figure" style={styles.statFigure}>
-            {tripCount}
-          </RText>
-          <RText variant="caption">{trips.length === 1 ? "ride so far" : "rides so far"}</RText>
         </RCard>
       </View>
 
