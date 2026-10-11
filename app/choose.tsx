@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
@@ -11,6 +11,8 @@ import { isDriverApp, publicEntryRoute, switchAppSide } from "@/lib/app-variant"
 /** Ride or Drive. Riders go on to their phone number; drivers to driver sign-in. */
 export default function ChooseScreen() {
   const router = useRouter();
+  // "I already have an account": the same two doors, worded for signing in.
+  const returning = useLocalSearchParams<{ have?: string }>().have === "1";
   const [switching, setSwitching] = useState(false);
 
   if (isDriverApp) {
@@ -42,13 +44,17 @@ export default function ChooseScreen() {
 
       <View style={styles.intro}>
         <RText variant="display" style={styles.headline}>
-          How would you like to use Wheelers?
+          {returning ? "Which account is yours?" : "How would you like to use Wheelers?"}
         </RText>
-        <RText color={rider.colors.muted}>Riding and driving use separate accounts.</RText>
+        <RText color={rider.colors.muted}>
+          {returning
+            ? "Riders and drivers sign in differently. Pick yours."
+            : "Riding and driving use separate accounts."}
+        </RText>
       </View>
 
       <Pressable
-        accessibilityHint="Book a ride and set your own price"
+        accessibilityHint={returning ? "Sign in as a rider with your phone number" : "Book a ride and set your own price"}
         accessibilityLabel="Ride"
         accessibilityRole="button"
         onPress={() => router.push("/rider-phone")}
@@ -58,7 +64,9 @@ export default function ChooseScreen() {
             <RText color={rider.colors.orange} variant="display">
               Ride
             </RText>
-            <RText color={rider.colors.onInkSoft}>Book a ride and set your own price.</RText>
+            <RText color={rider.colors.onInkSoft}>
+              {returning ? "I am a rider. Sign in with my phone number." : "Book a ride and set your own price."}
+            </RText>
           </View>
           <View style={[styles.arrow, styles.arrowOrange]}>
             <Ionicons color={rider.colors.ink} name="arrow-forward" size={22} />
@@ -68,7 +76,7 @@ export default function ChooseScreen() {
       </Pressable>
 
       <Pressable
-        accessibilityHint="Earn money driving with Wheelers"
+        accessibilityHint={returning ? "Sign in as a driver with Apple, Google or email" : "Earn money driving with Wheelers"}
         accessibilityLabel="Drive"
         accessibilityRole="button"
         disabled={switching}
@@ -77,7 +85,7 @@ export default function ChooseScreen() {
         <View style={styles.cardWords}>
           <RText variant="title">Drive</RText>
           <RText color={rider.colors.muted} variant="small">
-            Earn money driving with Wheelers.
+            {returning ? "I am a driver. Sign in with Apple, Google or email." : "Earn money driving with Wheelers."}
           </RText>
         </View>
         <View style={[styles.arrow, styles.arrowOutline]}>

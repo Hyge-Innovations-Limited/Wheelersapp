@@ -12,6 +12,7 @@ import { offersBothSides, publicEntryRoute, switchAppSide } from "@/lib/app-vari
 import { useAuth } from "@/lib/auth";
 import { clearLogoutPending, clearStoredAuthState, markLogoutPending } from "@/lib/auth-state";
 import { clearRiderTripsCache } from "@/lib/rider-trips";
+import { clearNameNeeded } from "@/lib/rider-sign-in-state";
 import { clearSavedPlaces } from "@/lib/saved-places";
 import { useWalletOverview } from "@/lib/wallet-overview";
 
@@ -179,6 +180,7 @@ export default function RiderYouScreen() {
       // Nothing of this rider's is left for the next person on this phone.
       clearRiderTripsCache();
       await clearSavedPlaces();
+      await clearNameNeeded();
       router.replace({
         pathname: publicEntryRoute,
         params: { logout: "1" },
@@ -211,6 +213,7 @@ export default function RiderYouScreen() {
       await clearStoredAuthState();
       clearRiderTripsCache();
       await clearSavedPlaces();
+      await clearNameNeeded();
       await logout().catch(() => undefined);
       // The app restarts here; nothing after this runs when it does.
       await switchAppSide("driver");

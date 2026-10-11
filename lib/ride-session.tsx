@@ -108,6 +108,8 @@ export type RiderRideState = {
   completedFareNgn?: number;
   cancelReason?: string;
   cancelStage?: string;
+  /** Brought back from the server after the app was closed, not started in this run. */
+  restored?: boolean;
 };
 
 export type RideChatMessage = {

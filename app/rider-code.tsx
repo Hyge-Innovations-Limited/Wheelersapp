@@ -8,6 +8,7 @@ import { sendPhoneLoginCode, verifyPhoneLoginCode } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { persistAuthenticatedRole } from "@/lib/auth-state";
 import { useAuth } from "@/lib/auth";
+import { clearNameNeeded, forgetPendingCode, markNameNeeded, rememberPendingCode } from "@/lib/rider-sign-in-state";
 import { secondsUntil } from "@/lib/countdown";
 import {
   CODE_LENGTH,
@@ -21,7 +22,11 @@ import {
 /** Type the 6-digit code. A known number goes to "welcome back"; a new one to a short sign-up. */
 export default function RiderCodeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone?: string; channel?: string }>();
+  const params = useLocalSearchParams<{ phone?: string; channel?: string; sentAt?: string }>();
+  // When the code went out: the wait to ask again counts from then, also
+  // after coming back to this screen from outside the app.
+  const sentAtParam = Number(params.sentAt);
+  const firstSentAt = Number.isFinite(sentAtParam) && sentAtParam > 0 ? sentAtParam : Date.now();
   const phone = typeof params.phone === "string" ? params.phone : "";
   const { refreshAuthState } = useAuth();
 
@@ -32,7 +37,7 @@ export default function RiderCodeScreen() {
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resendAt, setResendAt] = useState(() => Date.now() + RESEND_WAIT_SECONDS * 1000);
+  const [resendAt, setResendAt] = useState(() => firstSentAt + RESEND_WAIT_SECONDS * 1000);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -58,6 +63,13 @@ export default function RiderCodeScreen() {
     setError(null);
     try {
       const result = await verifyPhoneLoginCode({ phone, code: entered });
+      const name = result.user.name?.trim() ?? "";
+      const needsName = result.isNewUser || !name;
+      await forgetPendingCode();
+      // Said before they are signed in, so closing the app on the name screen
+      // comes back to the name screen.
+      if (needsName) await markNameNeeded();
+      else await clearNameNeeded();
       await storeLocalAccessToken(result.accessToken);
       await persistAuthenticatedRole("RIDER");
       await refreshAuthState();
@@ -66,8 +78,7 @@ export default function RiderCodeScreen() {
       // walk into them again.
       if (router.canDismiss()) router.dismissAll();
 
-      const name = result.user.name?.trim() ?? "";
-      if (result.isNewUser || !name) {
+      if (needsName) {
         router.replace("/rider-new");
       } else {
         router.replace({
@@ -91,6 +102,7 @@ export default function RiderCodeScreen() {
     setError(null);
     try {
       const sent = await sendPhoneLoginCode({ phone });
+      await rememberPendingCode({ phone, channel: sent.channel, sentAt: Date.now() });
       setChannel(sent.channel);
       setCode("");
       setResendAt(Date.now() + RESEND_WAIT_SECONDS * 1000);
@@ -164,7 +176,15 @@ export default function RiderCodeScreen() {
           onPress={() => void resend()}
           title={resending ? "Sending" : resendLabel(waitLeft)}
         />
-        <RLink onPress={() => router.back()} title="Change number" />
+        <RLink
+          onPress={() => {
+            void forgetPendingCode();
+            // Not "back": after returning to the app this screen sits on the
+            // welcome screen, not on the number screen.
+            router.replace("/rider-phone");
+          }}
+          title="Change number"
+        />
       </View>
 
       <View style={styles.spacer} />

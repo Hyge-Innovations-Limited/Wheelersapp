@@ -10,6 +10,7 @@ import { RBack, RButton, RLink, RText, rider } from "@/components/rider/kit";
 import { sendPhoneLoginCode } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
+import { rememberPendingCode } from "@/lib/rider-sign-in-state";
 
 /** A rider's way in: their phone number, then a code. */
 export default function RiderPhoneScreen() {
@@ -31,7 +32,10 @@ export default function RiderPhoneScreen() {
     setError(null);
     try {
       const sent = await sendPhoneLoginCode({ phone });
-      router.push({ pathname: "/rider-code", params: { phone, channel: sent.channel } });
+      const sentAt = Date.now();
+      // Leaving the app to read the code must not lose this step.
+      await rememberPendingCode({ phone, channel: sent.channel, sentAt });
+      router.push({ pathname: "/rider-code", params: { phone, channel: sent.channel, sentAt: String(sentAt) } });
     } catch (failure) {
       setError(signInErrorMessage(failure));
     } finally {

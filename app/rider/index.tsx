@@ -44,6 +44,9 @@ const MAP_PEEK = 40;
 
 /* ── last ride ─────────────────────────────────────────────────────────── */
 
+/** Rides whose screen was already reopened after a restart, so it happens once per ride. */
+const reopenedRideIds = new Set<string>();
+
 type RoutePair = { pickup: string; destination: string };
 
 /** "12 Herbert Macaulay Way" from "12 Herbert Macaulay Way, Yaba, Lagos": the short name shown on a card. */
@@ -175,6 +178,19 @@ export default function RiderHomeScreen() {
           : { itinerary },
     } as Href);
   };
+
+  // Back in the app with a ride still going (the app was closed mid-search or
+  // mid-trip): its screen opens by itself, once. A ride started in this run is
+  // left alone, so coming Home on purpose does not bounce the rider back.
+  useFocusEffect(
+    useCallback(() => {
+      if (!liveRide?.restored || reopenedRideIds.has(liveRide.rideId)) return;
+      reopenedRideIds.add(liveRide.rideId);
+      openLiveRide();
+      // openLiveRide reads the same liveRide this effect depends on.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [liveRide?.restored, liveRide?.rideId, liveRide?.status]),
+  );
 
   const bookRoute = (itinerary: RideItinerary) => {
     router.push({

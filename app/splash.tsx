@@ -1,3 +1,4 @@
+import { isNameNeeded } from "@/lib/rider-sign-in-state";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
@@ -25,7 +26,7 @@ import { resolvePostAuthRoute, type PostAuthRoute } from "@/lib/post-auth";
 import { prefetchRiderHistory } from "@/lib/rider-history";
 import { prefetchWalletOverview } from "@/lib/wallet-overview";
 
-type SplashRoute = VariantPublicRoute | AuthenticatedRoute | PostAuthRoute;
+type SplashRoute = VariantPublicRoute | AuthenticatedRoute | PostAuthRoute | "/rider-new";
 
 /**
  * Keep the brand splash on screen for at least this long. Auth state usually
@@ -135,6 +136,13 @@ export default function SplashScreen() {
         const route = await resolvePostAuthRoute(storedAuthState, token);
         if (cancelled || hasNavigated.current) return;
         navigate(route);
+        return;
+      }
+
+      // Signed in, but they left before giving a name: that is where they go.
+      if (storedAuthState && (await isNameNeeded())) {
+        if (cancelled || hasNavigated.current) return;
+        navigate("/rider-new");
         return;
       }
 

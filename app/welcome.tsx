@@ -1,5 +1,6 @@
 import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, { ZoomIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,11 +9,28 @@ import { BrandLogo } from "@/components/brand-logo";
 import { DriveScene } from "@/components/rider/drive-scene";
 import { RButton, RLink, RText, rider } from "@/components/rider/kit";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
+import { readPendingCode } from "@/lib/rider-sign-in-state";
 
 /** The first thing a signed-out person sees: the mark, the name, a car on the move. */
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // A code was sent and they left to read it: straight back to typing it.
+  useEffect(() => {
+    if (isDriverApp) return;
+    let live = true;
+    void readPendingCode().then((pending) => {
+      if (!live || !pending) return;
+      router.push({
+        pathname: "/rider-code",
+        params: { phone: pending.phone, channel: pending.channel, sentAt: String(pending.sentAt) },
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [router]);
 
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
@@ -37,9 +55,10 @@ export default function WelcomeScreen() {
 
       <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
         <RButton onPress={() => router.push("/choose")} title="Get started" />
+        {/* Riders and drivers both have accounts, so this asks which one too. */}
         <RLink
           color={rider.colors.cream}
-          onPress={() => router.push("/rider-phone")}
+          onPress={() => router.push({ pathname: "/choose", params: { have: "1" } })}
           title="I already have an account"
         />
       </View>

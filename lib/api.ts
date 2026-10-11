@@ -2108,6 +2108,24 @@ export interface RiderActiveRideDetail {
   } | null;
   /** The rider's own trip code, until the driver has used it. */
   tripCode?: string | null;
+  /** What the rider is offering. */
+  riderOfferNgn?: number | null;
+  /** Present while the ride is still a search: when it closes, and the offers still open. Older servers leave it out. */
+  search?: {
+    bidsCloseAt: string;
+    offers: Array<{
+      driverId: string;
+      driverUserId: string;
+      counterOfferNgn: number;
+      driverName: string;
+      driverRating: number | null;
+      vehiclePlate: string;
+      vehicleModel: string;
+      etaSeconds: number;
+      distanceKm: number | null;
+      receivedAt: string;
+    }>;
+  } | null;
 }
 
 export async function getRiderActiveRide(input: { accessToken: string }): Promise<{ ride: RiderActiveRideDetail | null }> {

@@ -11,6 +11,7 @@ import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
 import { looksLikeEmail } from "@/lib/rider-sign-in";
+import { clearNameNeeded } from "@/lib/rider-sign-in-state";
 
 const POINTS = [
   "Sign in with your phone number. No password needed.",
@@ -56,6 +57,7 @@ export default function RiderNewScreen() {
         fullName: `${first.trim()} ${last.trim()}`,
         email: typedEmail || undefined,
       });
+      await clearNameNeeded();
       router.replace("/rider");
     } catch (failure) {
       setError(toUserMessage(failure, "We could not save your details. Please try again."));
