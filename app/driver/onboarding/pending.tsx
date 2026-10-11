@@ -184,12 +184,24 @@ export default function PendingScreen() {
           </AppText>
         </View>
         <View style={styles.infoRow}>
+          <Ionicons name="document-text-outline" size={responsive.scale(18)} color={theme.colors.orange} />
+          <AppText variant="bodySmall" color={theme.colors.muted} style={styles.infoText}>
+            While you wait: add your name as on your licence and your car&apos;s papers
+          </AppText>
+        </View>
+        <View style={styles.infoRow}>
           <Ionicons name="shield-checkmark-outline" size={responsive.scale(18)} color={theme.colors.orange} />
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.infoText}>
             Your documents are stored securely
           </AppText>
         </View>
       </Animated.View>
+      <AppButton
+        title="Add your papers"
+        variant="ghost"
+        onPress={() => router.push("/driver/docs" as any)}
+        style={{ marginTop: theme.spacing.lg }}
+      />
       <OnboardingSignOut />
     </AppScreen>
   );

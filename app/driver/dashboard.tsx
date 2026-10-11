@@ -181,7 +181,7 @@ export default function DriverDashboardScreen() {
       />
       <AppButton
         onPress={() => router.push('/driver/docs' as Href)}
-        title="Manage docs"
+        title="Your papers"
         variant="ghost"
       />
 

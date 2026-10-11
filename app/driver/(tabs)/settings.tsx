@@ -38,6 +38,17 @@ function UserIcon({ size = 20, color = theme.colors.black }: { size?: number; co
   );
 }
 
+function PapersIcon({ size = 20, color = theme.colors.black }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <Polyline points="14 3 14 8 19 8" />
+      <Line x1="9" y1="13" x2="15" y2="13" />
+      <Line x1="9" y1="17" x2="13" y2="17" />
+    </Svg>
+  );
+}
+
 function PaletteIcon({ size = 20, color = theme.colors.black }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -216,6 +227,20 @@ export default function DriverSettingsScreen() {
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Profile</AppText>
               <AppText variant="bodySmall" color={theme.colors.muted}>Manage your personal info</AppText>
+            </View>
+            <ChevronRightIcon size={responsive.scale(18)} />
+          </Pressable>
+          <View style={[styles.menuDivider, dividerInset, { borderBottomColor: dividerColor }]} />
+          <Pressable
+            onPress={() => router.push('/driver/docs' as Href)}
+            style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
+          >
+            <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <PapersIcon color={theme.colors.orange} size={glyphSize} />
+            </View>
+            <View style={styles.menuInfo}>
+              <AppText variant="bodyMedium">Your papers</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>Licence details and your car&apos;s papers</AppText>
             </View>
             <ChevronRightIcon size={responsive.scale(18)} />
           </Pressable>

@@ -119,6 +119,16 @@ test('the lock: documents in, the driver waits on "Under review" and cannot go a
     assert.equal(kycLockTarget('SUBMITTED', at(screen)), '/driver/onboarding/pending', screen);
   }
   assert.equal(kycLockTarget('SUBMITTED', at('driver/onboarding/pending')), null, 'stays there');
+  // While they wait they may send their papers: those three screens, nothing under or beside them.
+  for (const screen of ['driver/docs', 'driver/doc-upload', 'driver/legal-details']) {
+    assert.equal(kycLockTarget('SUBMITTED', at(screen)), null, `${screen} is open to a driver under review`);
+    assert.equal(kycLockCovers('SUBMITTED', at(screen)), false);
+    assert.equal(kycLockTarget('REJECTED', at(screen)), '/driver/onboarding/pending', `${screen}: a rejected driver fixes verification first`);
+    assert.equal(kycLockTarget(null, at(screen)), '/driver/onboarding/welcome', `${screen}: not before applying`);
+    assert.equal(kycLockCovers(null, at(screen)), true);
+  }
+  assert.equal(kycLockTarget('SUBMITTED', at('driver/docs/anything')), '/driver/onboarding/pending');
+  assert.equal(kycLockTarget('SUBMITTED', at('driver/wallet')), '/driver/onboarding/pending', 'and still nothing else');
 });
 
 test('the lock: an approved driver goes anywhere; before the answer the dashboard stays hidden', () => {

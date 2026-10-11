@@ -34,12 +34,19 @@ export function routeForKyc(status: string | null): DriverKycRoute {
  * `segments` are the route's (e.g. ["driver", "(tabs)", "home"]); status
  * undefined means not known yet (wait, the screen stays covered).
  *   approved            → anywhere
- *   submitted           → only "Under review"
+ *   submitted           → only "Under review", and their papers (the wait is
+ *                         when a driver has time to send them)
  *   rejected            → "What to fix" (the pending screen), then the steps
  *   anything else       → only the verification steps
  */
+/** The papers screens: a driver under review may use these while they wait. */
+const PAPERS_SCREENS = new Set(["docs", "doc-upload", "legal-details"]);
+const onPapers = (status: string | null | undefined, segments: string[]) =>
+  status === "SUBMITTED" && segments[0] === "driver" && PAPERS_SCREENS.has(segments[1] ?? "") && segments.length === 2;
+
 export function kycLockTarget(status: string | null | undefined, segments: string[]): DriverKycRoute | null {
   if (status === undefined || status === "APPROVED") return null;
+  if (onPapers(status, segments)) return null;
   const inOnboarding = segments[0] === "driver" && segments[1] === "onboarding";
   if (!inOnboarding) return routeForKyc(status);
   if (status === "SUBMITTED" && segments[2] !== "pending") return "/driver/onboarding/pending";
@@ -49,7 +56,7 @@ export function kycLockTarget(status: string | null | undefined, segments: strin
 /** Whether this screen is hidden while the driver is moved (or while the answer is awaited). */
 export function kycLockCovers(status: string | null | undefined, segments: string[]): boolean {
   const inOnboarding = segments[0] === "driver" && segments[1] === "onboarding";
-  return !inOnboarding && status !== "APPROVED";
+  return !inOnboarding && status !== "APPROVED" && !onPapers(status, segments);
 }
 
 /** Ask the server; when it cannot be reached, fall back to its last answer. */

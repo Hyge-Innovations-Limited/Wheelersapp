@@ -37,6 +37,8 @@ export default function DriverLayout() {
         <Stack.Screen name="stellar-transfer" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="docs" />
+        <Stack.Screen name="doc-upload" />
+        <Stack.Screen name="legal-details" />
       </Stack>
       <DriverKycLock />
       </DriverLiveCallHost>

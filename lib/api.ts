@@ -1587,6 +1587,93 @@ export async function getDriverKycStatus(input: {
   });
 }
 
+// ─── Driver papers ──────────────────────────────────────────────
+
+/** How a paper stands. "waiting": sent, not yet looked at. */
+export type DriverPaperState = "missing" | "waiting" | "approved" | "rejected" | "expired";
+
+export interface DriverPaper {
+  type: string;
+  label: string;
+  hint: string;
+  /** It runs out: its expiry date is asked for. */
+  expires: boolean;
+  /** It has a number worth keeping (a policy or permit number). */
+  numbered: boolean;
+  document: {
+    state: DriverPaperState;
+    number: string | null;
+    /** YYYY-MM-DD */
+    expiresOn: string | null;
+    uploadedAt: string;
+    rejectionReason: string | null;
+    expiringSoon: boolean;
+    daysLeft: number | null;
+  } | null;
+}
+
+/** One thing a driver must show. Any ONE of its papers does. */
+export interface DriverPaperNeed {
+  key: string;
+  label: string;
+  required: boolean;
+  state: DriverPaperState;
+  papers: DriverPaper[];
+}
+
+export interface DriverPapersResponse {
+  details: {
+    legalName: string | null;
+    licenceNumber: string | null;
+    /** YYYY-MM-DD */
+    licenceExpiresOn: string | null;
+    licenceExpired: boolean;
+    complete: boolean;
+  };
+  needs: DriverPaperNeed[];
+  /** How many things are still to do: required papers not yet good, and the details. */
+  toDo: number;
+  expiringSoon: string[];
+}
+
+export async function getDriverPapers(input: { accessToken: string }): Promise<DriverPapersResponse> {
+  return getJson<DriverPapersResponse>("/drivers/papers", {
+    accessToken: input.accessToken,
+    fallbackError: "Could not load your papers.",
+  });
+}
+
+/** One paper, as a photo or PDF in base64. Sending a paper again replaces the one before. */
+export async function sendDriverPaper(input: {
+  accessToken: string;
+  type: string;
+  file: string;
+  /** YYYY-MM-DD, for a paper that runs out. */
+  expiresOn?: string;
+  number?: string;
+}): Promise<DriverPapersResponse> {
+  const { accessToken, ...body } = input;
+  return postJson<DriverPapersResponse>("/drivers/papers", body, {
+    accessToken,
+    fallbackError: "Could not send that paper.",
+  });
+}
+
+export async function saveDriverDetails(input: {
+  accessToken: string;
+  legalName: string;
+  licenceNumber: string;
+  /** YYYY-MM-DD */
+  licenceExpiresOn: string;
+}): Promise<DriverPapersResponse> {
+  const { accessToken, ...body } = input;
+  return requestJson<DriverPapersResponse>("PUT", "/drivers/papers/details", {
+    accessToken,
+    body,
+    fallbackError: "Could not save your details.",
+  });
+}
+
 // ── Chat ──────────────────────────────────────────────────────────
 
 export interface ChatMessageResponse {
