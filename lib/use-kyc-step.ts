@@ -2,6 +2,7 @@ import { useRouter, type Href } from "expo-router";
 import { Alert } from "react-native";
 
 import { ApiError } from "@/lib/api";
+import { toUserMessage } from "@/lib/error-messages";
 import { useAuth } from "@/lib/auth";
 import { useDriverOnboarding, type OnboardingData } from "@/lib/driver-onboarding";
 import { KYC_STEP_ROUTES, kycProgress, nextKycStep, type KycStep } from "@/lib/kyc-steps";
@@ -32,10 +33,16 @@ export function useKycStep(step: KycStep) {
         router.replace("/driver/onboarding/pending" as Href);
         return;
       }
-      Alert.alert(
-        "Could not send",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      // The name, licence number or its date was refused: say which, and offer the way back to that step.
+      const code = error instanceof ApiError ? error.code : undefined;
+      if (code === "BAD_NAME" || code === "BAD_LICENCE_NUMBER" || code === "BAD_DATE" || code === "EXPIRED") {
+        Alert.alert("Check your details", toUserMessage(error, "Check your name and licence details, then send again."), [
+          { text: "Not now", style: "cancel" },
+          { text: "Fix them", onPress: () => router.push(KYC_STEP_ROUTES.details as Href) },
+        ]);
+        return;
+      }
+      Alert.alert("Not sent", toUserMessage(error, "Your application was not sent. Please try again."));
     }
   }
 

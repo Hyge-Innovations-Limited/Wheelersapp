@@ -12,7 +12,7 @@ import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getDriverPapers, type DriverPaper, type DriverPaperNeed, type DriverPapersResponse } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { isoToWords } from '@/lib/day-input';
-import { PAPER_STATE, needsAction, paperLine } from '@/lib/driver-papers';
+import { PAPER_STATE, needsAction, paperLine, papersError } from '@/lib/driver-papers';
 import { theme } from '@/theme';
 
 /**
@@ -32,11 +32,11 @@ export default function DriverPapersScreen() {
   const load = useCallback(async () => {
     try {
       const token = await getAccessTokenWithRetry(getAccessToken);
-      if (!token) throw new Error('Sign in again to see your papers.');
+      if (!token) throw new Error('Please sign in again to see your papers.');
       setPapers(await getDriverPapers({ accessToken: token }));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your papers.');
+      setError(papersError(e, 'Could not load your papers. Please try again.'));
     }
   }, [getAccessToken]);
 
@@ -71,7 +71,7 @@ export default function DriverPapersScreen() {
       {!papers && !error ? <ActivityIndicator color={theme.colors.orange} style={styles.loading} /> : null}
       {error && !papers ? (
         <View style={styles.card}>
-          <AppText variant="bodyMedium">Could not load your papers</AppText>
+          <AppText variant="bodyMedium">We could not show your papers</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>{error}</AppText>
           <AppButton title="Try again" variant="ghost" onPress={() => void load()} />
         </View>
@@ -79,6 +79,13 @@ export default function DriverPapersScreen() {
 
       {papers ? (
         <>
+          {/* A refresh that failed keeps what was on screen and says so, instead of blanking the list. */}
+          {error ? (
+            <View style={[styles.summary, styles.summarySoon]}>
+              <Ionicons name="cloud-offline-outline" size={22} color={theme.colors.danger} />
+              <AppText variant="bodySmall" style={styles.flex}>{error} This may be out of date.</AppText>
+            </View>
+          ) : null}
           <View style={[styles.summary, papers.toDo === 0 ? styles.summaryDone : null]}>
             <Ionicons
               name={papers.toDo === 0 ? 'checkmark-circle' : 'document-text-outline'}

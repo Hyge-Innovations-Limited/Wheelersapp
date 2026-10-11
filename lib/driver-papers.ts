@@ -1,5 +1,6 @@
 import type { DriverPaper, DriverPaperNeed, DriverPaperState } from "@/lib/api";
 import { isoToWords } from "@/lib/day-input";
+export { MAX_PAPER_BYTES, papersError } from "@/lib/papers-error";
 import { theme } from "@/theme";
 
 /** A state as a word and a colour, the same on every papers screen. */

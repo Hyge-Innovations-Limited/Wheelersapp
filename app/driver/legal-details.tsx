@@ -10,6 +10,7 @@ import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { ApiError, getDriverPapers, saveDriverDetails } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { dayToIso, isPast, isoToDay, maskDay } from '@/lib/day-input';
+import { papersError } from '@/lib/driver-papers';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
 
@@ -74,16 +75,16 @@ export default function DriverLegalDetailsScreen() {
     setServerError(null);
     try {
       const token = await getAccessTokenWithRetry(getAccessToken);
-      if (!token) throw new Error('Sign in again to save this.');
+      if (!token) throw new Error('Please sign in again to save this.');
       await saveDriverDetails({ accessToken: token, legalName: cleanName, licenceNumber: cleanLicence, licenceExpiresOn: expiresIso });
       router.back();
     } catch (e) {
-      const text = e instanceof Error ? e.message : 'Please try again.';
+      const text = papersError(e, 'Your details were not saved. Please try again.');
       const code = e instanceof ApiError ? e.code : undefined;
       if (code === 'BAD_NAME') setServerError({ field: 'name', text });
       else if (code === 'BAD_LICENCE_NUMBER') setServerError({ field: 'licence', text });
       else if (code === 'BAD_DATE' || code === 'EXPIRED') setServerError({ field: 'expires', text });
-      else Alert.alert('Could not save', text);
+      else Alert.alert('Not saved', text);
     } finally {
       setSaving(false);
     }

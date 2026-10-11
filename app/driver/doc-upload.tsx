@@ -15,6 +15,7 @@ import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getDriverPapers, sendDriverPaper, type DriverPaper } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { dayToIso, isPast, isoToDay, isoToWords, maskDay } from '@/lib/day-input';
+import { MAX_PAPER_BYTES, papersError } from '@/lib/driver-papers';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
 
@@ -42,7 +43,7 @@ export default function DriverPaperUploadScreen() {
     void (async () => {
       try {
         const token = await getAccessTokenWithRetry(getAccessToken);
-        if (!token) throw new Error('Sign in again to send this.');
+        if (!token) throw new Error('Please sign in again to send this.');
         const all = await getDriverPapers({ accessToken: token });
         const found = all.needs.flatMap((n) => n.papers).find((p) => p.type === type) ?? null;
         if (!active) return;
@@ -52,7 +53,7 @@ export default function DriverPaperUploadScreen() {
         setNumber(found.document?.number ?? '');
         if (found.document?.state === 'rejected') setExpires(isoToDay(found.document.expiresOn));
       } catch (e) {
-        if (active) setLoadError(e instanceof Error ? e.message : 'Could not load this paper.');
+        if (active) setLoadError(papersError(e, 'Could not load this paper. Go back and try again.'));
       }
     })();
     return () => { active = false; };
@@ -64,18 +65,44 @@ export default function DriverPaperUploadScreen() {
       Alert.alert('Camera is off', 'Allow the camera for Wheelers in your phone settings, or choose a photo from your gallery.');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-    if (!result.canceled && result.assets[0]) { setFileUri(result.assets[0].uri); setFileKind('image'); }
+    try {
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+      if (!result.canceled && result.assets[0]) choose(result.assets[0].uri, 'image');
+    } catch {
+      Alert.alert('The camera did not open', 'Try again, or choose a photo from your gallery.');
+    }
   }
 
   async function pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (!result.canceled && result.assets[0]) { setFileUri(result.assets[0].uri); setFileKind('image'); }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+      if (!result.canceled && result.assets[0]) choose(result.assets[0].uri, 'image');
+    } catch {
+      Alert.alert('Your gallery did not open', 'Try again, or take a photo instead.');
+    }
   }
 
   async function pickPdf() {
-    const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
-    if (!result.canceled && result.assets[0]) { setFileUri(result.assets[0].uri); setFileKind('pdf'); }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+      if (!result.canceled && result.assets[0]) choose(result.assets[0].uri, 'pdf');
+    } catch {
+      Alert.alert('That file did not open', 'Try again, or take a photo of the paper instead.');
+    }
+  }
+
+  /** A file too big for the server is turned away here, before a slow upload that would only be refused. */
+  function choose(uri: string, kind: 'image' | 'pdf') {
+    let size = 0;
+    try { size = new File(uri).size ?? 0; } catch { size = 0; }
+    if (size > MAX_PAPER_BYTES) {
+      Alert.alert('That file is too big', kind === 'pdf'
+        ? 'Send a PDF under 10 MB, or take a photo of the paper instead.'
+        : 'Send a photo under 10 MB. Taking it again with the camera here makes a smaller one.');
+      return;
+    }
+    setFileUri(uri);
+    setFileKind(kind);
   }
 
   const expiresIso = dayToIso(expires);
@@ -90,7 +117,7 @@ export default function DriverPaperUploadScreen() {
     setSending(true);
     try {
       const token = await getAccessTokenWithRetry(getAccessToken);
-      if (!token) throw new Error('Sign in again to send this.');
+      if (!token) throw new Error('Please sign in again to send this.');
       await sendDriverPaper({
         accessToken: token,
         type: paper.type,
@@ -100,7 +127,8 @@ export default function DriverPaperUploadScreen() {
       });
       router.back();
     } catch (e) {
-      Alert.alert('Could not send', e instanceof Error ? e.message : 'Please try again.');
+      // The server's own sentence when it wrote one (expired, wrong kind of file, too big); the standard wording otherwise.
+      Alert.alert('Not sent', papersError(e, 'Your paper was not sent. Please try again.'));
     } finally {
       setSending(false);
     }
