@@ -36,12 +36,15 @@ const ROWS: { title: string; subtitle: string; icon: IconName; href: Href }[] = 
     icon: "notifications-outline",
     href: "/rider/notifications",
   },
-  {
-    title: "Travel between cities",
-    subtitle: "Book a trip to another city",
-    icon: "bus-outline",
-    href: "/rider/interstate",
-  },
+  // Travel between cities is switched off in the app for now. The screens
+  // stay in the code (app/rider/interstate.tsx); bring this row back to
+  // bring them back.
+  // {
+  //   title: "Travel between cities",
+  //   subtitle: "Book a trip to another city",
+  //   icon: "bus-outline",
+  //   href: "/rider/interstate",
+  // },
   {
     title: "Group ride",
     subtitle: "Share a ride with other riders",
