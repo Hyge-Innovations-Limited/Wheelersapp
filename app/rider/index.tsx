@@ -1,9 +1,11 @@
 import { useBalanceHidden } from "@/lib/balance-hidden";
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { Href, useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -133,6 +135,14 @@ export default function RiderHomeScreen() {
     notificationPromptedRef.current = true;
     void requestNotificationAccess();
   }, [permissionGranted, permissionState, requestNotificationAccess]);
+
+  // Ask again; when the phone will not ask any more (refused for good), its
+  // Settings is the only place left to turn location on.
+  async function turnOnLocation() {
+    await requestLocationAccess({ force: true });
+    const now = await Location.getForegroundPermissionsAsync().catch(() => null);
+    if (now && !now.granted && !now.canAskAgain) await Linking.openSettings().catch(() => undefined);
+  }
 
   /* ── data for the sheet ─────────────────────────────────────────────── */
 
@@ -316,6 +326,28 @@ export default function RiderHomeScreen() {
               style={styles.handleButton}>
               <View style={styles.handle} />
             </Pressable>
+
+            {/* Location refused: say so, and how to turn it on. Booking still works by typing the pickup. */}
+            {permissionState === "denied" ? (
+              <Pressable
+                accessibilityHint="Turns on location for Wheelers"
+                accessibilityRole="button"
+                onPress={() => void turnOnLocation()}
+                style={({ pressed }) => [styles.locationOff, pressed ? styles.pressed : null]}>
+                <Ionicons color={rider.colors.orange} name="location-outline" size={22} />
+                <View style={styles.locationOffWords}>
+                  <RText color={rider.colors.cream} variant="bodyBold">
+                    Location is off
+                  </RText>
+                  <RText color={rider.colors.onInkMuted} variant="small">
+                    Turn it on to set your pickup for you. Or type it.
+                  </RText>
+                </View>
+                <RText color={rider.colors.orange} variant="smallBold">
+                  Turn on
+                </RText>
+              </Pressable>
+            ) : null}
 
             <RText accessibilityRole="header" variant="title">
               Where are you going?
@@ -554,6 +586,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
   },
+  locationOff: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: rider.colors.ink,
+  },
+  locationOffWords: { flex: 1 },
   handle: { width: 48, height: 5, marginTop: 10, borderRadius: 3, backgroundColor: "#B8AE9E" },
 
   searchRow: { flexDirection: "row", gap: 10 },

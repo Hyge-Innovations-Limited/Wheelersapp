@@ -247,7 +247,11 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
       // back from the server and opens its screen.
       if (
         !isDriverApp &&
-        (data?.type === "ride:scheduled_started" || data?.type === "ride:offer" || data?.type === "ride:bid_timeout")
+        (data?.type === "ride:scheduled_started" ||
+          data?.type === "ride:offer" ||
+          data?.type === "ride:bid_timeout" ||
+          data?.type === "ride:driver_arrived" ||
+          data?.type === "ride:driver_cancelled")
       ) {
         router.navigate("/rider" as Href);
         return;

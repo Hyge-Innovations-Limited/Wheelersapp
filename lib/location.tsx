@@ -59,7 +59,7 @@ type LocationContextValue = {
   backgroundGranted: boolean;
   currentLocation: AppLocation | null;
   error: string | null;
-  requestLocationAccess: () => Promise<void>;
+  requestLocationAccess: (options?: { force?: boolean }) => Promise<void>;
   requestBackgroundLocationAccess: (options?: RequestBackgroundOptions) => Promise<void>;
   refreshLocation: () => Promise<void>;
   /** Dev builds only: the Lagos preset overriding the real GPS, if any. */
