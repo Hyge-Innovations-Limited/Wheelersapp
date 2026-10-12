@@ -48,7 +48,7 @@ const ROWS: { title: string; subtitle: string; icon: IconName; href: Href }[] = 
   // },
   {
     title: "Group ride",
-    subtitle: "Share a ride with other riders",
+    subtitle: "Coming soon",
     icon: "people-outline",
     href: "/group-ride",
   },

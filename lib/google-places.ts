@@ -324,6 +324,27 @@ function scoreGeocodeResult(result: GoogleGeocodeResult): number {
   return score;
 }
 
+/** How long a place search may take before the rider is told it is not getting through. */
+const GOOGLE_TIMEOUT_MS = 10_000;
+
+/**
+ * A request to Google that cannot hang. On a network that connects to Google
+ * and then stalls, a plain fetch never comes back: the search just showed
+ * nothing, with no error to say why.
+ */
+async function fetchGoogle(url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GOOGLE_TIMEOUT_MS);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch {
+    placesLog("no answer from Google", { afterMs: GOOGLE_TIMEOUT_MS });
+    throw new Error("We could not reach the map search. Check your connection and try again.");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchGoogleAutocompletePredictions(
   query: string,
 ): Promise<GoogleAutocompletePrediction[]> {
@@ -348,7 +369,7 @@ async function fetchGoogleAutocompletePredictions(
     key: maskKey(googleMapsApiKey),
   });
 
-  const response = await fetch(
+  const response = await fetchGoogle(
     `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params.toString()}`,
   );
   const data = (await response.json()) as GoogleAutocompleteResponse;
@@ -402,7 +423,7 @@ async function fetchGoogleGeocodeResults(query: string): Promise<GoogleGeocodeRe
 
   placesLog("geocode →", { query, key: maskKey(googleMapsApiKey) });
 
-  const response = await fetch(
+  const response = await fetchGoogle(
     `https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`,
   );
   const data = (await response.json()) as GoogleGeocodeResponse;

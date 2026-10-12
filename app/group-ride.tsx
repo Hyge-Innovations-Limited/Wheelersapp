@@ -1,3 +1,4 @@
+import { RBack, RIconDot, RPill, RScreen, RText, rider } from "@/components/rider/kit";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -242,7 +243,35 @@ function GuideSheet({
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-export default function GroupRideScreen() {
+/**
+ * Group ride is not open to riders yet: the route shows "Coming soon". The
+ * built screen is kept below, unused, for the day it is switched on (make it
+ * the default export again).
+ */
+export default function GroupRideComingSoon() {
+  return (
+    <RScreen contentStyle={comingSoon.screen}>
+      <RBack />
+      <View style={comingSoon.body}>
+        <RIconDot name="people-outline" />
+        <RPill label="Coming soon" tone="soft" />
+        <RText variant="display">Group ride</RText>
+        <RText color={rider.colors.muted} style={comingSoon.words}>
+          Share a ride with people going your way and split the price. We are still building it.
+        </RText>
+      </View>
+    </RScreen>
+  );
+}
+
+const comingSoon = StyleSheet.create({
+  screen: { paddingTop: 12, gap: 16 },
+  body: { flex: 1, justifyContent: "center", gap: 12, paddingBottom: 80 },
+  words: { maxWidth: 320 },
+});
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function GroupRideScreen() {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
 
