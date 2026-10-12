@@ -79,6 +79,7 @@ export default function RiderNewScreen() {
           onSubmitEditing={() => lastRef.current?.focus()}
           returnKeyType="next"
           textContentType="givenName"
+          valid={first.trim().length >= 2}
           value={first}
         />
         <RInput
@@ -91,6 +92,7 @@ export default function RiderNewScreen() {
           ref={lastRef}
           returnKeyType="next"
           textContentType="familyName"
+          valid={last.trim().length >= 2}
           value={last}
         />
       </View>
@@ -110,6 +112,7 @@ export default function RiderNewScreen() {
         }}
         placeholder="you@example.com"
         ref={emailRef}
+        valid={looksLikeEmail(email)}
         value={email}
       />
 

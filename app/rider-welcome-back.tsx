@@ -92,6 +92,7 @@ export default function RiderWelcomeBackScreen() {
             setError(null);
           }}
           placeholder="you@example.com"
+          valid={looksLikeEmail(email)}
           value={email}
         />
       )}

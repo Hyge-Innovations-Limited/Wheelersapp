@@ -246,9 +246,12 @@ export const RInput = forwardRef<
     labelNote?: string;
     hint?: string;
     error?: string | null;
+    /** What was typed is good: the box turns green and shows a tick. */
+    valid?: boolean;
     containerStyle?: StyleProp<ViewStyle>;
   }
->(function RInput({ label, labelNote, hint, error, containerStyle, style, ...props }, ref) {
+>(function RInput({ label, labelNote, hint, error, valid, containerStyle, style, ...props }, ref) {
+  const good = valid === true && !error;
   return (
     <View style={[styles.field, containerStyle]}>
       {label ? (
@@ -257,13 +260,20 @@ export const RInput = forwardRef<
           {labelNote ? <Text style={styles.fieldLabelNote}> {labelNote}</Text> : null}
         </Text>
       ) : null}
-      <TextInput
-        accessibilityLabel={label}
-        placeholderTextColor="#8C837A"
-        ref={ref}
-        {...props}
-        style={[styles.input, error ? styles.inputError : null, style]}
-      />
+      <View>
+        <TextInput
+          accessibilityLabel={label}
+          placeholderTextColor="#8C837A"
+          ref={ref}
+          {...props}
+          style={[styles.input, error ? styles.inputError : null, good ? styles.inputValid : null, style]}
+        />
+        {good ? (
+          <View accessibilityLabel="Looks good" accessibilityLiveRegion="polite" pointerEvents="none" style={styles.inputTick}>
+            <Ionicons color={colors.green} name="checkmark-circle" size={24} />
+          </View>
+        ) : null}
+      </View>
       {error ? (
         <Text accessibilityLiveRegion="polite" style={styles.fieldError}>
           {error}
@@ -475,6 +485,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   inputError: { borderColor: colors.danger },
+  inputValid: { borderColor: colors.green, paddingRight: 48 },
+  inputTick: { position: "absolute", right: 14, top: 0, bottom: 0, justifyContent: "center" },
   fieldHint: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.muted },
   fieldError: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.danger },
 
