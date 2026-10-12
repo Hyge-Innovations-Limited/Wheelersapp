@@ -65,7 +65,7 @@ export default function RiderPhoneScreen() {
       const sentAt = Date.now();
       // Leaving the app to read the code must not lose this step.
       await rememberPendingCode({ phone, channel: sent.channel, sentAt });
-      router.push({ pathname: "/rider-code", params: { phone, channel: sent.channel, sentAt: String(sentAt) } });
+      router.push({ pathname: "/rider-code", params: { phone, sentAt: String(sentAt) } });
     } catch (failure) {
       setError(signInErrorMessage(failure));
     } finally {
@@ -92,7 +92,7 @@ export default function RiderPhoneScreen() {
         <View style={[styles.form, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
           <View style={styles.words}>
             <RText variant="display">Enter your phone number</RText>
-            <RText color={rider.colors.muted}>Already ride with us on WhatsApp? Use that number.</RText>
+            <RText color={rider.colors.muted}>We will text you a 6-digit code.</RText>
           </View>
 
           <View style={styles.phoneRow}>

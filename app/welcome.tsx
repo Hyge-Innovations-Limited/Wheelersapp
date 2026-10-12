@@ -24,7 +24,7 @@ export default function WelcomeScreen() {
       if (!live || !pending) return;
       router.push({
         pathname: "/rider-code",
-        params: { phone: pending.phone, channel: pending.channel, sentAt: String(pending.sentAt) },
+        params: { phone: pending.phone, sentAt: String(pending.sentAt) },
       });
     });
     return () => {

@@ -19,10 +19,10 @@ import {
   spacedPhone,
 } from "@/lib/rider-sign-in";
 
-/** Type the 6-digit code. A known number goes to "welcome back"; a new one to a short sign-up. */
+/** Type the 6-digit code, which always comes by SMS. A known number goes to "welcome back"; a new one to a short sign-up. */
 export default function RiderCodeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone?: string; channel?: string; sentAt?: string }>();
+  const params = useLocalSearchParams<{ phone?: string; sentAt?: string }>();
   // When the code went out: the wait to ask again counts from then, also
   // after coming back to this screen from outside the app.
   const sentAtParam = Number(params.sentAt);
@@ -33,7 +33,6 @@ export default function RiderCodeScreen() {
   const inputRef = useRef<TextInput>(null);
   const checkingRef = useRef(false);
   const [code, setCode] = useState("");
-  const [channel, setChannel] = useState(params.channel === "whatsapp" ? "whatsapp" : "sms");
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +102,6 @@ export default function RiderCodeScreen() {
     try {
       const sent = await sendPhoneLoginCode({ phone });
       await rememberPendingCode({ phone, channel: sent.channel, sentAt: Date.now() });
-      setChannel(sent.channel);
       setCode("");
       setResendAt(Date.now() + RESEND_WAIT_SECONDS * 1000);
       inputRef.current?.focus();
@@ -121,7 +119,7 @@ export default function RiderCodeScreen() {
       <View style={styles.words}>
         <RText variant="display">Enter the 6-digit code</RText>
         <RText color={rider.colors.muted}>
-          Sent {channel === "whatsapp" ? "on WhatsApp" : "by SMS"} to{" "}
+          Sent by SMS to{" "}
           <Text style={styles.phone}>{spacedPhone(phone)}</Text>
         </RText>
       </View>
