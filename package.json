@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "app": "APP_VARIANT=rider EXPO_PUBLIC_APP_VARIANT=rider node scripts/with-app-env.js expo start --dev-client",
-    "app:ios": "APP_VARIANT=rider EXPO_PUBLIC_APP_VARIANT=rider node scripts/with-app-env.js expo run:ios",
-    "app:android": "APP_VARIANT=rider EXPO_PUBLIC_APP_VARIANT=rider node scripts/with-app-env.js expo run:android",
+    "app": "APP_VARIANT=driver EXPO_PUBLIC_APP_VARIANT=driver node scripts/with-app-env.js expo start --dev-client",
+    "app:ios": "APP_VARIANT=driver EXPO_PUBLIC_APP_VARIANT=driver node scripts/with-app-env.js expo run:ios",
+    "app:android": "APP_VARIANT=driver EXPO_PUBLIC_APP_VARIANT=driver node scripts/with-app-env.js expo run:android",
     "start:rider": "APP_VARIANT=rider EXPO_PUBLIC_APP_VARIANT=rider expo start",
     "start:driver": "APP_VARIANT=driver EXPO_PUBLIC_APP_VARIANT=driver expo start",
     "start:rider:sandbox": "EXPO_PUBLIC_API_BASE_URL=http://localhost:4000 APP_VARIANT=rider EXPO_PUBLIC_APP_VARIANT=rider expo start",

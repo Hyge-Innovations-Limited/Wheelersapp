@@ -1,4 +1,5 @@
 const appJson = require("./app.json");
+const { withAndroidManifest } = require("expo/config-plugins");
 
 const rawVariant =
   process.env.APP_VARIANT?.trim() ||
@@ -44,6 +45,29 @@ function withVariantGoogleScheme(plugins) {
   });
 }
 
+/**
+ * The name under the icon. Wheelers is one app for riders and drivers, and it
+ * ships as the app that used to be Wheelers Driver: the same store listing,
+ * bundle id and package, so drivers update in place. The project keeps the
+ * name "Wheelers Driver" inside (the Xcode project, scripts/ios-release.sh and
+ * the signing profile are all named for it); only what a person reads on
+ * their home screen changes.
+ */
+const HOME_SCREEN_NAME = "Wheelers";
+
+function withHomeScreenName(config, label) {
+  return withAndroidManifest(config, (mod) => {
+    const application = mod.modResults.manifest.application?.[0];
+    if (application) {
+      application.$["android:label"] = label;
+      for (const activity of application.activity ?? []) {
+        if (activity.$["android:label"]) activity.$["android:label"] = label;
+      }
+    }
+    return mod;
+  });
+}
+
 module.exports = () => ({
   ...appJson,
   expo: {
@@ -85,7 +109,10 @@ module.exports = () => ({
       },
     },
     runtimeVersion: "1.0.0",
-    plugins: withVariantGoogleScheme(appJson.expo.plugins ?? []),
+    plugins: [
+      ...withVariantGoogleScheme(appJson.expo.plugins ?? []),
+      [withHomeScreenName, HOME_SCREEN_NAME],
+    ],
     ios: {
       ...appJson.expo.ios,
       bundleIdentifier: isDriverApp
@@ -96,6 +123,10 @@ module.exports = () => ({
       // "Continue with Apple" is tapped — which is why EAS kept reporting
       // "Synced capabilities: No updates": there was nothing to sync.
       usesAppleSignIn: true,
+      infoPlist: {
+        ...appJson.expo.ios?.infoPlist,
+        CFBundleDisplayName: HOME_SCREEN_NAME,
+      },
       config: {
         ...appJson.expo.ios?.config,
         googleMapsApiKey,

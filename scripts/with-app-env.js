@@ -2,10 +2,11 @@
 /**
  * Runs a command with the settings the app needs to start on a computer.
  *
- * Wheelers is one app now: riders and drivers are both in the "rider" build
- * (the person picks Ride or Drive inside it), so `npm run app` is the one
- * command to start it. The Google keys are the same ones the OTA scripts in
- * package.json already carry; they are read from there so there is one copy.
+ * Wheelers is one app now: riders and drivers are both in it (the person
+ * picks Ride or Drive inside), and it ships as the app that used to be
+ * Wheelers Driver, so `npm run app` starts that build. The Google keys are
+ * the same ones the OTA script in package.json already carries; they are read
+ * from there so there is one copy.
  *
  * Which server it talks to: EXPO_PUBLIC_API_BASE_URL if you set it, else the
  * one on this computer (http://localhost:4000). To use the live server:
@@ -16,7 +17,7 @@ const { spawn } = require("node:child_process");
 const scripts = require("../package.json").scripts;
 
 const env = { ...process.env };
-const live = scripts["ota:rider"] ?? "";
+const live = scripts["ota:driver"] ?? "";
 for (const match of live.matchAll(/\b(EXPO_PUBLIC_[A-Z_]+)=(\S+)/g)) {
   const [, name, value] = match;
   if (name === "EXPO_PUBLIC_APP_VARIANT" || name === "EXPO_PUBLIC_API_BASE_URL") continue;

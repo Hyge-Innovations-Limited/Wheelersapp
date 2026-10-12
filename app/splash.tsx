@@ -118,7 +118,9 @@ export default function SplashScreen() {
       // Signed in on one side with the app started on the other (the side is
       // read once, at start): restart on the side the account belongs to.
       if (offersBothSides && storedAuthState) {
-        const side = storedAuthState.role === "DRIVER" ? "driver" : "rider";
+        // An account that both rides and drives stays on the side it was left on.
+        const side =
+          storedAuthState.role === "DRIVER" ? "driver" : storedAuthState.role === "RIDER" ? "rider" : appVariant;
         if (side !== appVariant && (await switchAppSide(side))) return;
       }
 
@@ -223,7 +225,8 @@ const SPLASH_VARIANTS = [
   },
 ];
 
-const IS_DRIVER = process.env.EXPO_PUBLIC_APP_VARIANT === "driver";
+// The DRIVER tag under the name shows on the driver side of the one app.
+const IS_DRIVER = appVariant === "driver";
 
 /**
  * What the NATIVE splash of the binary this code ships in looks like. The JS
