@@ -332,11 +332,11 @@ const GOOGLE_TIMEOUT_MS = 10_000;
  * and then stalls, a plain fetch never comes back: the search just showed
  * nothing, with no error to say why.
  */
-async function fetchGoogle(url: string): Promise<Response> {
+async function fetchGoogle(url: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GOOGLE_TIMEOUT_MS);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { ...init, signal: controller.signal });
   } catch {
     placesLog("no answer from Google", { afterMs: GOOGLE_TIMEOUT_MS });
     throw new Error("We could not reach the map search. Check your connection and try again.");
@@ -348,59 +348,70 @@ async function fetchGoogle(url: string): Promise<Response> {
 async function fetchGoogleAutocompletePredictions(
   query: string,
 ): Promise<GoogleAutocompletePrediction[]> {
-  const params = new URLSearchParams({
+  const body: Record<string, unknown> = {
     input: query,
-    key: getGoogleMapsApiKey(),
-    language: "en",
-    // Nigeria only is a real constraint. A city is not — `strictbounds` with a
-    // 45 km Lagos radius used to sit here, which returned literally nothing for
-    // anyone outside Lagos, for any query.
-    components: "country:ng",
-  });
+    languageCode: "en",
+    includedRegionCodes: ["ng"],
+  };
 
   if (searchBias) {
-    params.set("location", `${searchBias.lat},${searchBias.lng}`);
-    params.set("radius", "50000");
+    body.locationBias = {
+      circle: {
+        center: { latitude: searchBias.lat, longitude: searchBias.lng },
+        radius: 50000,
+      },
+    };
   }
 
-  placesLog("autocomplete →", {
+  placesLog("autocomplete (new) →", {
     query,
     bias: searchBias ? `${searchBias.lat.toFixed(4)},${searchBias.lng.toFixed(4)}` : "none",
     key: maskKey(googleMapsApiKey),
   });
 
-  const response = await fetchGoogle(
-    `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params.toString()}`,
-  );
-  const data = (await response.json()) as GoogleAutocompleteResponse;
+  const response = await fetchGoogle("https://places.googleapis.com/v1/places:autocomplete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": getGoogleMapsApiKey(),
+    },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json()) as {
+    suggestions?: {
+      placePrediction?: {
+        placeId?: string;
+        text?: { text?: string };
+        structuredFormat?: {
+          mainText?: { text?: string };
+          secondaryText?: { text?: string };
+        };
+        types?: string[];
+      };
+    }[];
+    error?: { code?: number; message?: string; status?: string };
+  };
 
   if (!response.ok) {
-    placesLog(`autocomplete ← HTTP ${response.status}`, { body: data });
-    throw new Error(`google_places_failed:${response.status}`);
+    placesLog(`autocomplete (new) ← HTTP ${response.status}`, { body: data });
+    throw new Error(data.error?.message ?? `google_places_failed:${response.status}`);
   }
 
-  placesLog(`autocomplete ← ${data.status}`, {
-    predictions: data.predictions?.length ?? 0,
-    ...(data.error_message ? { error_message: data.error_message } : {}),
-  });
+  const predictions = (data.suggestions ?? [])
+    .map((s) => s.placePrediction)
+    .filter((p): p is NonNullable<typeof p> => !!p?.placeId)
+    .map((p) => ({
+      place_id: p.placeId!,
+      description: p.text?.text ?? "",
+      structured_formatting: {
+        main_text: p.structuredFormat?.mainText?.text ?? p.text?.text ?? "",
+        secondary_text: p.structuredFormat?.secondaryText?.text ?? "",
+      },
+      types: p.types ?? [],
+    })) as GoogleAutocompletePrediction[];
 
-  if (data.status === "OK") {
-    return data.predictions ?? [];
-  }
-
-  if (data.status === "ZERO_RESULTS") {
-    return [];
-  }
-
-  if (__DEV__) {
-    console.warn(
-      `${PLACES_LOG} Places Autocomplete returned ${data.status} — ${explainGoogleStatus(data.status)}.` +
-        (data.error_message ? `\n${PLACES_LOG} Google said: ${data.error_message}` : "") +
-        `\n${PLACES_LOG} Enable "Places API" on this key at console.cloud.google.com → APIs & Services.`,
-    );
-  }
-
-  throw new Error(data.error_message ?? `google_places_failed:${data.status ?? "unknown"}`);
+  placesLog("autocomplete (new) ←", { predictions: predictions.length });
+  return predictions;
 }
 
 async function fetchGoogleGeocodeResults(query: string): Promise<GoogleGeocodeResult[]> {
