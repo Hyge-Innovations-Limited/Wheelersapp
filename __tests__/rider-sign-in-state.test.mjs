@@ -33,7 +33,8 @@ test('a code sent a moment ago is still the one to type', () => {
 test('once it is too old to be good on the server, nobody is sent to type it', () => {
   assert.ok(freshPendingCode(code(), SENT + PENDING_CODE_MS - 1));
   assert.equal(freshPendingCode(code(), SENT + PENDING_CODE_MS), null);
-  assert.equal(freshPendingCode(code(), SENT + 10 * 60_000), null);
+  assert.ok(freshPendingCode(code(), SENT + 10 * 60_000), 'ten minutes on, a 30-minute code is still good');
+  assert.equal(freshPendingCode(code(), SENT + 31 * 60_000), null);
 });
 
 test('anything that is not a real pending code is ignored', () => {
