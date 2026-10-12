@@ -1,34 +1,63 @@
-import { Redirect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { DriveScene } from "@/components/rider/drive-scene";
-import { RBack, RButton, RLink, RText, rider } from "@/components/rider/kit";
+import { RBack, RButton, RText, rider } from "@/components/rider/kit";
 import { sendPhoneLoginCode } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
-import { openPrivacy, openTerms } from "@/lib/legal-links";
 import { rememberPendingCode } from "@/lib/rider-sign-in-state";
+import { RIDER_TERMS_KEY, hasAcceptedTerms } from "@/lib/terms-acceptance";
 
-/** A rider's way in: their phone number, then a code. */
+/** A rider's way in: their phone number, the terms read and accepted, then a code. */
 export default function RiderPhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [typed, setTyped] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const phone = riderPhoneFrom(typed);
+
+  // Ticked once the terms have been read and accepted on this phone; checked
+  // again every time this screen comes back from the terms.
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      void hasAcceptedTerms(RIDER_TERMS_KEY).then((yes) => {
+        if (live) setAccepted(yes);
+      });
+      return () => {
+        live = false;
+      };
+    }, []),
+  );
 
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
   }
 
-  const phone = riderPhoneFrom(typed);
+  function readTerms() {
+    setError(null);
+    router.push({ pathname: "/legal", params: accepted ? { doc: "terms" } : { mode: "accept", who: RIDER_TERMS_KEY } });
+  }
 
   async function sendCode() {
-    if (!phone || sending) return;
+    if (!phone || !accepted || sending) return;
     setSending(true);
     setError(null);
     try {
@@ -63,73 +92,69 @@ export default function RiderPhoneScreen() {
         <View style={[styles.form, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
           <View style={styles.words}>
             <RText variant="display">Enter your phone number</RText>
-            <RText color={rider.colors.muted}>
-              We will send a code to confirm it. If you already use Wheelers on WhatsApp, enter the same number.
-            </RText>
+            <RText color={rider.colors.muted}>Already ride with us on WhatsApp? Use that number.</RText>
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Phone number</Text>
-            <View style={styles.phoneRow}>
-              <View style={styles.country}>
-                <View accessibilityLabel="Nigeria" style={styles.flag}>
-                  <View style={styles.flagGreen} />
-                  <View style={styles.flagWhite} />
-                  <View style={styles.flagGreen} />
-                </View>
-                <Text style={styles.countryText}>+234</Text>
+          <View style={styles.phoneRow}>
+            <View style={styles.country}>
+              <View accessibilityLabel="Nigeria" style={styles.flag}>
+                <View style={styles.flagGreen} />
+                <View style={styles.flagWhite} />
+                <View style={styles.flagGreen} />
               </View>
-              <TextInput
-                accessibilityLabel="Phone number"
-                autoComplete="tel"
-                autoFocus
-                keyboardType="number-pad"
-                maxLength={14}
-                onChangeText={(value) => {
-                  setTyped(groupNationalDigits(value));
-                  setError(null);
-                }}
-                onSubmitEditing={() => void sendCode()}
-                placeholder="803 123 4567"
-                placeholderTextColor="#8C837A"
-                returnKeyType="done"
-                style={[styles.input, error ? styles.inputError : null]}
-                textContentType="telephoneNumber"
-                value={typed}
-              />
+              <Text style={styles.countryText}>+234</Text>
             </View>
-            {error ? (
-              <Text accessibilityLiveRegion="polite" style={styles.error}>
-                {error}
-              </Text>
-            ) : null}
+            <TextInput
+              accessibilityLabel="Phone number"
+              autoComplete="tel"
+              autoFocus
+              keyboardType="number-pad"
+              maxLength={14}
+              onChangeText={(value) => {
+                setTyped(groupNationalDigits(value));
+                setError(null);
+              }}
+              onSubmitEditing={() => void sendCode()}
+              placeholder="803 123 4567"
+              placeholderTextColor="#8C837A"
+              returnKeyType="done"
+              style={[styles.input, error ? styles.inputError : null]}
+              textContentType="telephoneNumber"
+              value={typed}
+            />
           </View>
+
+          {/* The tick is given by reading: tapping it opens the terms, and Accept there ticks it. */}
+          <Pressable
+            accessibilityHint={accepted ? "Opens the terms to read again" : "Opens the terms to read and accept"}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: accepted }}
+            hitSlop={6}
+            onPress={readTerms}
+            style={({ pressed }) => [styles.agree, pressed ? styles.pressed : null]}>
+            <View style={[styles.check, accepted ? styles.checkOn : null]}>
+              {accepted ? <Ionicons color={rider.colors.cream} name="checkmark" size={16} /> : null}
+            </View>
+            <Text style={styles.agreeText}>
+              I accept the <Text style={styles.agreeLink}>Terms and Privacy Policy</Text>
+            </Text>
+          </Pressable>
+
+          {error ? (
+            <Text accessibilityLiveRegion="polite" style={styles.error}>
+              {error}
+            </Text>
+          ) : null}
 
           <View style={styles.spacer} />
 
           <RButton
-            disabled={!phone}
+            disabled={!phone || !accepted}
             loading={sending}
             onPress={() => void sendCode()}
             title="Continue"
             variant="dark"
           />
-          <RLink
-            color={rider.colors.muted}
-            onPress={() => router.push("/rider-auth")}
-            title="Signed up with Apple, Google or email? Sign in here"
-          />
-          <RText color={rider.colors.muted} style={styles.terms} variant="caption">
-            By continuing, you agree to our{" "}
-            <Text accessibilityRole="link" onPress={openTerms} style={styles.legalLink}>
-              Terms of Service
-            </Text>{" "}
-            and{" "}
-            <Text accessibilityRole="link" onPress={openPrivacy} style={styles.legalLink}>
-              Privacy Policy
-            </Text>
-            .
-          </RText>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -143,8 +168,6 @@ const styles = StyleSheet.create({
   sceneBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20 },
   form: { flex: 1, paddingHorizontal: 24, paddingTop: 24, gap: 16 },
   words: { gap: 8 },
-  field: { gap: 8 },
-  label: { fontFamily: rider.fonts.semibold, fontSize: 14, color: rider.colors.ink },
   phoneRow: { flexDirection: "row", gap: 10 },
   country: {
     flexDirection: "row",
@@ -176,8 +199,21 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   inputError: { borderColor: rider.colors.danger },
+  agree: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 },
+  check: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: rider.colors.ink,
+    backgroundColor: rider.colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkOn: { backgroundColor: rider.colors.ink },
+  agreeText: { flex: 1, fontFamily: rider.fonts.medium, fontSize: 15, lineHeight: 21, color: rider.colors.ink },
+  agreeLink: { fontFamily: rider.fonts.bold, color: rider.colors.orangeText, textDecorationLine: "underline" },
+  pressed: { opacity: 0.7 },
   error: { fontFamily: rider.fonts.semibold, fontSize: 14, lineHeight: 19, color: rider.colors.danger },
   spacer: { flexGrow: 1, minHeight: 8 },
-  terms: { textAlign: "center", lineHeight: 20 },
-  legalLink: { fontFamily: rider.fonts.bold, color: rider.colors.orangeText, textDecorationLine: "underline" },
 });

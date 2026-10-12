@@ -44,12 +44,7 @@ export default function ChooseScreen() {
 
       <View style={styles.intro}>
         <RText variant="display" style={styles.headline}>
-          {returning ? "Which account is yours?" : "How would you like to use Wheelers?"}
-        </RText>
-        <RText color={rider.colors.muted}>
-          {returning
-            ? "Riders and drivers sign in differently. Pick yours."
-            : "Riding and driving use separate accounts."}
+          {returning ? "Which account is yours?" : "Ride or drive?"}
         </RText>
       </View>
 
@@ -65,7 +60,7 @@ export default function ChooseScreen() {
               Ride
             </RText>
             <RText color={rider.colors.onInkSoft}>
-              {returning ? "I am a rider. Sign in with my phone number." : "Book a ride and set your own price."}
+              {returning ? "Sign in with your phone number." : "Book a ride at your price."}
             </RText>
           </View>
           <View style={[styles.arrow, styles.arrowOrange]}>
@@ -85,7 +80,7 @@ export default function ChooseScreen() {
         <View style={styles.cardWords}>
           <RText variant="title">Drive</RText>
           <RText color={rider.colors.muted} variant="small">
-            {returning ? "I am a driver. Sign in with Apple, Google or email." : "Earn money driving with Wheelers."}
+            {returning ? "Sign in with Apple, Google or email." : "Earn by driving."}
           </RText>
         </View>
         <View style={[styles.arrow, styles.arrowOutline]}>

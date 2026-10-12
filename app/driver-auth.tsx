@@ -6,6 +6,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { AuthEntryScreen, type AuthProvider } from "@/components/auth-entry";
 import { signInWithApple, signInWithGoogle } from "@/lib/api";
 import { offersBothSides, switchAppSide } from "@/lib/app-variant";
+import { DRIVER_TERMS_KEY, hasAcceptedTerms } from "@/lib/terms-acceptance";
 import { storeLocalAccessToken } from "@/lib/access-token";
 import { persistAuthenticatedRole } from "@/lib/auth-state";
 import { resolvePostAuthRoute } from "@/lib/post-auth";
@@ -20,6 +21,18 @@ export default function DriverAuthScreen() {
   const router = useRouter();
   const { refreshAuthState } = useAuth();
   const [loadingProvider, setLoadingProvider] = useState<AuthProvider | null>(null);
+
+  /**
+   * Whatever way a driver chooses to sign in, the terms come first, once on
+   * this phone: read, scroll, accept. Then they choose again and it goes
+   * straight through.
+   */
+  function afterTerms(carryOn: () => void) {
+    void hasAcceptedTerms(DRIVER_TERMS_KEY).then((accepted) => {
+      if (accepted) carryOn();
+      else router.push({ pathname: "/legal", params: { mode: "accept", who: DRIVER_TERMS_KEY } });
+    });
+  }
 
   async function handleAppleSignIn() {
     try {
@@ -130,13 +143,13 @@ export default function DriverAuthScreen() {
       label="DRIVER"
       tagline="Earn on your schedule"
       loadingProvider={loadingProvider}
-      onApple={handleAppleSignIn}
-      onGoogle={handleGoogleSignIn}
+      onApple={() => afterTerms(() => void handleAppleSignIn())}
+      onGoogle={() => afterTerms(() => void handleGoogleSignIn())}
       onEmailSignUp={() =>
-        router.push({ pathname: "/account-auth", params: { mode: "signup" } })
+        afterTerms(() => router.push({ pathname: "/account-auth", params: { mode: "signup" } }))
       }
       onEmailSignIn={() =>
-        router.push({ pathname: "/account-auth", params: { mode: "signin" } })
+        afterTerms(() => router.push({ pathname: "/account-auth", params: { mode: "signin" } }))
       }
       onSwitchSide={
         offersBothSides ? () => void switchAppSide("rider") : undefined

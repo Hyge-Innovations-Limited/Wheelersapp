@@ -83,7 +83,7 @@ export default function RiderWelcomeBackScreen() {
           autoComplete="email"
           autoCorrect={false}
           error={error}
-          hint="We send your trip receipts here."
+          hint="For your receipts."
           keyboardType="email-address"
           label="Email address"
           labelNote="(optional)"

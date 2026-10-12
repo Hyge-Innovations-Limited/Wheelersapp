@@ -35,6 +35,8 @@ const PUBLIC_ROUTES = new Set([
   "/rider-code",
   "/rider-auth",
   "/account-auth",
+  "/driver-auth",
+  "/legal",
 ]);
 
 type StoredAppLockState = {

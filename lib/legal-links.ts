@@ -1,21 +1,11 @@
-import { Linking } from "react-native";
-import * as WebBrowser from "expo-web-browser";
+import { router } from "expo-router";
 
-/** Where the Terms of Service and the Privacy Policy live: the Wheelers website. */
+/** The website copies, linked from the in-app reader for anyone who wants the page. */
 export const TERMS_URL = "https://www.wheelersng.com/terms";
 export const PRIVACY_URL = "https://www.wheelersng.com/privacy";
 
-/**
- * Open one of them over the app, so reading it does not take the person out
- * of signing in. If the in-app browser cannot open, the phone's own does.
- */
-async function open(url: string): Promise<void> {
-  try {
-    await WebBrowser.openBrowserAsync(url);
-  } catch {
-    await Linking.openURL(url).catch(() => undefined);
-  }
-}
+/** Open the Terms of Service to read, inside the app. */
+export const openTerms = () => router.push({ pathname: "/legal", params: { doc: "terms" } });
 
-export const openTerms = () => void open(TERMS_URL);
-export const openPrivacy = () => void open(PRIVACY_URL);
+/** Open the privacy summary to read, inside the app. */
+export const openPrivacy = () => router.push({ pathname: "/legal", params: { doc: "privacy" } });
