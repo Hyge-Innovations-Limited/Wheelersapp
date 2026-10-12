@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import {
   applyRiderCounter,
@@ -463,6 +464,14 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         const driverId = getString(payload.driverId);
         const counterOfferNgn = getNumber(payload.counterOfferNgn);
         if (!driverId || counterOfferNgn === undefined) {
+          return;
+        }
+
+        // An offer on a search this app did not start (a ride booked for
+        // later whose search has just begun): fetch that search from the
+        // server, offers and all, instead of dropping the offer on the floor.
+        if (!currentRideRef.current) {
+          void restoreActiveRideRef.current();
           return;
         }
 
@@ -1194,6 +1203,17 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
   // After a restart the app has no trip; the server still does. Restore it
   // (a trip with a driver only), or add the trip code to the one on screen.
+  // Back in the foreground with nothing on screen: a scheduled ride may have
+  // started its search while the app was away (the socket can stay open in
+  // the background on some phones, so its reopening is not a sure signal).
+  useEffect(() => {
+    if (isDriverApp) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && !currentRideRef.current) void restoreActiveRideRef.current();
+    });
+    return () => subscription.remove();
+  }, []);
+
   restoreActiveRideRef.current = async () => {
     if (isDriverApp || !isBackendConfigured()) return;
     const current = currentRideRef.current;

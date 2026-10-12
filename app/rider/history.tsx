@@ -180,7 +180,7 @@ export default function RiderTripsScreen() {
           <Empty
             icon="calendar-outline"
             title="No upcoming rides"
-            body="Schedule a ride and it will show here until a driver accepts."
+            body="Schedule a ride and it will show here until its search starts."
           />
           <RButton
             accessibilityLabel="Schedule a ride"
@@ -206,7 +206,7 @@ export default function RiderTripsScreen() {
           />
         ))}
         <RText color={colors.muted} variant="small">
-          We will look for a driver shortly before your pickup time and notify you when one accepts.
+          We start the search shortly before your pickup time and notify you to choose a driver.
         </RText>
         <View style={styles.spacer} />
         {scheduleAnother}

@@ -242,6 +242,16 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
         const offerWaiting = data.online === "1" && typeof data.rideId === "string";
         router.navigate((offerWaiting ? "/driver/(tabs)/active" : "/driver/(tabs)/home") as Href);
       }
+      // A scheduled ride has started looking for drivers, a driver has made an
+      // offer, or a search ended with nobody: Home, which brings the search
+      // back from the server and opens its screen.
+      if (
+        !isDriverApp &&
+        (data?.type === "ride:scheduled_started" || data?.type === "ride:offer" || data?.type === "ride:bid_timeout")
+      ) {
+        router.navigate("/rider" as Href);
+        return;
+      }
       // Someone is calling: ask for the call on that trip; the call screen opens over whatever is showing.
       if (data?.type === "call:incoming" && typeof data.rideId === "string" && liveCallSupported) {
         requestCurrentCall(data.rideId);
