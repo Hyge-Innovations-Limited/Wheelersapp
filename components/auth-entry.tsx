@@ -1,3 +1,4 @@
+import { openPrivacy, openTerms } from "@/lib/legal-links";
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
@@ -184,7 +185,14 @@ export function AuthEntryScreen({
         ) : null}
 
         <AppText variant="bodySmall" color={brand.muted} style={styles.terms}>
-          By continuing you agree to our Terms of Service and Privacy Policy
+          By continuing you agree to our{" "}
+          <AppText accessibilityRole="link" color={brand.ink} onPress={openTerms} style={styles.legalLink} variant="bodySmall">
+            Terms of Service
+          </AppText>{" "}
+          and{" "}
+          <AppText accessibilityRole="link" color={brand.ink} onPress={openPrivacy} style={styles.legalLink} variant="bodySmall">
+            Privacy Policy
+          </AppText>
         </AppText>
       </Animated.View>
     </AppScreen>
@@ -192,6 +200,7 @@ export function AuthEntryScreen({
 }
 
 const styles = StyleSheet.create({
+  legalLink: { textDecorationLine: "underline" },
   container: { justifyContent: "space-between", paddingTop: 80 },
   top: { alignItems: "center", gap: theme.spacing.lg },
   logoWrap: { marginBottom: theme.spacing.sm },

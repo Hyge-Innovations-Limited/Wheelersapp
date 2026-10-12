@@ -10,6 +10,7 @@ import { RBack, RButton, RLink, RText, rider } from "@/components/rider/kit";
 import { sendPhoneLoginCode } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
+import { openPrivacy, openTerms } from "@/lib/legal-links";
 import { rememberPendingCode } from "@/lib/rider-sign-in-state";
 
 /** A rider's way in: their phone number, then a code. */
@@ -119,7 +120,15 @@ export default function RiderPhoneScreen() {
             title="Signed up with Apple, Google or email? Sign in here"
           />
           <RText color={rider.colors.muted} style={styles.terms} variant="caption">
-            By continuing, you agree to our Terms and Privacy Policy.
+            By continuing, you agree to our{" "}
+            <Text accessibilityRole="link" onPress={openTerms} style={styles.legalLink}>
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text accessibilityRole="link" onPress={openPrivacy} style={styles.legalLink}>
+              Privacy Policy
+            </Text>
+            .
           </RText>
         </View>
       </ScrollView>
@@ -169,5 +178,6 @@ const styles = StyleSheet.create({
   inputError: { borderColor: rider.colors.danger },
   error: { fontFamily: rider.fonts.semibold, fontSize: 14, lineHeight: 19, color: rider.colors.danger },
   spacer: { flexGrow: 1, minHeight: 8 },
-  terms: { textAlign: "center" },
+  terms: { textAlign: "center", lineHeight: 20 },
+  legalLink: { fontFamily: rider.fonts.bold, color: rider.colors.orangeText, textDecorationLine: "underline" },
 });

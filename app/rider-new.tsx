@@ -11,6 +11,7 @@ import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
 import { looksLikeEmail } from "@/lib/rider-sign-in";
+import { openPrivacy, openTerms } from "@/lib/legal-links";
 import { clearNameNeeded } from "@/lib/rider-sign-in-state";
 
 const POINTS = [
@@ -143,7 +144,17 @@ export default function RiderNewScreen() {
         <View style={[styles.check, agreed ? styles.checkOn : null]}>
           {agreed ? <Ionicons color={rider.colors.cream} name="checkmark" size={16} /> : null}
         </View>
-        <Text style={styles.agreeText}>I agree to the Terms and the Privacy Policy.</Text>
+        <Text style={styles.agreeText}>
+          I agree to the{" "}
+          <Text accessibilityRole="link" onPress={openTerms} style={styles.legalLink}>
+            Terms of Service
+          </Text>{" "}
+          and the{" "}
+          <Text accessibilityRole="link" onPress={openPrivacy} style={styles.legalLink}>
+            Privacy Policy
+          </Text>
+          .
+        </Text>
       </Pressable>
 
       {error ? (
@@ -178,5 +189,6 @@ const styles = StyleSheet.create({
   },
   checkOn: { backgroundColor: rider.colors.ink },
   agreeText: { flex: 1, fontFamily: rider.fonts.medium, fontSize: 14, lineHeight: 20, color: rider.colors.ink },
+  legalLink: { fontFamily: rider.fonts.bold, color: rider.colors.orangeText, textDecorationLine: "underline" },
   error: { fontFamily: rider.fonts.semibold, fontSize: 14, lineHeight: 19, color: rider.colors.danger },
 });

@@ -1,3 +1,4 @@
+import { openPrivacy, openTerms } from '@/lib/legal-links';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -256,6 +257,36 @@ export default function DriverSettingsScreen() {
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Refer riders</AppText>
               <AppText variant="bodySmall" color={theme.colors.muted}>Your QR code, link and referral code</AppText>
+            </View>
+            <ChevronRightIcon size={responsive.scale(18)} />
+          </Pressable>
+          <View style={[styles.menuDivider, dividerInset, { borderBottomColor: dividerColor }]} />
+          <Pressable
+            accessibilityRole="link"
+            onPress={openTerms}
+            style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
+          >
+            <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <MaterialIcons color={theme.colors.orange} name="description" size={glyphSize} />
+            </View>
+            <View style={styles.menuInfo}>
+              <AppText variant="bodyMedium">Terms of Service</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>The terms for driving with Wheelers</AppText>
+            </View>
+            <ChevronRightIcon size={responsive.scale(18)} />
+          </Pressable>
+          <View style={[styles.menuDivider, dividerInset, { borderBottomColor: dividerColor }]} />
+          <Pressable
+            accessibilityRole="link"
+            onPress={openPrivacy}
+            style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
+          >
+            <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <MaterialIcons color={theme.colors.orange} name="lock-outline" size={glyphSize} />
+            </View>
+            <View style={styles.menuInfo}>
+              <AppText variant="bodyMedium">Privacy Policy</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>How Wheelers handles your data</AppText>
             </View>
             <ChevronRightIcon size={responsive.scale(18)} />
           </Pressable>

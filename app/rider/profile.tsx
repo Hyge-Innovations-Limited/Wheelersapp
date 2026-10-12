@@ -11,6 +11,7 @@ import { getCurrentProfile, isBackendConfigured } from "@/lib/api";
 import { offersBothSides, publicEntryRoute, switchAppSide } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { clearLogoutPending, clearStoredAuthState, markLogoutPending } from "@/lib/auth-state";
+import { openPrivacy, openTerms } from "@/lib/legal-links";
 import { clearRiderTripsCache } from "@/lib/rider-trips";
 import { clearNameNeeded } from "@/lib/rider-sign-in-state";
 import { clearSavedPlaces } from "@/lib/saved-places";
@@ -327,6 +328,12 @@ export default function RiderYouScreen() {
         onPress={() => void handleLogout()}
         title={isLoggingOut ? "Logging out..." : "Log out"}
       />
+
+      <View style={styles.legal}>
+        <RLink accessibilityRole="link" color={rider.colors.muted} onPress={openTerms} title="Terms of Service" />
+        <Text style={styles.legalDot}>·</Text>
+        <RLink accessibilityRole="link" color={rider.colors.muted} onPress={openPrivacy} title="Privacy Policy" />
+      </View>
     </RScreen>
   );
 }
@@ -334,6 +341,8 @@ export default function RiderYouScreen() {
 const styles = StyleSheet.create({
   container: { gap: 14, paddingTop: 12, paddingBottom: 16 },
   pressed: { opacity: 0.72 },
+  legal: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  legalDot: { fontFamily: rider.fonts.semibold, fontSize: 15, color: rider.colors.muted },
 
   identity: { flexDirection: "row", alignItems: "center", gap: 14 },
   identityCopy: { flex: 1, minWidth: 0, gap: 2 },
