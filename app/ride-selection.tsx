@@ -53,7 +53,7 @@ function getLiveEstimateFareNgn(estimate: RideEstimateResponse): number | null {
 function hasResolvedLiveEstimate(
   estimate: RideEstimateResponse | null,
 ): estimate is RideEstimateResponse &
-  Required<Pick<RideEstimateResponse, "pickup" | "destination" | "route">> {
+Required<Pick<RideEstimateResponse, "pickup" | "destination" | "route">> {
   return Boolean(estimate?.pickup && estimate.destination && estimate.route);
 }
 
@@ -455,11 +455,11 @@ export default function RideSelectionScreen() {
 
         {scheduledAt ? (
           <>
-            <RCard tone="ink" style={styles.estimateCard}>
-              <RText variant="small" color={colors.onInkMuted}>
+            <RCard style={styles.estimateCard}>
+              <RText variant="small" color={colors.muted}>
                 {isFareResolving ? "Checking the price for this route" : "Suggested price"}
               </RText>
-              <RText variant="figure" color={colors.orange} style={styles.estimateFigure}>
+              <RText variant="figure" color={colors.orangeText} style={styles.estimateFigure}>
                 {naira(suggestedNgn)}
               </RText>
             </RCard>
@@ -591,6 +591,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
     padding: 18,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
   estimateFigure: { fontSize: 36, lineHeight: 40 },
 
