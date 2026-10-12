@@ -13,8 +13,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const PENDING_CODE_KEY = "wheelers.rider.sign-in.pending-code";
 const NEEDS_NAME_KEY = "wheelers.rider.sign-in.needs-name";
 
-/** A code is good for five minutes on the server; a little less here, so nobody is sent to type a dead one. */
-export const PENDING_CODE_MS = 4.5 * 60 * 1000;
+/** A code is good for 30 minutes on the server; a little less here, so nobody is sent to type a dead one. */
+export const PENDING_CODE_MS = 29 * 60 * 1000;
 
 export type PendingCode = {
   phone: string;
