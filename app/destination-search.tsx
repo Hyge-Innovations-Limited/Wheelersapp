@@ -30,6 +30,7 @@ import {
   readRecentPlaceSearches,
   saveRecentPlaceSearch,
 } from "@/lib/place-search-history";
+import { useSavedPlaces } from "@/lib/saved-places";
 import {
   buildInstantRideEstimate,
   serializeRideEstimate,
@@ -199,6 +200,7 @@ export default function DestinationSearchScreen() {
   const [providerSuggestions, setProviderSuggestions] = useState<PlaceSuggestion[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [recentPlaces, setRecentPlaces] = useState<PlaceSuggestion[]>([]);
+  const { places: savedPlaces } = useSavedPlaces();
   const [isSearching, setIsSearching] = useState(false);
   // Which field is currently being edited.
   const [activeInline, setActiveInline] = useState<InlineTarget | null>(null);
@@ -631,13 +633,15 @@ export default function DestinationSearchScreen() {
     ? matchingRecentPlacesPreview
     : recentPlaces.slice(0, RECENT_PREVIEW_LIMIT);
   const listedProviderResults = isTyping ? providerResults : [];
+  // Before anything is typed the list is never bare: saved places, then recent ones.
+  const listedSaved = isTyping ? [] : savedPlaces;
   const hasResults = listedRecents.length > 0 || listedProviderResults.length > 0;
   const heading = isTyping
     ? "MATCHING PLACES"
     : fromIsActive
       ? "PICKUP"
-      : listedRecents.length > 0
-        ? "RECENT PLACES"
+      : listedSaved.length > 0 || listedRecents.length > 0
+        ? "YOUR PLACES"
         : "";
 
   const fieldText = (target: InlineTarget, committed: string) =>
@@ -780,6 +784,36 @@ export default function DestinationSearchScreen() {
               {searchError}
             </RText>
           </View>
+        ) : null}
+
+        {listedSaved.map((place) => (
+          <Pressable
+            accessibilityRole="button"
+            key={`${place.id}-saved`}
+            onPress={() => handleSuggestionPress(place.address)}
+            style={({ pressed }) => [styles.resultRow, pressed ? styles.pressed : null]}>
+            <View style={styles.resultIcon}>
+              <Ionicons
+                color={colors.ink}
+                name={/^home$/i.test(place.label) ? "home-outline" : /^work$/i.test(place.label) ? "briefcase-outline" : "bookmark-outline"}
+                size={19}
+              />
+            </View>
+            <View style={styles.flexText}>
+              <RText numberOfLines={1} variant="bodyBold">
+                {place.label}
+              </RText>
+              <RText color={colors.muted} numberOfLines={1} variant="small">
+                {place.address}
+              </RText>
+            </View>
+          </Pressable>
+        ))}
+
+        {!isTyping && !fromIsActive && listedSaved.length === 0 && listedRecents.length === 0 ? (
+          <RText color={colors.muted} style={styles.nothing}>
+            Type a street, an area or a landmark. Places you pick show here next time.
+          </RText>
         ) : null}
 
         {listedRecents.map((item, index) => (
@@ -960,6 +994,7 @@ const styles = StyleSheet.create({
     padding: 0,
     fontFamily: fonts.semibold,
     fontSize: 16,
+    letterSpacing: 0,
     color: colors.ink,
   },
   fieldButton: {

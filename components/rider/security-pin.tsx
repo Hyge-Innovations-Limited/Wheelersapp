@@ -190,7 +190,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: fonts.bold,
     fontSize: 24,
-    letterSpacing: 12,
     color: colors.ink,
   },
   inputFull: { borderColor: colors.green },
