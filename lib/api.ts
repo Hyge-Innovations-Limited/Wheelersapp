@@ -102,6 +102,8 @@ export interface ReferralSummaryResponse {
   /** Opens a chat with Wheelers with the code already typed: what the QR code holds. Absent on older servers. */
   shareLink?: string | null;
   shareMessage?: string | null;
+  /** Someone else's code is already on this account (one per person). Absent on older servers. */
+  hasAppliedCode?: boolean;
 }
 
 export interface ApplyReferralCodeResponse {
@@ -811,6 +813,18 @@ export async function getReferralSummary(input: {
   return getJson<ReferralSummaryResponse>("/referrals/me", {
     accessToken: input.accessToken,
     fallbackError: "Could not load your referral code.",
+  });
+}
+
+/** Choose your own referral code in place of the one you were given. */
+export async function setReferralCode(input: {
+  accessToken: string;
+  code: string;
+}): Promise<{ code: string; shareLink: string | null; shareMessage: string | null }> {
+  return requestJson("PUT", "/referrals/me/code", {
+    accessToken: input.accessToken,
+    body: { code: input.code },
+    fallbackError: "Could not change your referral code.",
   });
 }
 

@@ -1,7 +1,7 @@
 /**
- * Rolling logins. A login lasts 30 days; when the app opens or comes back to
+ * Rolling logins. A login lasts a year; when the app opens or comes back to
  * the front and its login is over a day old, it is swapped for a fresh one.
- * Anyone who opens the app at least once a month stays signed in. A login
+ * Anyone who opens the app at least once a year stays signed in. A login
  * that has really ended (expired, signed out elsewhere, account deleted) is
  * reported as "ended", so the app can take the person to sign in instead of
  * failing every screen with "please sign in again".
@@ -15,7 +15,7 @@ export const RENEW_AFTER_MS = 24 * 60 * 60 * 1000;
 export type RenewalOutcome =
   | "none"     // not signed in
   | "fresh"    // signed in recently: nothing to do
-  | "renewed"  // swapped for a fresh 30-day login
+  | "renewed"  // swapped for a fresh one-year login
   | "ended"    // the login is over: sign in again
   | "offline"; // could not reach the server: try again next time
 

@@ -56,7 +56,7 @@ const ROWS: { title: string; subtitle: string; icon: IconName; href: Href }[] = 
     title: "Invite friends",
     subtitle: "Share your code and track ride cashback",
     icon: "gift-outline",
-    href: "/growth/referral",
+    href: "/rider-referral",
   },
   {
     title: "Security PIN",

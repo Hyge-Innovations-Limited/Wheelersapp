@@ -6,6 +6,7 @@ import {
   loadMockLocationPreset,
   saveMockLocationPreset,
   type MockLocationPreset,
+  devFallbackFor,
 } from "@/lib/dev-mock-location";
 import {
   useCallback,
@@ -125,13 +126,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     await saveMockLocationPreset(preset);
   }, []);
 
-  const currentLocation = useMemo<AppLocation | null>(
-    () =>
-      mockLocation
-        ? { lat: mockLocation.lat, lng: mockLocation.lng, address: mockLocation.address }
-        : gpsLocation,
-    [mockLocation, gpsLocation],
-  );
+  const currentLocation = useMemo<AppLocation | null>(() => {
+    // A chosen preset first; then, in development, Ikorodu in place of a
+    // simulator's default position in California; else where the phone is.
+    const pretend = mockLocation ?? devFallbackFor(gpsLocation);
+    return pretend ? { lat: pretend.lat, lng: pretend.lng, address: pretend.address } : gpsLocation;
+  }, [mockLocation, gpsLocation]);
 
   // Place search ranks results by distance from the rider. Without this it has
   // no idea where they are and falls back to no bias at all.

@@ -107,7 +107,7 @@ export default function RiderHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const { permissionState, requestLocationAccess } = useAppLocation();
+  const { currentLocation, permissionState, requestLocationAccess } = useAppLocation();
   const { permissionGranted, requestNotificationAccess } = useAppNotifications();
   const { trips: pastTrips } = useRiderTrips(10);
   const { overview } = useWalletOverview();
@@ -275,7 +275,8 @@ export default function RiderHomeScreen() {
       <Animated.View style={[styles.map, mapStyle]}>
         <LiveMap
           height={screenHeight}
-          initialCenter={riderHomeCenter}
+          // Where the rider is; Lagos only until the phone knows.
+          initialCenter={currentLocation ?? riderHomeCenter}
           initialDelta={{ latitudeDelta: 0.038, longitudeDelta: 0.03 }}
         />
       </Animated.View>
