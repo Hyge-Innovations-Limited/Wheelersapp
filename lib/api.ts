@@ -90,7 +90,8 @@ interface CurrentProfileResponse {
 }
 
 export interface ReferralSummaryResponse {
-  code: string;
+  /** The code this person created; null until they have. */
+  code: string | null;
   availableCashbackNgn: number;
   frozenCashbackNgn: number;
   reservedCashbackNgn?: number;

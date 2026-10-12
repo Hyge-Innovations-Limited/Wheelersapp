@@ -10,15 +10,17 @@ import { updateCurrentProfile } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
+import { REFERRAL_CODE_MIN, addReferralAtSignUp, tidyReferralCode } from "@/lib/referral-entry";
 import { looksLikeEmail } from "@/lib/rider-sign-in";
 import { clearNameNeeded } from "@/lib/rider-sign-in-state";
 
-/** A number we have not seen before: a name, an optional email, and they are in. */
+/** A number we have not seen before: a name, an optional email and referral code, and they are in. */
 export default function RiderNewScreen() {
   const router = useRouter();
   const { getAccessToken } = useAuth();
   const lastRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
+  const referralRef = useRef<TextInput>(null);
 
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -26,6 +28,8 @@ export default function RiderNewScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [referral, setReferral] = useState("");
+  const [referralError, setReferralError] = useState<string | null>(null);
 
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
@@ -45,6 +49,13 @@ export default function RiderNewScreen() {
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) throw new Error("Please sign in again.");
+      // The account exists from the moment the code was checked, so a friend's
+      // code can go on it now. A refused one is theirs to fix or clear.
+      const refused = await addReferralAtSignUp(accessToken, referral);
+      if (refused) {
+        setReferralError(refused);
+        return;
+      }
       await updateCurrentProfile({
         accessToken,
         fullName: `${first.trim()} ${last.trim()}`,
@@ -112,10 +123,31 @@ export default function RiderNewScreen() {
           setEmail(value);
           setEmailError(null);
         }}
+        onSubmitEditing={() => referralRef.current?.focus()}
         placeholder="you@example.com"
         ref={emailRef}
+        returnKeyType="next"
         valid={looksLikeEmail(email)}
         value={email}
+      />
+
+      <RInput
+        autoCapitalize="characters"
+        autoCorrect={false}
+        error={referralError}
+        hint="From a friend or a driver."
+        label="Referral code"
+        labelNote="(optional)"
+        maxLength={12}
+        onChangeText={(value) => {
+          setReferral(tidyReferralCode(value));
+          setReferralError(null);
+        }}
+        onSubmitEditing={() => void create()}
+        ref={referralRef}
+        returnKeyType="done"
+        valid={referral.length >= REFERRAL_CODE_MIN && !referralError}
+        value={referral}
       />
 
       <View style={styles.spacer} />

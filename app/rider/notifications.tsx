@@ -1,124 +1,107 @@
-import { StatusBar } from 'expo-status-bar';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
+import { RefreshControl, StyleSheet, View } from "react-native";
 
-import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
-import { BackArrow } from '@/components/back-arrow';
-import { DecorativeBackground } from '@/components/DecorativeBackground';
-import { NotificationSection } from '@/components/NotificationSection';
-import type { NotificationItem } from '@/data/mock';
-import { useAppNotifications } from '@/lib/notifications';
-import { theme } from '@/theme';
+import { RBack, RLink, RScreen, RText, rider } from "@/components/rider/kit";
+import { useAppNotifications } from "@/lib/notifications";
 
-function formatRelativeTime(value: string): string {
-  const date = new Date(value);
-  const diffMs = date.getTime() - Date.now();
-  const diffMinutes = Math.round(diffMs / 60_000);
+const { colors } = rider;
+type IconName = keyof typeof Ionicons.glyphMap;
 
-  const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-  if (Math.abs(diffMinutes) < 60) {
-    return formatter.format(diffMinutes, 'minute');
-  }
-
-  const diffHours = Math.round(diffMinutes / 60);
-  if (Math.abs(diffHours) < 24) {
-    return formatter.format(diffHours, 'hour');
-  }
-
-  const diffDays = Math.round(diffHours / 24);
-  return formatter.format(diffDays, 'day');
+/** "5 min ago", "3 hr ago", "2 days ago". */
+function ago(value: string): string {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "Yesterday" : `${days} days ago`;
 }
 
-function mapCategoryToAccent(category: string): NotificationItem['accent'] {
-  if (category === 'wallet' || category === 'payment' || category === 'defi') {
-    return 'green';
-  }
-
-  if (category === 'ride') {
-    return 'orange';
-  }
-
-  return 'black';
+function iconFor(category: string): IconName {
+  if (category === "wallet" || category === "payment") return "wallet-outline";
+  if (category === "ride") return "car-outline";
+  return "notifications-outline";
 }
 
-function mapCategoryToIcon(category: string): string {
-  if (category === 'wallet' || category === 'payment') {
-    return '💰';
-  }
-
-  if (category === 'ride') {
-    return '🚗';
-  }
-
-  if (category === 'kyc') {
-    return '🪪';
-  }
-
-  return '🔔';
-}
-
+/** What Wheelers has told this rider: unread first, pulled down to fetch again. */
 export default function NotificationsScreen() {
-  const { markAllRead, notifications } = useAppNotifications();
-  const items = useMemo<NotificationItem[]>(
-    () =>
-      notifications.map((item) => ({
-        id: item.id,
-        icon: mapCategoryToIcon(item.category),
-        title: item.title,
-        message: item.body,
-        timestamp: formatRelativeTime(item.createdAt),
-        unread: !item.read,
-        accent: mapCategoryToAccent(item.category),
-      })),
-    [notifications],
-  );
-  const unread = useMemo(
-    () => items.filter((item) => item.unread),
-    [items],
-  );
-  const earlier = useMemo(
-    () => items.filter((item) => !item.unread),
-    [items],
-  );
+  const { markAllRead, notifications, refreshNotifications } = useAppNotifications();
+  const [refreshing, setRefreshing] = useState(false);
+  const sorted = [...notifications].sort((a, b) => Number(a.read) - Number(b.read));
+  const anyUnread = notifications.some((item) => !item.read);
 
-  async function handleMarkAllRead() {
-    await markAllRead();
+  async function pull() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshNotifications();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   return (
-    <AppScreen backgroundColor={theme.colors.offWhite} scroll contentStyle={styles.container}>
-      <StatusBar style="dark" backgroundColor={theme.colors.offWhite} />
-      <DecorativeBackground motif="notifications" />
-      <View style={styles.headerRow}>
-        <BackArrow />
-        <View style={styles.headerCopy}>
-          <AppText variant="screenTitle">Notifications</AppText>
-        </View>
-        <Pressable onPress={handleMarkAllRead}>
-          <AppText variant="monoSmall" color={theme.colors.orange}>
-            Mark all read
-          </AppText>
-        </Pressable>
+    <RScreen
+      bounces
+      contentStyle={styles.screen}
+      refreshControl={
+        <RefreshControl colors={[colors.orange]} onRefresh={() => void pull()} refreshing={refreshing} tintColor={colors.orange} />
+      }
+      scroll>
+      <StatusBar style="dark" />
+      <View style={styles.header}>
+        <RBack />
+        <RText accessibilityRole="header" style={styles.flex} variant="title">
+          Notifications
+        </RText>
+        {anyUnread ? <RLink color={colors.orangeText} onPress={() => void markAllRead()} title="Mark all read" /> : null}
       </View>
 
-      <NotificationSection delayStart={40} items={unread} title="NEW" />
-      <NotificationSection delayStart={180} items={earlier} muted title="EARLIER" />
-    </AppScreen>
+      {sorted.length === 0 ? (
+        <View style={styles.empty}>
+          <Ionicons color={colors.muted} name="notifications-outline" size={32} />
+          <RText color={colors.muted}>Nothing yet.</RText>
+        </View>
+      ) : (
+        sorted.map((item) => (
+          <View key={item.id} style={[styles.item, item.read ? null : styles.itemNew]}>
+            <View style={[styles.dot, item.read ? null : styles.dotNew]}>
+              <Ionicons color={item.read ? colors.ink : colors.cream} name={iconFor(item.category)} size={18} />
+            </View>
+            <View style={styles.flex}>
+              <RText variant="bodyBold">{item.title}</RText>
+              <RText color={colors.muted} variant="small">
+                {item.body}
+              </RText>
+              <RText color={colors.muted} variant="caption">
+                {ago(item.createdAt)}
+              </RText>
+            </View>
+          </View>
+        ))
+      )}
+    </RScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
+  screen: { paddingTop: 12, gap: 10 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
+  flex: { flex: 1 },
+  empty: { alignItems: "center", gap: 8, paddingTop: 80 },
+  item: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  headerCopy: {
-    flex: 1,
-  },
+  itemNew: { borderWidth: 2, borderColor: colors.ink },
+  dot: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.cream },
+  dotNew: { backgroundColor: colors.ink },
 });

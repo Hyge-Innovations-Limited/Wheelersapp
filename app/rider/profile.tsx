@@ -54,7 +54,7 @@ const ROWS: { title: string; subtitle: string; icon: IconName; href: Href }[] = 
   },
   {
     title: "Invite friends",
-    subtitle: "Share your code and track ride cashback",
+    subtitle: "Create your code and earn ride cashback",
     icon: "gift-outline",
     href: "/rider-referral",
   },
@@ -213,8 +213,8 @@ export default function RiderYouScreen() {
 
   function handleSwitchToDriver() {
     Alert.alert(
-      "Switch to driver?",
-      "You will be signed out of your rider account and taken to driver sign-in.",
+      "Go to the driver side?",
+      "You will be logged out as a rider. Your rider account stays: sign in with your phone number to come back.",
       [
         { text: "Stay", style: "cancel" },
         { text: "Switch", onPress: () => void switchToDriver() },
@@ -295,7 +295,7 @@ export default function RiderYouScreen() {
 
       {offersBothSides ? (
         <Pressable
-          accessibilityLabel="Switch to driver. Sign in to your driver account"
+          accessibilityLabel="Drive with Wheelers. Sign in as a driver, or apply to drive"
           accessibilityRole="button"
           accessibilityState={{ busy: isSwitching, disabled: isSwitching }}
           disabled={isSwitching}
@@ -303,10 +303,10 @@ export default function RiderYouScreen() {
           style={({ pressed }) => [styles.switchCard, pressed || isSwitching ? styles.pressed : null]}>
           <View style={styles.switchCopy}>
             <RText color={rider.colors.orange} variant="bodyBold">
-              Switch to driver
+              Drive with Wheelers
             </RText>
             <RText color={rider.colors.onInkMuted} variant="small">
-              Sign in to your driver account
+              Sign in as a driver, or apply to drive
             </RText>
           </View>
           <Ionicons color={rider.colors.orange} name="arrow-forward" size={20} />

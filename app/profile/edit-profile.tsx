@@ -1,3 +1,4 @@
+import { isDriverApp } from "@/lib/app-variant";
 import { riderProfileChanged } from "@/lib/rider-profile";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "expo-router";
@@ -12,13 +13,19 @@ import { AppText } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getCurrentProfile, isBackendConfigured, updateCurrentProfile } from "@/lib/api";
+import { RiderEditProfile } from "@/components/rider/edit-profile";
 import { theme } from "@/theme";
 
 function normalizeUsernameInput(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9_]/g, "");
 }
 
+/** One route for both sides of the app: each gets its own look. */
 export default function EditProfileScreen() {
+  return isDriverApp ? <DriverEditProfileScreen /> : <RiderEditProfile />;
+}
+
+function DriverEditProfileScreen() {
   const router = useRouter();
   const { getAccessToken, isReady, user } = useAuth();
   const fallbackEmail = "";

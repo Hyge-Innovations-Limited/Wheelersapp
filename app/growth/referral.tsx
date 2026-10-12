@@ -7,6 +7,7 @@ import { Alert, Share, StyleSheet, View } from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
+import { AppInput } from "@/components/app-input";
 import { AppScreen } from "@/components/app-screen";
 import { AppText } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
@@ -15,8 +16,10 @@ import { getAccessTokenWithRetry } from "@/lib/access-token";
 import {
   getReferralSummary,
   isBackendConfigured,
+  setReferralCode,
   type ReferralSummaryResponse,
 } from "@/lib/api";
+import { REFERRAL_CODE_MIN, tidyReferralCode } from "@/lib/referral-entry";
 import QRCodeStyled from "react-native-qrcode-styled";
 
 import { theme } from "@/theme";
@@ -78,7 +81,33 @@ export default function ReferralScreen() {
     };
   }, [getAccessToken, isReady, user]);
 
+  // Nobody is handed a code: each person creates their own, and can change it.
+  const [wanted, setWanted] = useState("");
+  const [changing, setChanging] = useState(false);
+  const [savingCode, setSavingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | undefined>(undefined);
+
   const referralCode = summary?.code ?? "";
+  const creating = summary !== null && !referralCode;
+
+  async function handleSaveCode() {
+    const chosen = tidyReferralCode(wanted);
+    if (chosen.length < REFERRAL_CODE_MIN || savingCode) return;
+    setSavingCode(true);
+    setCodeError(undefined);
+    try {
+      const accessToken = await getAccessTokenWithRetry(getAccessToken);
+      if (!accessToken) throw new Error("Sign in again to save your referral code.");
+      const saved = await setReferralCode({ accessToken, code: chosen });
+      setSummary((current) => (current ? { ...current, ...saved } : current));
+      setChanging(false);
+      setWanted("");
+    } catch (error) {
+      setCodeError(error instanceof Error ? error.message : "That code could not be saved. Try another one.");
+    } finally {
+      setSavingCode(false);
+    }
+  }
   const shareLink = summary?.shareLink ?? "";
   const shareMessage = useMemo(
     () =>
@@ -150,14 +179,59 @@ export default function ReferralScreen() {
             YOUR CODE
           </AppText>
           <AppText variant="metric" style={styles.code}>
-            {isLoading ? "LOADING" : referralCode || "UNAVAILABLE"}
+            {isLoading ? "LOADING" : referralCode || (creating ? "NOT SET" : "UNAVAILABLE")}
           </AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>
-            Friends add this code after onboarding. Your own code cannot be used
-            on your account.
+            {creating
+              ? "Create your code below, then share it with riders."
+              : "Riders enter this code when they sign up, or scan your QR code."}
           </AppText>
         </View>
       </AppCard>
+
+      {creating || changing ? (
+        <AppCard style={styles.codeForm}>
+          <AppInput
+            label={creating ? "Create your referral code" : "New referral code"}
+            hint={
+              creating
+                ? "4 to 12 letters or numbers. Your name works well."
+                : "4 to 12 letters or numbers. Your old code stops working."
+            }
+            placeholder="e.g. TUNDE"
+            value={wanted}
+            onChangeText={(text) => {
+              setWanted(tidyReferralCode(text));
+              setCodeError(undefined);
+            }}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={12}
+            returnKeyType="done"
+            onSubmitEditing={() => void handleSaveCode()}
+            error={codeError}
+          />
+          <AppButton
+            disabled={wanted.length < REFERRAL_CODE_MIN}
+            loading={savingCode}
+            onPress={() => void handleSaveCode()}
+            title={creating ? "Create code" : "Save code"}
+          />
+          {changing ? (
+            <AppButton
+              onPress={() => {
+                setChanging(false);
+                setWanted("");
+                setCodeError(undefined);
+              }}
+              title="Cancel"
+              variant="inverse"
+            />
+          ) : null}
+        </AppCard>
+      ) : referralCode ? (
+        <AppButton onPress={() => setChanging(true)} title="Change my code" variant="inverse" />
+      ) : null}
 
       {shareLink ? (
         <AppCard style={styles.qrCard}>
@@ -286,6 +360,7 @@ function RuleRow({ text }: { text: string }) {
 }
 
 const styles = StyleSheet.create({
+  codeForm: { gap: theme.spacing.md },
   qrCard: { alignItems: "center", gap: theme.spacing.md },
   qrFrame: {
     borderRadius: theme.radii.md,

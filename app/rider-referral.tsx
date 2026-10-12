@@ -17,16 +17,16 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useCachedQuery } from "@/lib/cached-query";
 import { toUserMessage } from "@/lib/error-messages";
+import { tidyReferralCode } from "@/lib/referral-entry";
 
 const { colors, fonts } = rider;
-
-/** What a code may be made of, as it is typed: capitals and digits, twelve at most. */
-const tidyCode = (typed: string) => typed.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+const tidyCode = tidyReferralCode;
 
 /**
- * Invite friends: the rider's code, link and QR code to share; a box to add a
- * code someone gave them; a way to choose their own code; and what their
- * referrals have earned.
+ * Invite friends: the code the rider creates for themselves, then its link and
+ * QR code to share; a box to add a code someone gave them; and what their
+ * referrals have earned. Nobody is handed a code: until they create one, the
+ * top of the screen asks for it.
  */
 export default function RiderReferralScreen() {
   const { getAccessToken } = useAuth();
@@ -55,6 +55,8 @@ export default function RiderReferralScreen() {
   const code = summary?.code ?? "";
   const link = summary?.shareLink ?? "";
   const hasFriendCode = added || summary?.hasAppliedCode === true;
+  // Loaded, and no code yet: they create one before there is anything to share.
+  const creating = Boolean(summary) && !code;
 
   async function token(): Promise<string> {
     const accessToken = await getAccessTokenWithRetry(getAccessToken);
@@ -143,81 +145,90 @@ export default function RiderReferralScreen() {
         </RText>
       </View>
 
-      <RCard style={styles.codeCard} tone="ink">
-        <RText color={colors.onInkMuted} variant="small">
-          Your referral code
-        </RText>
-        <Text adjustsFontSizeToFit maxFontSizeMultiplier={1.1} numberOfLines={1} selectable style={styles.code}>
-          {code || (loading ? "…" : "Not available")}
-        </Text>
-        <View style={styles.codeActions}>
-          <RButton
-            disabled={!code}
-            onPress={() => void share()}
-            size="md"
-            style={styles.flex}
-            title="Share"
-          />
-          <RButton
-            disabled={!code}
-            onPress={() => void copy("code")}
-            size="md"
-            style={styles.flex}
-            title={copied === "code" ? "Copied" : "Copy code"}
-            variant="onInk"
-          />
-        </View>
-        {editing ? null : (
-          <RLink
-            color={colors.orange}
-            disabled={!code}
-            onPress={() => {
-              setEditing(true);
-              setSaveError(null);
-            }}
-            style={styles.start}
-            title="Choose your own code"
-          />
-        )}
-      </RCard>
+      {creating ? (
+        <RCard style={styles.codeCard} tone="ink">
+          <RText color={colors.orange} variant="heading">
+            Create your referral code
+          </RText>
+          <RText color={colors.onInkMuted} variant="small">
+            Your name, your nickname, anything friends will remember.
+          </RText>
+        </RCard>
+      ) : (
+        <RCard style={styles.codeCard} tone="ink">
+          <RText color={colors.onInkMuted} variant="small">
+            Your referral code
+          </RText>
+          <Text adjustsFontSizeToFit maxFontSizeMultiplier={1.1} numberOfLines={1} selectable style={styles.code}>
+            {code || (loading ? "…" : "Not available")}
+          </Text>
+          <View style={styles.codeActions}>
+            <RButton disabled={!code} onPress={() => void share()} size="md" style={styles.flex} title="Share" />
+            <RButton
+              disabled={!code}
+              onPress={() => void copy("code")}
+              size="md"
+              style={styles.flex}
+              title={copied === "code" ? "Copied" : "Copy code"}
+              variant="onInk"
+            />
+          </View>
+          {editing ? null : (
+            <RLink
+              color={colors.orange}
+              disabled={!code}
+              onPress={() => {
+                setEditing(true);
+                setSaveError(null);
+              }}
+              style={styles.start}
+              title="Change your code"
+            />
+          )}
+        </RCard>
+      )}
 
-      {editing ? (
+      {editing || creating ? (
         <RCard style={styles.block} tone="outline">
           <RInput
             autoCapitalize="characters"
             autoCorrect={false}
-            autoFocus
+            autoFocus={editing}
             error={saveError}
-            hint="4 to 12 letters or numbers. Your old code stops working."
-            label="Your own code"
+            hint={creating ? "4 to 12 letters or numbers." : "4 to 12 letters or numbers. Your old code stops working."}
+            label={creating ? "Your code" : "New code"}
             maxLength={12}
             onChangeText={(value) => {
               setWanted(tidyCode(value));
               setSaveError(null);
             }}
+            onSubmitEditing={() => void saveOwnCode()}
             placeholder="TIMI"
+            returnKeyType="done"
             valid={tidyCode(wanted).length >= 4}
             value={wanted}
           />
           <View style={styles.row}>
-            <RButton
-              onPress={() => {
-                setEditing(false);
-                setWanted("");
-                setSaveError(null);
-              }}
-              size="md"
-              style={styles.flex}
-              title="Cancel"
-              variant="ghost"
-            />
+            {creating ? null : (
+              <RButton
+                onPress={() => {
+                  setEditing(false);
+                  setWanted("");
+                  setSaveError(null);
+                }}
+                size="md"
+                style={styles.flex}
+                title="Cancel"
+                variant="ghost"
+              />
+            )}
             <RButton
               disabled={tidyCode(wanted).length < 4}
               loading={saving}
               onPress={() => void saveOwnCode()}
               size="md"
               style={styles.flex}
-              title="Save code"
+              title={creating ? "Create code" : "Save code"}
               variant="dark"
             />
           </View>

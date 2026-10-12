@@ -1,4 +1,4 @@
-import { publicEntryRoute } from "@/lib/app-variant";
+import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -13,9 +13,15 @@ import { BackArrow } from "@/components/back-arrow";
 import { SettingsRow } from "@/components/SettingsRow";
 import { clearStoredAuthState } from "@/lib/auth-state";
 import { useAppLock } from "@/lib/app-lock";
+import { RiderSecurityPin } from "@/components/rider/security-pin";
 import { theme } from "@/theme";
 
+/** One route for both sides of the app: each gets its own look. */
 export default function SecurityPinScreen() {
+  return isDriverApp ? <DriverSecurityPinScreen /> : <RiderSecurityPin />;
+}
+
+function DriverSecurityPinScreen() {
   const router = useRouter();
   const { logout } = useAuth();
   const { hasPin, appLockEnabled, createPin, changePin, clearPin, setAppLockEnabled } =
