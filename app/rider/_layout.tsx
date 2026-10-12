@@ -22,6 +22,9 @@ const hidden = { href: null, tabBarStyle: { display: "none" } } as const;
 export default function RiderLayout() {
   return (
     <Tabs
+      // Back returns to the tab the rider came from, not to the first tab:
+      // Notifications opened from You goes back to You.
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: rider.colors.cream },
