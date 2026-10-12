@@ -625,9 +625,11 @@ export default function RiderWithdrawScreen() {
             </View>
           ) : null}
 
-          {withdrawalFeeNgn > 0 && breakdown ? (
+          {withdrawalFeeNgn > 0 ? (
             <RText accessibilityLiveRegion="polite" color={rider.colors.onInkSoft} variant="small">
-              {`${money(withdrawalFeeNgn)} withdrawal fee · you receive ${money(breakdown.receiveNgn)}`}
+              {breakdown
+                ? `${money(withdrawalFeeNgn)} withdrawal fee · you receive ${money(breakdown.receiveNgn)}`
+                : `${money(withdrawalFeeNgn)} fee on every withdrawal`}
             </RText>
           ) : null}
         </RCard>
@@ -799,11 +801,6 @@ export default function RiderWithdrawScreen() {
                       <RText numberOfLines={1} variant="bodyBold">
                         {bank.name}
                       </RText>
-                      {bank.code ? (
-                        <RText color={rider.colors.muted} variant="small">
-                          {bank.code}
-                        </RText>
-                      ) : null}
                     </View>
                     <Ionicons color={rider.colors.muted} name="chevron-forward" size={18} />
                   </Pressable>

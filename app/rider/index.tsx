@@ -1,3 +1,4 @@
+import { useBalanceHidden } from "@/lib/balance-hidden";
 import { Ionicons } from "@expo/vector-icons";
 import { Href, useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -262,7 +263,8 @@ export default function RiderHomeScreen() {
     transform: [{ translateY: -Math.max(0, sheetH.value - translateY.value) / 2 }],
   }));
 
-  const walletLabel = overview ? naira(overview.balanceNgn) : "Wallet";
+  const { hidden: balanceHidden } = useBalanceHidden();
+  const walletLabel = balanceHidden || !overview ? "Wallet" : naira(overview.balanceNgn);
 
   return (
     <View
@@ -287,7 +289,7 @@ export default function RiderHomeScreen() {
           <BrandLogo size={48} />
         </Pressable>
         <Pressable
-          accessibilityLabel={overview ? `Wallet balance ${walletLabel}` : "Wallet"}
+          accessibilityLabel={overview && !balanceHidden ? `Wallet balance ${walletLabel}` : "Wallet"}
           accessibilityRole="button"
           onPress={() => router.push("/rider/wallet" as Href)}
           style={({ pressed }) => [styles.wallet, pressed ? styles.pressed : null]}>

@@ -1,3 +1,4 @@
+import { HIDDEN_BALANCE, useBalanceHidden } from "@/lib/balance-hidden";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -27,6 +28,7 @@ export default function WalletScreen() {
     itinerary?: string | string[];
   }>();
   const { overview, error: overviewError, refresh: refreshWalletOverview } = useWalletOverview();
+  const { hidden: balanceHidden, toggle: toggleBalanceHidden } = useBalanceHidden();
   const transactions = useWalletTransactions(RECENT_COUNT);
   const deposit = useDepositAccount({ provision: false });
   const [refreshing, setRefreshing] = useState(false);
@@ -134,17 +136,27 @@ export default function WalletScreen() {
 
       <RCard style={styles.balanceCard} tone="ink">
         <View style={styles.balanceCopy}>
-          <RText color={rider.colors.onInkMuted} variant="small">
-            Balance
-          </RText>
+          <View style={styles.balanceHead}>
+            <RText color={rider.colors.onInkMuted} variant="small">
+              Balance
+            </RText>
+            <Pressable
+              accessibilityLabel={balanceHidden ? "Show balance" : "Hide balance"}
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={toggleBalanceHidden}
+              style={({ pressed }) => [styles.eye, pressed ? styles.pressed : null]}>
+              <Ionicons color={rider.colors.onInkMuted} name={balanceHidden ? "eye-off-outline" : "eye-outline"} size={22} />
+            </Pressable>
+          </View>
           <Text
             adjustsFontSizeToFit
             maxFontSizeMultiplier={1.1}
             numberOfLines={1}
             style={styles.balanceFigure}>
-            {overview ? money(overview.balanceNgn) : "₦—"}
+            {balanceHidden ? HIDDEN_BALANCE : overview ? money(overview.balanceNgn) : "₦—"}
           </Text>
-          {lockedNgn > 0 ? (
+          {lockedNgn > 0 && !balanceHidden ? (
             <RText color={rider.colors.onInkMuted} variant="small">
               {`${money(lockedNgn)} on hold`}
             </RText>
@@ -247,6 +259,8 @@ export default function WalletScreen() {
 }
 
 const styles = StyleSheet.create({
+  balanceHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  eye: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   container: { gap: 16, paddingTop: 12, paddingBottom: 24 },
   pressed: { opacity: 0.72 },
 
