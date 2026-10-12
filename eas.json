@@ -82,6 +82,12 @@
       },
       "channel": "production-rider"
     },
+    "production:apk": {
+      "extends": "production",
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production:driver": {
       "distribution": "store",
       "environment": "production",
