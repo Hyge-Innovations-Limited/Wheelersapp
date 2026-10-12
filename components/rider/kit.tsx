@@ -176,7 +176,11 @@ export function RBack({
       onPress={() => {
         if (onPress) return onPress();
         if (href) return router.replace(href);
-        if (router.canGoBack()) router.back();
+        if (router.canGoBack()) return router.back();
+        // Opened straight onto this screen (a link, or the app reloading here):
+        // there is nothing behind it, so back goes to the start, which sends
+        // a signed-in person home.
+        router.replace("/");
       }}
       style={({ pressed }) => [
         styles.back,

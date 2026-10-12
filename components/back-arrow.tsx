@@ -16,7 +16,8 @@ export function BackArrow({ style, onPress, light }: BackArrowProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress ?? (() => router.back())}
+      // With nothing behind this screen, back goes to the start, which sends a signed-in person home.
+      onPress={onPress ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))}
       style={[
         styles.button,
         {
