@@ -83,20 +83,36 @@ export async function getRide(input: { accessToken: string; rideId: string }): P
   return response.ride;
 }
 
+/**
+ * Trips that are over, kept for this run of the app: a completed or cancelled
+ * ride does not change, so its receipt opens at once the second time and is
+ * not fetched again unless the rider pulls to refresh.
+ */
+const finishedRides = new Map<string, RideDetail>();
+const isFinished = (ride: RideDetail) => ride.status === "COMPLETED" || ride.status === "CANCELLED";
+
 export function useRide(rideId: string | null): {
   ride: RideDetail | null;
   isLoading: boolean;
   error: string | null;
-  reload: () => Promise<void>;
+  /** Fetch again. Without `force`, a finished trip already kept is left as it is. */
+  reload: (options?: { force?: boolean }) => Promise<void>;
 } {
   const { getAccessToken, isReady, user } = useAuth();
-  const [ride, setRide] = useState<RideDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [ride, setRide] = useState<RideDetail | null>(() => (rideId ? finishedRides.get(rideId) ?? null : null));
+  const [isLoading, setIsLoading] = useState(() => !(rideId && finishedRides.has(rideId)));
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(0);
 
-  const reload = useCallback(async (): Promise<void> => {
+  const reload = useCallback(async (options?: { force?: boolean }): Promise<void> => {
     if (!isReady) return;
+    const kept = rideId ? finishedRides.get(rideId) : undefined;
+    if (kept && !options?.force) {
+      setRide(kept);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
     const call = ++latest.current;
     if (!rideId || !user || !isBackendConfigured()) {
       setRide(null);
@@ -104,12 +120,14 @@ export function useRide(rideId: string | null): {
       setIsLoading(false);
       return;
     }
-    setIsLoading(true);
+    // A forced reload keeps the receipt on screen while it fetches.
+    if (!kept) setIsLoading(true);
     setError(null);
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) throw new Error("Could not load this trip. Please sign in again.");
       const next = await getRide({ accessToken, rideId });
+      if (isFinished(next)) finishedRides.set(rideId, next);
       if (call !== latest.current) return;
       setRide(next);
     } catch (loadError) {
@@ -155,6 +173,7 @@ let cachedTripsAt = 0;
 export function clearRiderTripsCache(): void {
   cachedTrips = [];
   cachedTripsAt = 0;
+  finishedRides.clear();
 }
 
 export function useRiderTrips(limit = 30): {

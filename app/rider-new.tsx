@@ -1,3 +1,4 @@
+import { riderProfileChanged } from "@/lib/rider-profile";
 import { Redirect, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
@@ -50,6 +51,7 @@ export default function RiderNewScreen() {
         email: typedEmail || undefined,
       });
       await clearNameNeeded();
+      riderProfileChanged();
       router.replace("/rider");
     } catch (failure) {
       setError(toUserMessage(failure, "We could not save your details. Please try again."));

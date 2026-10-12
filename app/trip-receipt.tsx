@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, RefreshControl, StyleSheet, View } from "react-native";
 
 import { RBack, RButton, RCard, RLink, RScreen, RText, naira, rider } from "@/components/rider/kit";
 import { rebookParams, useRide, type RideDetail } from "@/lib/rider-trips";
@@ -41,6 +42,17 @@ export default function TripReceiptScreen() {
   const params = useLocalSearchParams<{ rideId?: string | string[] }>();
   const rideId = first(params.rideId)?.trim() || null;
   const { ride, isLoading, error, reload } = useRide(rideId);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await reload({ force: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -72,7 +84,7 @@ export default function TripReceiptScreen() {
               {rideId ? (
                 <RButton
                   accessibilityLabel="Try again"
-                  onPress={() => void reload()}
+                  onPress={() => void reload({ force: true })}
                   size="md"
                   style={styles.stretch}
                   title="Try again"
@@ -123,7 +135,18 @@ export default function TripReceiptScreen() {
   };
 
   return (
-    <RScreen bounces contentStyle={styles.screen} scroll>
+    <RScreen
+      bounces
+      contentStyle={styles.screen}
+      refreshControl={
+        <RefreshControl
+          colors={[colors.orange]}
+          onRefresh={() => void refresh()}
+          refreshing={refreshing}
+          tintColor={colors.orange}
+        />
+      }
+      scroll>
       <StatusBar style="dark" />
       <RBack onPress={goBack} />
 

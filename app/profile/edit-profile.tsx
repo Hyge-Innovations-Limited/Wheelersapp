@@ -1,3 +1,4 @@
+import { riderProfileChanged } from "@/lib/rider-profile";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -117,6 +118,8 @@ export default function EditProfileScreen() {
         email: trimmedEmail || undefined,
         phone: trimmedPhone || undefined,
       });
+      // The You tab keeps a copy of these details: have it fetch the new ones.
+      riderProfileChanged();
       router.back();
     } catch (error) {
       Alert.alert(

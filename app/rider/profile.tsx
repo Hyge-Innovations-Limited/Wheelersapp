@@ -1,17 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter, type Href } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { RAvatar, RIconDot, RLink, RRow, RScreen, RText, rider } from "@/components/rider/kit";
 import { money } from "@/components/rider/wallet-format";
-import { getAccessTokenWithRetry, getStoredLocalAccessToken } from "@/lib/access-token";
-import { getCurrentProfile, isBackendConfigured } from "@/lib/api";
 import { offersBothSides, publicEntryRoute, switchAppSide } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { clearLogoutPending, clearStoredAuthState, markLogoutPending } from "@/lib/auth-state";
 import { openPrivacy, openTerms } from "@/lib/legal-links";
+import { useRiderProfile } from "@/lib/rider-profile";
 import { clearRiderTripsCache } from "@/lib/rider-trips";
 import { clearNameNeeded } from "@/lib/rider-sign-in-state";
 import { clearSavedPlaces } from "@/lib/saved-places";
@@ -129,45 +128,29 @@ function buildProfile(input?: {
 /** The "You" tab: who is signed in, and everything that is not a ride or the wallet. */
 export default function RiderYouScreen() {
   const router = useRouter();
-  const { getAccessToken, logout, user, isReady } = useAuth();
-  const { overview } = useWalletOverview();
+  const { logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
-  const [profile, setProfile] = useState<YouProfile>(buildProfile());
-
-  const loadProfile = useCallback(async () => {
-    if (!isReady || !isBackendConfigured()) {
-      setProfile(buildProfile());
-      return;
-    }
-
-    const accessToken = user
-      ? await getAccessTokenWithRetry(getAccessToken)
-      : await getStoredLocalAccessToken();
-    if (!accessToken) {
-      return;
-    }
-
-    try {
-      const response = await getCurrentProfile({ accessToken });
-      setProfile(
-        buildProfile({
-          name: response.user.name ?? undefined,
-          email: response.user.email ?? undefined,
-          username: response.user.username,
-          phone: response.user.phone,
-        }),
-      );
-    } catch {
-      // Keep what is on screen: a failed refresh should not blank the name.
-    }
-  }, [getAccessToken, isReady, user]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadProfile();
-    }, [loadProfile]),
+  // Kept on the phone and shown at once; fetched again when it is old, on a
+  // pull, or after an edit. It is not fetched every time this tab is opened.
+  const { user: account, refresh: refreshProfile } = useRiderProfile();
+  const { overview, refresh: refreshWallet } = useWalletOverview();
+  const [refreshing, setRefreshing] = useState(false);
+  const profile = buildProfile(
+    account
+      ? { name: account.name, email: account.email, username: account.username, phone: account.phone }
+      : undefined,
   );
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([refreshProfile(), refreshWallet()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function handleLogout() {
     if (isLoggingOut) {
@@ -241,7 +224,16 @@ export default function RiderYouScreen() {
 
   return (
     <RScreen
+      bounces
       contentStyle={styles.container}
+      refreshControl={
+        <RefreshControl
+          colors={[rider.colors.orange]}
+          onRefresh={() => void handleRefresh()}
+          refreshing={refreshing}
+          tintColor={rider.colors.orange}
+        />
+      }
       // The tab bar already keeps clear of the bottom inset.
       safeAreaEdges={["top", "left", "right"]}
       scroll>

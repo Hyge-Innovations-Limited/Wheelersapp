@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, StyleSheet, View } from "react-native";
 
 import { RBack, RButton, RCard, RLink, RPill, RScreen, RText, naira, rider } from "@/components/rider/kit";
 import { useHasLoaded } from "@/lib/rider-trips";
@@ -23,6 +23,17 @@ export default function ScheduledRideScreen() {
   const { rawItems, isLoading, error, cancelItem, refresh } = useScheduledRides(30);
   const loaded = useHasLoaded(isLoading);
   const [cancelling, setCancelling] = useState(false);
+  const [pulling, setPulling] = useState(false);
+
+  async function pullRefresh() {
+    if (pulling) return;
+    setPulling(true);
+    try {
+      await refresh();
+    } finally {
+      setPulling(false);
+    }
+  }
   const ride = rawItems.find((item) => item.id === id) ?? null;
 
   const goBack = () => {
@@ -131,7 +142,18 @@ export default function ScheduledRideScreen() {
   };
 
   return (
-    <RScreen bounces contentStyle={styles.screen} scroll>
+    <RScreen
+      bounces
+      contentStyle={styles.screen}
+      refreshControl={
+        <RefreshControl
+          colors={[colors.orange]}
+          onRefresh={() => void pullRefresh()}
+          refreshing={pulling}
+          tintColor={colors.orange}
+        />
+      }
+      scroll>
       <StatusBar style="dark" />
       <View style={styles.header}>
         <RBack onPress={goBack} />

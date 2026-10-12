@@ -1,3 +1,4 @@
+import { riderProfileChanged } from "@/lib/rider-profile";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -48,6 +49,7 @@ export default function RiderWelcomeBackScreen() {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) throw new Error("Please sign in again.");
       await updateCurrentProfile({ accessToken, email: email.trim() });
+      riderProfileChanged();
       router.replace("/rider");
     } catch (failure) {
       setError(toUserMessage(failure, "We could not save that email. You can add it later."));
