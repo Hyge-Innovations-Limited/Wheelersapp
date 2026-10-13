@@ -36,6 +36,14 @@ const defaultValue: InterstateRequestsValue = {
 const InterstateRequestsContext =
   createContext<InterstateRequestsValue>(defaultValue);
 
+/**
+ * Intercity is not offered to drivers yet (its tab is hidden), so nothing asks
+ * the server for requests. Left on, every signed-in driver's phone asked every
+ * half-minute, and one still in verification was refused each time: noise for
+ * them, and a false "problem" on the admin Activity page. Turn back on with the tab.
+ */
+const INTERCITY_FOR_DRIVERS = false;
+
 /** How often to look. Slow on purpose — an interstate trip is not a hail. */
 const POLL_MS = 30_000;
 
@@ -57,7 +65,7 @@ export function InterstateRequestsProvider({ children }: { children: ReactNode }
   useEffect(() => {
     // Riders never see this badge, and polling for them would be a request per
     // half-minute that nothing reads.
-    if (!isDriverApp || !isReady || !user) {
+    if (!INTERCITY_FOR_DRIVERS || !isDriverApp || !isReady || !user) {
       setPendingCount(0);
       return;
     }

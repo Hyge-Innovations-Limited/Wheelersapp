@@ -24,6 +24,12 @@ export interface RenewalDeps {
   /** Asks the server for a fresh login. Rejects with { status } on an HTTP error. */
   refresh: (token: string) => Promise<{ accessToken: string }>;
   store: (token: string) => Promise<void>;
+  /**
+   * Asks the server whether a recent login is still good. Rejects with
+   * { status: 401 } when it was signed out (by an admin, say). Optional: an
+   * older server has no such question, and anything but a 401 changes nothing.
+   */
+  stillValid?: (token: string) => Promise<unknown>;
   now?: () => number;
 }
 
@@ -59,7 +65,17 @@ async function run(deps: RenewalDeps): Promise<RenewalOutcome> {
   if (!token) return "none";
   const times = loginTimes(token);
   if (!times || times.endsAt <= now) return "ended";
-  if (now - times.issuedAt < RENEW_AFTER_MS) return "fresh";
+  if (now - times.issuedAt < RENEW_AFTER_MS) {
+    // Too new to renew, but it may have been signed out since: only the server saying so ends it.
+    if (deps.stillValid) {
+      try {
+        await deps.stillValid(token);
+      } catch (error) {
+        if ((error as { status?: unknown })?.status === 401) return "ended";
+      }
+    }
+    return "fresh";
+  }
   try {
     const { accessToken } = await deps.refresh(token);
     if (!accessToken || !loginTimes(accessToken)) return "offline";

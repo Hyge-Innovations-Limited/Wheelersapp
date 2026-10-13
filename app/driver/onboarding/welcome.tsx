@@ -11,6 +11,8 @@ import { OnboardingSignOut } from "@/components/onboarding-sign-out";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
+import { draftHasProgress, firstUnfinishedStep } from "@/lib/driver-onboarding-draft";
+import { KYC_STEPS, KYC_STEP_LABELS, KYC_STEP_ROUTES } from "@/lib/kyc-steps";
 
 const STEPS = [
   { icon: "id-card-outline" as const, label: "NIN card photo" },
@@ -25,7 +27,9 @@ const STEPS = [
 export default function OnboardingWelcomeScreen() {
   const router = useRouter();
   const responsive = useResponsive();
-  const { startFull } = useDriverOnboarding();
+  const { data, restored, startFull } = useDriverOnboarding();
+  // Something was filled in before the app was closed: carry on from the first step still to do.
+  const resumeAt = restored && draftHasProgress(data) ? firstUnfinishedStep(data, KYC_STEPS) ?? "vehiclePhotos" : null;
 
   // Five rows plus a header have to clear the button on a 320x568 phone —
   // tighten the rhythm there instead of pushing the CTA off-screen.
@@ -60,11 +64,16 @@ export default function OnboardingWelcomeScreen() {
 
       <View style={styles.spacer} />
 
+      {resumeAt ? (
+        <AppText variant="bodySmall" color={theme.colors.muted} style={styles.resumeNote}>
+          {`We kept what you added. Next: ${KYC_STEP_LABELS[resumeAt]}.`}
+        </AppText>
+      ) : null}
       <AppButton
-        title="Let's go"
+        title={resumeAt ? "Continue where you stopped" : "Let's go"}
         onPress={() => {
           startFull();
-          router.push("/driver/onboarding/nin-upload");
+          router.push(resumeAt ? KYC_STEP_ROUTES[resumeAt] : "/driver/onboarding/nin-upload");
         }}
       />
       <OnboardingSignOut />
@@ -73,6 +82,7 @@ export default function OnboardingWelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  resumeNote: { textAlign: "center", marginBottom: theme.spacing.sm },
   container: {
     paddingTop: theme.spacing.xxxl,
   },

@@ -3,7 +3,7 @@ import { Alert, AppState } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
 import { getStoredLocalAccessToken, storeLocalAccessToken } from "@/lib/access-token";
-import { refreshAccessToken } from "@/lib/api";
+import { checkSession, refreshAccessToken } from "@/lib/api";
 import { publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { renewSessionIfDue } from "@/lib/session-renewal";
@@ -31,6 +31,8 @@ export function SessionKeeper() {
         getToken: getStoredLocalAccessToken,
         refresh: (token) => refreshAccessToken(token),
         store: storeLocalAccessToken,
+        // Signed out from the dashboard: found out here, on opening the app, not screen by screen.
+        stillValid: (token) => checkSession(token),
       }).catch(() => "offline" as const);
 
       if (outcome === "renewed") {

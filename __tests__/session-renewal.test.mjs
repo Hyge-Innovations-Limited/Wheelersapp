@@ -76,3 +76,15 @@ test('opening the app twice at once renews once', async () => {
   assert.equal(calls, 1);
   assert.equal(RENEW_AFTER_MS, DAY * 1000);
 });
+
+test('signed in today but signed out from the dashboard: the server says so and the login ends', async () => {
+  const { d } = deps(token(3600), async () => assert.fail('too new to renew'));
+  assert.equal(await renewSessionIfDue({ ...d, stillValid: async () => { throw Object.assign(new Error('signed out'), { status: 401 }); } }), 'ended');
+});
+
+test('signed in today and still good, or the question cannot be asked: nothing changes', async () => {
+  const { d } = deps(token(3600), async () => assert.fail('too new to renew'));
+  assert.equal(await renewSessionIfDue({ ...d, stillValid: async () => ({ ok: true }) }), 'fresh');
+  assert.equal(await renewSessionIfDue({ ...d, stillValid: async () => { throw new Error('Network request failed'); } }), 'fresh', 'a bad connection never signs anyone out');
+  assert.equal(await renewSessionIfDue({ ...d, stillValid: async () => { throw Object.assign(new Error('no such route'), { status: 404 }); } }), 'fresh', 'an older server has no such question');
+});

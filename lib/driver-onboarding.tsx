@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { File } from "expo-file-system";
 import { resubmitDriverKyc, submitDriverKyc } from "@/lib/api";
-import { getAccessTokenWithRetry, type AccessTokenGetter } from "@/lib/access-token";
+import { getAccessTokenWithRetry, getStoredLocalAccessToken, type AccessTokenGetter } from "@/lib/access-token";
+import { DRAFT_KEY, draftFrom, draftHasProgress, restoreDraft } from "@/lib/driver-onboarding-draft";
 import { KYC_STEP_LABELS, stepsToWalk, type KycStep } from "@/lib/kyc-steps";
 
 export interface VehicleInfo {
@@ -57,6 +59,8 @@ interface DriverOnboardingContextValue {
    */
   submit: (getAccessToken: AccessTokenGetter, latest?: Partial<OnboardingData>) => Promise<void>;
   submitting: boolean;
+  /** What they had filled in before the app was closed has been put back (or there was nothing). */
+  restored: boolean;
 }
 
 const DriverOnboardingContext = createContext<DriverOnboardingContextValue | null>(null);
@@ -65,6 +69,18 @@ export function useDriverOnboarding() {
   const ctx = useContext(DriverOnboardingContext);
   if (!ctx) throw new Error("useDriverOnboarding must be inside DriverOnboardingProvider");
   return ctx;
+}
+
+/** Whose login this is, read from the token: a draft belongs to the person who started it. */
+function accountOf(token: string | null): string | null {
+  try {
+    const segment = (token ?? "").split(".")[1] ?? "";
+    const base64 = segment.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(segment.length / 4) * 4, "=");
+    const sub = (JSON.parse(atob(base64)) as { sub?: unknown }).sub;
+    return typeof sub === "string" && sub ? sub : null;
+  } catch {
+    return null;
+  }
 }
 
 async function uriToBase64(uri: string): Promise<string> {
@@ -100,6 +116,42 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
     vehicleDraft: null,
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Kept on the phone while they are still filling it in, so closing the app
+  // (or leaving it to read the text with their code) loses nothing.
+  const [restored, setRestored] = useState(false);
+  const owner = useRef<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        owner.current = accountOf(await getStoredLocalAccessToken());
+        if (!owner.current) return;
+        const kept = restoreDraft(await AsyncStorage.getItem(DRAFT_KEY), owner.current, Date.now(), (uri) => {
+          try {
+            return new File(uri).exists;
+          } catch {
+            return false;
+          }
+        });
+        // Only into an untouched form: what they have just done here wins.
+        if (live && kept) setData((prev) => (draftHasProgress(prev) ? prev : { ...prev, ...kept }));
+      } catch {
+        // Nothing kept, or it could not be read: they start as before.
+      } finally {
+        if (live) setRestored(true);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!restored || !owner.current) return;
+    if (!draftHasProgress(current)) return;
+    void AsyncStorage.setItem(DRAFT_KEY, draftFrom(current, owner.current, Date.now())).catch(() => undefined);
+  }, [current, restored]);
 
   const setNinUri = useCallback((uri: string) => {
     setData((prev) => ({ ...prev, ninUri: uri }));
@@ -201,6 +253,8 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
           ...data.legalDetails!,
         });
       }
+      // Sent: there is nothing left to pick up later.
+      await AsyncStorage.removeItem(DRAFT_KEY).catch(() => undefined);
     } finally {
       setSubmitting(false);
     }
@@ -209,7 +263,7 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
   const data = current;
 
   return (
-    <DriverOnboardingContext.Provider value={{ data, setNinUri, setLicenceUri, setSelfieUri, setVehiclePhotos, addVehiclePhoto, removeVehiclePhoto, setVehicleInfo, setLegalDetails, setPhoneVerified, startFix, startFull, submit, submitting }}>
+    <DriverOnboardingContext.Provider value={{ data, setNinUri, setLicenceUri, setSelfieUri, setVehiclePhotos, addVehiclePhoto, removeVehiclePhoto, setVehicleInfo, setLegalDetails, setPhoneVerified, startFix, startFull, submit, submitting, restored }}>
       {children}
     </DriverOnboardingContext.Provider>
   );

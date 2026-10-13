@@ -1562,6 +1562,14 @@ export async function refreshAccessToken(accessToken: string): Promise<{ accessT
   });
 }
 
+/** Is this login still good? Rejects with status 401 when it was signed out (by the person, or an admin). */
+export async function checkSession(accessToken: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>("GET", "/auth/session", {
+    accessToken,
+    fallbackError: "Could not check your login.",
+  });
+}
+
 export async function submitDriverKyc(input: {
   accessToken: string;
   ninImage: string;
