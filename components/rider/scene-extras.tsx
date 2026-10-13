@@ -34,14 +34,20 @@ function useMotion(run: () => Animated.CompositeAnimation | null, rest: () => vo
   }, []);
 }
 
-const PRICES = ["₦2,500", "₦1,800", "₦4,000"];
+/** Round fares a Lagos rider would recognise: ₦5,000 to ₦8,000 in steps of ₦500. */
+const FARES = [5000, 5500, 6000, 6500, 7000, 7500, 8000];
+const anotherFare = (last: number): number => {
+  const choices = FARES.filter((fare) => fare !== last);
+  return choices[Math.floor(Math.random() * choices.length)];
+};
 
 /**
  * A price being agreed, over and over: the rider names it, a driver takes it.
  * The whole idea of Wheelers, shown before a word is read.
  */
 export function PriceTalk({ bottom }: { bottom: number }) {
-  const [turn, setTurn] = useState(0);
+  // A different round fare each time, picked at random, never the same twice running.
+  const [fare, setFare] = useState(() => anotherFare(0));
   const offer = useRef(new Animated.Value(0)).current;
   const deal = useRef(new Animated.Value(0)).current;
 
@@ -63,7 +69,7 @@ export function PriceTalk({ bottom }: { bottom: number }) {
           const again = () =>
             round.start(({ finished }) => {
               if (!finished) return;
-              setTurn((current) => (current + 1) % PRICES.length);
+              setFare((current) => anotherFare(current));
               round.reset();
               again();
             });
@@ -88,7 +94,7 @@ export function PriceTalk({ bottom }: { bottom: number }) {
     <View pointerEvents="none" style={[styles.talk, { bottom }]}>
       <Animated.View style={[styles.bubble, styles.offer, pop(offer)]}>
         <Text style={styles.bubbleSmall}>You offer</Text>
-        <Text style={styles.bubblePrice}>{PRICES[turn]}</Text>
+        <Text style={styles.bubblePrice}>{`₦${fare.toLocaleString("en-NG")}`}</Text>
       </Animated.View>
       <Animated.View style={[styles.bubble, styles.deal, pop(deal)]}>
         <Ionicons color={brand.ink} name="checkmark-circle" size={18} />
