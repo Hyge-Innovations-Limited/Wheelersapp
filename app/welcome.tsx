@@ -10,7 +10,7 @@ import { DriveScene } from "@/components/rider/drive-scene";
 import { PriceTalk } from "@/components/rider/scene-extras";
 import { WheelersWordmark } from "@/components/wheelers-wordmark";
 import { brand } from "@/constants/brand";
-import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
+import { isDriverApp, publicEntryRoute, takeEntryRoute } from "@/lib/app-variant";
 import { readPendingCode } from "@/lib/rider-sign-in-state";
 import { theme } from "@/theme";
 
@@ -18,6 +18,8 @@ import { theme } from "@/theme";
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // Read once: a change of side may have asked for a particular screen to open on.
+  const [entry] = useState(takeEntryRoute);
 
   // A code was sent and they left to read it: straight back to typing it.
   useEffect(() => {
@@ -60,6 +62,11 @@ export default function WelcomeScreen() {
 
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
+  }
+
+  // Sent here by "I want to ride instead": straight on to the rider's sign-in.
+  if (entry === "/rider-phone") {
+    return <Redirect href="/rider-phone" />;
   }
 
   return (

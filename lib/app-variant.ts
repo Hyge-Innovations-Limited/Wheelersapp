@@ -4,6 +4,8 @@ export type AppVariant = "rider" | "driver";
 export type VariantPublicRoute = "/welcome" | "/rider-auth" | "/account-auth" | "/driver-auth";
 
 const MODE_KEY = "wheelers.app.mode";
+/** One screen to open on after a change of side, read once and forgotten. */
+const ENTRY_KEY = "wheelers.app.entry";
 
 /**
  * Wheelers is one app for riders and drivers. It ships as the app that used
@@ -55,8 +57,12 @@ export function isRoleAllowedInVariant(role: "RIDER" | "DRIVER" | "BOTH"): boole
  * on that side, which is the only way every provider agrees on who is using
  * it.
  */
-export async function switchAppSide(side: AppVariant): Promise<boolean> {
+export async function switchAppSide(side: AppVariant, entry?: string): Promise<boolean> {
   if (side === appVariant) return false;
+
+  // Where the app should open once it has restarted on the other side.
+  if (entry) await SecureStore.setItemAsync(ENTRY_KEY, entry);
+  else await SecureStore.deleteItemAsync(ENTRY_KEY).catch(() => undefined);
 
   if (side === "driver") {
     await SecureStore.setItemAsync(MODE_KEY, "driver");
@@ -73,4 +79,19 @@ export async function switchAppSide(side: AppVariant): Promise<boolean> {
     DevSettings.reload();
   }
   return true;
+}
+
+/**
+ * The screen a change of side asked to open on, handed back once: "I want to
+ * ride instead" restarts the app on the rider side and means the rider's
+ * sign-in, not the front page.
+ */
+export function takeEntryRoute(): string | null {
+  try {
+    const entry = SecureStore.getItem(ENTRY_KEY);
+    if (entry) void SecureStore.deleteItemAsync(ENTRY_KEY).catch(() => undefined);
+    return entry || null;
+  } catch {
+    return null;
+  }
 }

@@ -159,10 +159,11 @@ export default function DriverAuthScreen() {
       onSwitchSide={
         offersBothSides
           ? () =>
-              // Switching restarts the app on the rider side. When it is already
-              // there (this page was opened some other way), go to the rider's start.
-              void switchAppSide("rider").then((switched) => {
-                if (!switched) router.replace("/welcome");
+              // To the rider's sign-in, where they type their number. Switching
+              // restarts the app on the rider side and opens there; when it is
+              // already on that side, it just goes there.
+              void switchAppSide("rider", "/rider-phone").then((switched) => {
+                if (!switched) router.replace("/rider-phone");
               })
           : undefined
       }
