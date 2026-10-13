@@ -61,11 +61,37 @@ export function AuthEntryScreen({
     <AppScreen backgroundColor={brand.cream} contentStyle={styles.container}>
       <View style={styles.top}>
         <Animated.View entering={ZoomIn.duration(400)} style={styles.logoWrap}>
-          <WheelersWordmark width={224} />
+          {/* The clean black artwork inked orange, as on Welcome: the same mark on every first screen. */}
+          <WheelersWordmark ink="black" style={styles.orangeMark} width={224} />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          {label ? (
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.under}>
+          {onSwitchSide ? (
+            // Ride or Drive, side by side under the name: someone who meant to
+            // book a ride sees the way across at once, not in small print at the bottom.
+            <View accessibilityRole="tablist" style={styles.sides}>
+              <Pressable
+                accessibilityHint="Opens rider sign-in"
+                accessibilityLabel={switchSideLabel ?? "Ride"}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: false }}
+                disabled={busy}
+                onPress={onSwitchSide}
+                style={({ pressed }) => [styles.side, pressed && styles.sidePressed]}
+              >
+                <Ionicons name="car-sport-outline" size={18} color={brand.ink} />
+                <AppText variant="label" color={brand.ink}>
+                  Ride
+                </AppText>
+              </Pressable>
+              <View accessibilityRole="tab" accessibilityState={{ selected: true }} style={[styles.side, styles.sideOn]}>
+                <Ionicons name="speedometer-outline" size={18} color={brand.cream} />
+                <AppText variant="label" color={brand.cream}>
+                  Drive
+                </AppText>
+              </View>
+            </View>
+          ) : label ? (
             <AppText variant="label" color={brand.muted} style={styles.label}>
               {label}
             </AppText>
@@ -170,20 +196,6 @@ export function AuthEntryScreen({
           </AppText>
         </Pressable>
 
-        {onSwitchSide ? (
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy}
-            hitSlop={8}
-            onPress={onSwitchSide}
-            style={({ pressed }) => [styles.signInRow, pressed && styles.signInPressed]}
-          >
-            <AppText variant="label" color={brand.ink}>
-              {switchSideLabel ?? "I want to ride instead"}
-            </AppText>
-          </Pressable>
-        ) : null}
-
         <AppText variant="bodySmall" color={brand.muted} style={styles.terms}>
           By continuing you agree to our{" "}
           <AppText accessibilityRole="link" color={brand.ink} onPress={openTerms} style={styles.legalLink} variant="bodySmall">
@@ -205,6 +217,29 @@ const styles = StyleSheet.create({
   top: { alignItems: "center", gap: theme.spacing.lg },
   logoWrap: { marginBottom: theme.spacing.sm },
   label: { textAlign: "center", letterSpacing: 3 },
+  orangeMark: { tintColor: theme.colors.orange },
+  under: { alignItems: "center", gap: theme.spacing.md },
+  sides: {
+    flexDirection: "row",
+    padding: 4,
+    gap: 4,
+    borderWidth: theme.borders.thick,
+    borderColor: brand.ink,
+    borderRadius: 999,
+    backgroundColor: theme.colors.white,
+  },
+  side: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.xs,
+    minWidth: 112,
+    minHeight: 40,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: 999,
+  },
+  sideOn: { backgroundColor: brand.ink },
+  sidePressed: { backgroundColor: brand.hairline },
   tagline: { textAlign: "center", marginTop: theme.spacing.xs },
   buttons: { gap: theme.spacing.md, width: "100%" },
   button: {
