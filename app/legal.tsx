@@ -21,12 +21,12 @@ import {
   type LegalSection,
 } from "@/constants/legal-text";
 import { PRIVACY_URL, TERMS_URL } from "@/lib/legal-links";
-import { acceptTerms } from "@/lib/terms-acceptance";
+import { acceptTerms, forgetAfterAccepting, takeAfterAccepting } from "@/lib/terms-acceptance";
 
 type Doc = "terms" | "privacy";
 
 /** How close to the bottom counts as having reached the end. */
-const END_SLACK = 32;
+const END_SLACK = 96;
 
 /**
  * The Terms of Service and the privacy summary, read inside the app.
@@ -36,8 +36,8 @@ const END_SLACK = 32;
  *
  * In accept mode both are on the one screen (two tabs) and Accept wakes up
  * once the terms have been scrolled to the end. Accepting is remembered for
- * `who` on this phone and the screen closes; the screen that opened it carries
- * on. Declining just closes it.
+ * `who` on this phone, the screen closes, and whatever the person had tapped
+ * to get here carries on by itself. Declining just closes it.
  */
 export default function LegalScreen() {
   const router = useRouter();
@@ -47,6 +47,9 @@ export default function LegalScreen() {
   const who = accepting ? (params.who as string) : "";
 
   const scrollRef = useRef<ScrollView>(null);
+  // The text's height and the window it is read through: text that fits has no end to reach.
+  const contentHeight = useRef(0);
+  const viewHeight = useRef(0);
   const [doc, setDoc] = useState<Doc>(params.doc === "privacy" ? "privacy" : "terms");
   const [readTerms, setReadTerms] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,9 +63,15 @@ export default function LegalScreen() {
 
   const sections: LegalSection[] = doc === "terms" ? TERMS_SECTIONS : PRIVACY_SECTIONS;
 
-  function close() {
+  function leave() {
     if (router.canGoBack()) router.back();
     else router.replace("/welcome");
+  }
+
+  /** Closed or declined: nothing they were doing carries on. */
+  function close() {
+    forgetAfterAccepting();
+    leave();
   }
 
   function show(next: Doc) {
@@ -80,7 +89,11 @@ export default function LegalScreen() {
     if (saving || !readTerms) return;
     setSaving(true);
     await acceptTerms(who);
-    close();
+    // Back to where they were, then straight on with what they had tapped
+    // (Google, Apple, email, sending the code), once that screen is in front.
+    const carryOn = takeAfterAccepting();
+    leave();
+    if (carryOn) setTimeout(carryOn, 420);
   }
 
   return (
@@ -114,8 +127,15 @@ export default function LegalScreen() {
         contentContainerStyle={styles.body}
         onContentSizeChange={(_, height) => {
           // Short enough to fit without scrolling: there is no end to scroll to.
-          if (doc === "terms" && height > 0 && height < 400) setReadTerms(true);
+          contentHeight.current = height;
+          if (doc === "terms" && height > 0 && viewHeight.current > 0 && height <= viewHeight.current + END_SLACK) setReadTerms(true);
         }}
+        onLayout={(event) => {
+          viewHeight.current = event.nativeEvent.layout.height;
+          if (doc === "terms" && contentHeight.current > 0 && contentHeight.current <= viewHeight.current + END_SLACK) setReadTerms(true);
+        }}
+        onMomentumScrollEnd={onScroll}
+        onScrollEndDrag={onScroll}
         onScroll={onScroll}
         ref={scrollRef}
         scrollEventThrottle={64}

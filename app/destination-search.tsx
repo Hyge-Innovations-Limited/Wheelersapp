@@ -142,6 +142,8 @@ export default function DestinationSearchScreen() {
     destination?: string | string[];
     /** ISO time of a ride being scheduled; passed on to the price screen. */
     scheduledAt?: string | string[];
+    /** Which address was tapped to get here: "pickup", "destination", or a stop's number (0 first). */
+    edit?: string | string[];
   }>();
   const initialItinerary = useMemo(
     () => parseRideItineraryParam(params.itinerary),
@@ -412,7 +414,18 @@ export default function DestinationSearchScreen() {
   useEffect(() => {
     if (flowMode !== "booking") return;
     const missing = findFirstIncompleteTarget(seededItinerary);
-    moveTo(missing ?? seededItinerary.stops.length - 1, 320);
+    // An address tapped on the price screen opens on that address, ready to type over.
+    const wanted = Array.isArray(params.edit) ? params.edit[0] : params.edit;
+    const last = seededItinerary.stops.length - 1;
+    const tapped: InlineTarget | null =
+      wanted === "pickup"
+        ? "pickup"
+        : wanted === "destination"
+          ? last
+          : wanted !== undefined && /^\d+$/.test(wanted) && Number(wanted) <= last
+            ? Number(wanted)
+            : null;
+    moveTo(tapped ?? missing ?? last, 320);
     // Once, when the screen opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

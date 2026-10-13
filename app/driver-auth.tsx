@@ -6,7 +6,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { AuthEntryScreen, type AuthProvider } from "@/components/auth-entry";
 import { signInWithApple, signInWithGoogle } from "@/lib/api";
 import { offersBothSides, switchAppSide } from "@/lib/app-variant";
-import { DRIVER_TERMS_KEY, hasAcceptedTerms } from "@/lib/terms-acceptance";
+import { DRIVER_TERMS_KEY, afterAccepting, hasAcceptedTerms } from "@/lib/terms-acceptance";
 import { storeLocalAccessToken } from "@/lib/access-token";
 import { persistAuthenticatedRole } from "@/lib/auth-state";
 import { resolvePostAuthRoute } from "@/lib/post-auth";
@@ -24,13 +24,18 @@ export default function DriverAuthScreen() {
 
   /**
    * Whatever way a driver chooses to sign in, the terms come first, once on
-   * this phone: read, scroll, accept. Then they choose again and it goes
-   * straight through.
+   * this phone: read, scroll, accept. Accepting carries straight on with the
+   * way they chose; after that it goes straight through.
    */
   function afterTerms(carryOn: () => void) {
     void hasAcceptedTerms(DRIVER_TERMS_KEY).then((accepted) => {
-      if (accepted) carryOn();
-      else router.push({ pathname: "/legal", params: { mode: "accept", who: DRIVER_TERMS_KEY } });
+      if (accepted) {
+        carryOn();
+        return;
+      }
+      // Accepting carries straight on with what they tapped: no second tap.
+      afterAccepting(carryOn);
+      router.push({ pathname: "/legal", params: { mode: "accept", who: DRIVER_TERMS_KEY } });
     });
   }
 
@@ -152,7 +157,14 @@ export default function DriverAuthScreen() {
         afterTerms(() => router.push({ pathname: "/account-auth", params: { mode: "signin" } }))
       }
       onSwitchSide={
-        offersBothSides ? () => void switchAppSide("rider") : undefined
+        offersBothSides
+          ? () =>
+              // Switching restarts the app on the rider side. When it is already
+              // there (this page was opened some other way), go to the rider's start.
+              void switchAppSide("rider").then((switched) => {
+                if (!switched) router.replace("/welcome");
+              })
+          : undefined
       }
     />
   );

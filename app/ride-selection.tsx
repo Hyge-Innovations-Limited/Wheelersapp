@@ -296,13 +296,20 @@ export default function RideSelectionScreen() {
 
   const estimateParam = serializeRideEstimate(liveEstimate ?? fallbackEstimate);
 
-  const handleEditRoute = () => {
+  /**
+   * Opens the trip for changing. Tapping an address names which one (`edit`):
+   * the screen opens with that field selected and the keyboard up. The Edit
+   * link names none and opens on the destination.
+   */
+  const handleEditRoute = (edit?: string) => {
     router.push({
       pathname: "/destination-search",
       // Editing the route of a ride for later keeps it a ride for later.
-      params: scheduledAt
-        ? { itinerary: serializedItinerary, scheduledAt }
-        : { itinerary: serializedItinerary },
+      params: {
+        itinerary: serializedItinerary,
+        ...(scheduledAt ? { scheduledAt } : {}),
+        ...(edit ? { edit } : {}),
+      },
     });
   };
 
@@ -410,7 +417,13 @@ export default function RideSelectionScreen() {
         <RCard style={styles.routeCard}>
           <View style={styles.routeRows}>
             {routeRows.map((row, index) => (
-              <View key={row.id} style={styles.routeRow}>
+              <Pressable
+                accessibilityHint="Opens it for changing"
+                accessibilityLabel={`${row.label}: ${row.value || "not set"}`}
+                accessibilityRole="button"
+                key={row.id}
+                onPress={() => handleEditRoute(row.kind === "stop" ? String(index - 1) : row.kind)}
+                style={({ pressed }) => [styles.routeRow, pressed ? styles.routeRowPressed : null]}>
                 <View style={styles.routeRail}>
                   <View
                     style={[
@@ -432,13 +445,13 @@ export default function RideSelectionScreen() {
                     {row.value || "Not set"}
                   </RText>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </View>
           <RLink
             accessibilityLabel="Edit route"
             color={colors.orangeText}
-            onPress={handleEditRoute}
+            onPress={() => handleEditRoute()}
             style={styles.routeEdit}
             title="Edit"
           />
@@ -576,6 +589,7 @@ const styles = StyleSheet.create({
   routeText: { flex: 1, minWidth: 0, paddingBottom: 10 },
   routeLabel: { fontFamily: fonts.regular },
   routeEdit: { alignSelf: "center" },
+  routeRowPressed: { opacity: 0.55 },
 
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {

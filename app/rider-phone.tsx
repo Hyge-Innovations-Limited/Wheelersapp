@@ -21,7 +21,7 @@ import { sendPhoneLoginCode } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
 import { rememberPendingCode } from "@/lib/rider-sign-in-state";
-import { RIDER_TERMS_KEY, hasAcceptedTerms } from "@/lib/terms-acceptance";
+import { RIDER_TERMS_KEY, afterAccepting, hasAcceptedTerms } from "@/lib/terms-acceptance";
 
 /** A rider's way in: their phone number, the terms read and accepted, then a code. */
 export default function RiderPhoneScreen() {
@@ -53,11 +53,25 @@ export default function RiderPhoneScreen() {
 
   function readTerms() {
     setError(null);
+    if (!accepted) {
+      // Accepting sends the code straight away when the number is already in:
+      // nobody comes back here to press Continue as well.
+      const number = phone;
+      if (number) afterAccepting(() => void sendCode(number));
+    }
     router.push({ pathname: "/legal", params: accepted ? { doc: "terms" } : { mode: "accept", who: RIDER_TERMS_KEY } });
   }
 
-  async function sendCode() {
-    if (!phone || !accepted || sending) return;
+  /** Continue: with the terms accepted, the code goes out; without, the terms come first and then it does. */
+  function onContinue() {
+    if (!phone || sending) return;
+    if (accepted) void sendCode(phone);
+    else readTerms();
+  }
+
+  async function sendCode(number: string | null = phone) {
+    const phone = number;
+    if (!phone || sending) return;
     setSending(true);
     setError(null);
     try {
@@ -114,7 +128,7 @@ export default function RiderPhoneScreen() {
                 setTyped(groupNationalDigits(value));
                 setError(null);
               }}
-              onSubmitEditing={() => void sendCode()}
+              onSubmitEditing={onContinue}
               placeholder="803 123 4567"
               placeholderTextColor="#8C837A"
               returnKeyType="done"
@@ -149,9 +163,9 @@ export default function RiderPhoneScreen() {
           <View style={styles.spacer} />
 
           <RButton
-            disabled={!phone || !accepted}
+            disabled={!phone}
             loading={sending}
-            onPress={() => void sendCode()}
+            onPress={onContinue}
             title="Continue"
             variant="dark"
           />

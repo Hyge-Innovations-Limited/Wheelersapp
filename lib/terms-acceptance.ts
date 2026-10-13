@@ -42,3 +42,26 @@ export async function acceptTerms(who: string): Promise<void> {
 /** Who accepted: the rider side or the driver side of this phone. The two have their own sign-in, so each is asked once. */
 export const RIDER_TERMS_KEY = "rider";
 export const DRIVER_TERMS_KEY = "driver";
+
+/**
+ * What the person was doing when the terms were put in front of them
+ * (continuing with Google, sending their sign-in code). Accepting carries on
+ * with it, so they are never sent back to tap the same button twice. Closing
+ * or declining forgets it. One at a time: only one terms screen is ever open.
+ */
+let carryOn: (() => void) | null = null;
+
+export function afterAccepting(action: () => void): void {
+  carryOn = action;
+}
+
+/** Hands back what to carry on with, once. */
+export function takeAfterAccepting(): (() => void) | null {
+  const action = carryOn;
+  carryOn = null;
+  return action;
+}
+
+export function forgetAfterAccepting(): void {
+  carryOn = null;
+}
