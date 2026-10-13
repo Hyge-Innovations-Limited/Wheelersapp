@@ -72,7 +72,7 @@ export default function WelcomeScreen() {
         </Animated.View>
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
           <AppText color={brand.muted} style={styles.tagline} variant="body">
-            Your ride. Your price.
+            Ride or drive. Your price.
           </AppText>
         </Animated.View>
       </View>
