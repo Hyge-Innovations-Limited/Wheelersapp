@@ -44,7 +44,7 @@ export default function WelcomeScreen() {
       {/* The same wordmark, size and type as driver sign-in, so the app reads as one from the first screen. */}
       <View style={[styles.top, { paddingTop: insets.top + 80 }]}>
         <Animated.View entering={ZoomIn.duration(400)}>
-          <WheelersWordmark ink="black" width={224} />
+          <WheelersWordmark ink="black" style={styles.orangeMark} width={224} />
         </Animated.View>
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
           <AppText color={brand.muted} style={styles.tagline} variant="body">
@@ -85,6 +85,8 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  // The clean black artwork inked orange: the orange file's edges are rough at this size.
+  orangeMark: { tintColor: theme.colors.orange },
   screen: { flex: 1, backgroundColor: brand.cream },
   top: { flex: 1, alignItems: "center", gap: theme.spacing.lg, paddingHorizontal: theme.spacing.xl },
   tagline: { textAlign: "center" },
