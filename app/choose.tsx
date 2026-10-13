@@ -3,10 +3,13 @@ import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { BrandLogo } from "@/components/brand-logo";
-import { DriveScene } from "@/components/rider/drive-scene";
-import { RScreen, RText, rider } from "@/components/rider/kit";
+import { AppScreen } from "@/components/app-screen";
+import { AppText } from "@/components/app-text";
+import { BackArrow } from "@/components/back-arrow";
+import { WheelersWordmark } from "@/components/wheelers-wordmark";
+import { brand } from "@/constants/brand";
 import { isDriverApp, publicEntryRoute, switchAppSide } from "@/lib/app-variant";
+import { theme } from "@/theme";
 
 /** Ride or Drive. Riders go on to their phone number; drivers to driver sign-in. */
 export default function ChooseScreen() {
@@ -31,96 +34,104 @@ export default function ChooseScreen() {
   }
 
   return (
-    <RScreen contentStyle={styles.content}>
-      <View style={styles.brand}>
-        <BrandLogo size={52} />
-        <View>
-          <RText variant="heading">Wheelers</RText>
-          <RText color={rider.colors.muted} variant="smallBold">
-            Your ride. Your price.
-          </RText>
-        </View>
-      </View>
+    <AppScreen backgroundColor={brand.cream} contentStyle={styles.content}>
+      <BackArrow />
 
-      <View style={styles.intro}>
-        <RText variant="display" style={styles.headline}>
+      {/* The wordmark and type of driver sign-in, so nothing changes size on the way there. */}
+      <View style={styles.top}>
+        <WheelersWordmark ink="black" width={160} />
+        <AppText style={styles.center} variant="h2">
           {returning ? "Which account is yours?" : "Ride or drive?"}
-        </RText>
+        </AppText>
       </View>
 
-      <Pressable
-        accessibilityHint={returning ? "Sign in as a rider with your phone number" : "Book a ride and set your own price"}
-        accessibilityLabel="Ride"
-        accessibilityRole="button"
-        onPress={() => router.push("/rider-phone")}
-        style={({ pressed }) => [styles.ride, pressed ? styles.pressed : null]}>
-        <View style={styles.cardTop}>
-          <View style={styles.cardWords}>
-            <RText color={rider.colors.orange} variant="display">
-              Ride
-            </RText>
-            <RText color={rider.colors.onInkSoft}>
-              {returning ? "Sign in with your phone number." : "Book a ride at your price."}
-            </RText>
-          </View>
-          <View style={[styles.arrow, styles.arrowOrange]}>
-            <Ionicons color={rider.colors.ink} name="arrow-forward" size={22} />
-          </View>
-        </View>
-        <DriveScene dash={rider.colors.inkLine} ground="transparent" height={110} showSkyline={false} />
-      </Pressable>
+      {/* Two doors of the same size: neither side of the app is the lesser one. */}
+      <View style={styles.doors}>
+        <Door
+          hint={returning ? "Sign in as a rider with your phone number" : "Book a ride and set your own price"}
+          icon="car-sport-outline"
+          onPress={() => router.push("/rider-phone")}
+          subtitle={returning ? "Sign in with your phone number." : "Book a ride at your price."}
+          title="Ride"
+        />
+        <Door
+          disabled={switching}
+          hint={returning ? "Sign in as a driver with Apple, Google or email" : "Earn money driving with Wheelers"}
+          icon="speedometer-outline"
+          onPress={() => void drive()}
+          subtitle={returning ? "Sign in with Apple, Google or email." : "Earn on your schedule."}
+          title="Drive"
+        />
+      </View>
+    </AppScreen>
+  );
+}
 
-      <Pressable
-        accessibilityHint={returning ? "Sign in as a driver with Apple, Google or email" : "Earn money driving with Wheelers"}
-        accessibilityLabel="Drive"
-        accessibilityRole="button"
-        disabled={switching}
-        onPress={() => void drive()}
-        style={({ pressed }) => [styles.drive, pressed || switching ? styles.pressed : null]}>
-        <View style={styles.cardWords}>
-          <RText variant="title">Drive</RText>
-          <RText color={rider.colors.muted} variant="small">
-            {returning ? "Sign in with Apple, Google or email." : "Earn by driving."}
-          </RText>
-        </View>
-        <View style={[styles.arrow, styles.arrowOutline]}>
-          <Ionicons color={rider.colors.ink} name="arrow-forward" size={22} />
-        </View>
-      </Pressable>
-    </RScreen>
+function Door({
+  title,
+  subtitle,
+  hint,
+  icon,
+  disabled,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  hint: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityHint={hint}
+      accessibilityLabel={title}
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.door, pressed && styles.pressed, disabled && styles.disabled]}>
+      <View style={styles.doorIcon}>
+        <Ionicons color={brand.ink} name={icon} size={26} />
+      </View>
+      <View style={styles.doorWords}>
+        <AppText variant="h3">{title}</AppText>
+        <AppText color={brand.muted} variant="bodySmall">
+          {subtitle}
+        </AppText>
+      </View>
+      <Ionicons color={brand.ink} name="arrow-forward" size={22} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: 16, gap: 20 },
-  brand: { flexDirection: "row", alignItems: "center", gap: 12 },
-  intro: { gap: 6, paddingTop: 8 },
-  headline: { fontSize: 34, lineHeight: 36 },
-  ride: {
-    flex: 1,
-    minHeight: 250,
-    justifyContent: "space-between",
-    padding: 22,
-    paddingBottom: 0,
-    borderRadius: 26,
-    backgroundColor: rider.colors.ink,
-    overflow: "hidden",
-  },
-  drive: {
+  content: { paddingTop: theme.spacing.lg, gap: theme.spacing.xl },
+  top: { alignItems: "center", gap: theme.spacing.lg, paddingTop: theme.spacing.lg },
+  center: { textAlign: "center" },
+  doors: { gap: theme.spacing.md },
+  door: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    padding: 22,
-    borderRadius: 26,
-    borderWidth: 2,
-    borderColor: rider.colors.ink,
-    backgroundColor: rider.colors.card,
+    gap: theme.spacing.md,
+    minHeight: 96,
+    padding: theme.spacing.lg,
+    borderWidth: theme.borders.thick,
+    borderColor: brand.ink,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.white,
+    ...theme.shadows.card,
   },
-  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
-  cardWords: { flex: 1, gap: 4 },
-  arrow: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  arrowOrange: { backgroundColor: rider.colors.orange },
-  arrowOutline: { borderWidth: 2, borderColor: rider.colors.ink },
-  pressed: { opacity: 0.8 },
+  doorIcon: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: theme.borders.thick,
+    borderColor: brand.ink,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.orange,
+  },
+  doorWords: { flex: 1, gap: 2 },
+  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOpacity: 0, elevation: 0 },
+  disabled: { opacity: 0.6 },
 });

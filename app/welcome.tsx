@@ -1,15 +1,17 @@
 import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
-import Animated, { ZoomIn } from "react-native-reanimated";
+import { Pressable, StyleSheet, View } from "react-native";
+import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BrandLogo } from "@/components/brand-logo";
+import { AppText } from "@/components/app-text";
 import { DriveScene } from "@/components/rider/drive-scene";
-import { RButton, RLink, RText, rider } from "@/components/rider/kit";
+import { WheelersWordmark } from "@/components/wheelers-wordmark";
+import { brand } from "@/constants/brand";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { readPendingCode } from "@/lib/rider-sign-in-state";
+import { theme } from "@/theme";
 
 /** The first thing a signed-out person sees: the mark, the name, a car on the move. */
 export default function WelcomeScreen() {
@@ -39,37 +41,70 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
-      <View style={[styles.brand, { paddingTop: insets.top + 24 }]}>
-        <Animated.View entering={ZoomIn.duration(600)}>
-          <BrandLogo size={120} />
+      {/* The same wordmark, size and type as driver sign-in, so the app reads as one from the first screen. */}
+      <View style={[styles.top, { paddingTop: insets.top + 80 }]}>
+        <Animated.View entering={ZoomIn.duration(400)}>
+          <WheelersWordmark ink="black" width={224} />
         </Animated.View>
-        <RText variant="display" style={styles.name}>
-          Wheelers
-        </RText>
-        <RText color={rider.colors.muted} style={styles.tagline}>
-          Your ride. Your price.
-        </RText>
+        <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+          <AppText color={brand.muted} style={styles.tagline} variant="body">
+            Your ride. Your price.
+          </AppText>
+        </Animated.View>
       </View>
 
       <DriveScene height={210} />
 
-      <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
-        <RButton onPress={() => router.push("/choose")} title="Get started" />
+      <Animated.View
+        entering={FadeInDown.delay(250).duration(400)}
+        style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 12) + theme.spacing.lg }]}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/choose")}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+          <AppText color={brand.ink} variant="label">
+            Get started
+          </AppText>
+        </Pressable>
         {/* Riders and drivers both have accounts, so this asks which one too. */}
-        <RLink
-          color={rider.colors.cream}
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={8}
           onPress={() => router.push({ pathname: "/choose", params: { have: "1" } })}
-          title="I already have an account"
-        />
-      </View>
+          style={({ pressed }) => [styles.haveRow, pressed && styles.havePressed]}>
+          <AppText color="#CFC6B8" variant="bodySmall">
+            {"Already have an account? "}
+          </AppText>
+          <AppText color={theme.colors.orange} variant="label">
+            Sign in
+          </AppText>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: rider.colors.cream },
-  brand: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 24 },
-  name: { fontSize: 46, lineHeight: 50 },
-  tagline: { fontFamily: rider.fonts.semibold, fontSize: 18 },
-  actions: { backgroundColor: rider.colors.ink, paddingHorizontal: 24, paddingTop: 20, gap: 4 },
+  screen: { flex: 1, backgroundColor: brand.cream },
+  top: { flex: 1, alignItems: "center", gap: theme.spacing.lg, paddingHorizontal: theme.spacing.xl },
+  tagline: { textAlign: "center" },
+  actions: {
+    backgroundColor: brand.ink,
+    paddingHorizontal: theme.spacing.xl,
+    paddingTop: theme.spacing.lg,
+    gap: theme.spacing.lg,
+  },
+  button: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
+    width: "100%",
+    borderWidth: theme.borders.thick,
+    borderColor: brand.cream,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.orange,
+  },
+  pressed: { opacity: 0.85 },
+  haveRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", minHeight: 32 },
+  havePressed: { opacity: 0.6 },
 });
