@@ -2,11 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { AppScreen } from "@/components/app-screen";
 import { AppText } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import { DriveScene } from "@/components/rider/drive-scene";
+import { EarningCoins, PickupPin } from "@/components/rider/scene-extras";
 import { WheelersWordmark } from "@/components/wheelers-wordmark";
 import { brand } from "@/constants/brand";
 import { isDriverApp, publicEntryRoute, switchAppSide } from "@/lib/app-variant";
@@ -46,19 +48,23 @@ export default function ChooseScreen() {
         </AppText>
       </View>
 
-      {/* Two doors of the same size, each with the car on the move: neither side of the app is the lesser one. */}
+      {/* Two doors of the same size, each showing what is behind it: on Ride the
+          car comes to where you are waiting; on Drive the car is earning. The
+          cars drive in as the one on Welcome drives off: one road, two screens. */}
       <View style={styles.doors}>
         <Door
           hint={returning ? "Sign in as a rider with your phone number" : "Book a ride and set your own price"}
           dark
           onPress={() => router.push("/rider-phone")}
-          subtitle={returning ? "Sign in with your phone number." : "Book a ride at your price."}
+          order={0}
+          subtitle={returning ? "Sign in with your phone number." : "Name your price. A driver comes to you."}
           title="Ride"
         />
         <Door
           disabled={switching}
           hint={returning ? "Sign in as a driver with Apple, Google or email" : "Earn money driving with Wheelers"}
           onPress={() => void drive()}
+          order={1}
           subtitle={returning ? "Sign in with Apple, Google or email." : "Earn on your schedule."}
           title="Drive"
         />
@@ -72,6 +78,7 @@ function Door({
   subtitle,
   hint,
   dark,
+  order,
   disabled,
   onPress,
 }: {
@@ -80,37 +87,44 @@ function Door({
   hint: string;
   /** The ink door (Ride); the other is the white one (Drive). */
   dark?: boolean;
+  /** 0 for the first door, 1 for the second: they arrive one after the other. */
+  order: number;
   disabled?: boolean;
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityHint={hint}
-      accessibilityLabel={title}
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [styles.door, dark ? styles.doorDark : null, pressed && styles.pressed, disabled && styles.disabled]}>
-      <View style={styles.doorTop}>
-        <View style={styles.doorWords}>
-          <AppText color={dark ? theme.colors.orange : brand.ink} variant="h2">
-            {title}
-          </AppText>
-          <AppText color={dark ? "#CFC6B8" : brand.muted} variant="bodySmall">
-            {subtitle}
-          </AppText>
+    <Animated.View entering={FadeInDown.delay(80 + order * 120).duration(380)} style={styles.doorWrap}>
+      <Pressable
+        accessibilityHint={hint}
+        accessibilityLabel={title}
+        accessibilityRole="button"
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => [styles.door, dark ? styles.doorDark : null, pressed && styles.pressed, disabled && styles.disabled]}>
+        <View style={styles.doorTop}>
+          <View style={styles.doorWords}>
+            <AppText color={dark ? theme.colors.orange : brand.ink} variant="h2">
+              {title}
+            </AppText>
+            <AppText color={dark ? "#CFC6B8" : brand.muted} variant="bodySmall">
+              {subtitle}
+            </AppText>
+          </View>
+          <View style={[styles.arrow, dark ? styles.arrowDark : null]}>
+            <Ionicons color={brand.ink} name="arrow-forward" size={22} />
+          </View>
         </View>
-        <View style={[styles.arrow, dark ? styles.arrowDark : null]}>
-          <Ionicons color={brand.ink} name="arrow-forward" size={22} />
-        </View>
-      </View>
-      <DriveScene
-        dash={dark ? "#3A3A3A" : brand.hairline}
-        ground="transparent"
-        height={96}
-        showSkyline={false}
-      />
-    </Pressable>
+        <DriveScene
+          arrive
+          arriveDelay={200 + order * 160}
+          dash={dark ? "#3A3A3A" : brand.hairline}
+          ground="transparent"
+          height={190}
+          showSkyline={false}>
+          {dark ? <PickupPin bottom={30} right={14} /> : <EarningCoins bottom={106} />}
+        </DriveScene>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -121,6 +135,7 @@ const styles = StyleSheet.create({
   top: { alignItems: "center", gap: theme.spacing.lg, paddingTop: theme.spacing.lg },
   center: { textAlign: "center" },
   doors: { flex: 1, gap: theme.spacing.md, paddingBottom: theme.spacing.lg },
+  doorWrap: { flex: 1 },
   door: {
     flex: 1,
     justifyContent: "space-between",
@@ -145,6 +160,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
   },
   arrowDark: { backgroundColor: theme.colors.orange, borderColor: theme.colors.orange },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   disabled: { opacity: 0.6 },
 });

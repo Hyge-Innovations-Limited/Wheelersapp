@@ -13,6 +13,10 @@ const STRIP = 390;
  * The Wheelers car driving past a skyline: the road slides, the city drifts
  * and the car bobs. It holds still for anyone who has asked the phone to
  * reduce motion.
+ *
+ * The car can also carry a person from one screen to the next: `leaving`
+ * drives it off to the right, and `arrive` brings it in from the left, so a
+ * screen that follows another reads as the same journey.
  */
 export function DriveScene({
   height = 200,
@@ -20,16 +24,54 @@ export function DriveScene({
   skyline = rider.colors.tint,
   dash = rider.colors.cream,
   showSkyline = true,
+  arrive = false,
+  arriveDelay = 0,
+  leaving = false,
+  children,
 }: {
   height?: number;
   ground?: string;
   skyline?: string;
   dash?: string;
   showSkyline?: boolean;
+  /** The car drives in from the left when the scene appears. */
+  arrive?: boolean;
+  arriveDelay?: number;
+  /** Set to true to send the car off to the right. */
+  leaving?: boolean;
+  /** Drawn over the scene: a pickup pin, coins, a price. */
+  children?: React.ReactNode;
 }) {
   const city = useRef(new Animated.Value(0)).current;
   const road = useRef(new Animated.Value(0)).current;
   const bob = useRef(new Animated.Value(0)).current;
+  const travel = useRef(new Animated.Value(arrive ? -1 : 0)).current;
+
+  // In from the left on arrival; off to the right on leaving; back to rest otherwise.
+  useEffect(() => {
+    let cancelled = false;
+    void AccessibilityInfo.isReduceMotionEnabled().then((still) => {
+      if (cancelled) return;
+      if (still) {
+        travel.setValue(0);
+        return;
+      }
+      if (leaving) {
+        Animated.timing(travel, { toValue: 1, duration: 420, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start();
+      } else {
+        Animated.timing(travel, {
+          toValue: 0,
+          duration: 760,
+          delay: arriveDelay,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [arriveDelay, leaving, travel]);
 
   useEffect(() => {
     let loops: Animated.CompositeAnimation[] = [];
@@ -103,7 +145,12 @@ export function DriveScene({
         style={[
           styles.car,
           { bottom: roadHeight - 20 },
-          { transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -2] }) }] },
+          {
+            transform: [
+              { translateX: travel.interpolate({ inputRange: [-1, 0, 1], outputRange: [-360, 0, 440] }) },
+              { translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -2] }) },
+            ],
+          },
         ]}>
         <Svg height={100} viewBox="86 236 204 100" width={204}>
           <Path
@@ -118,6 +165,7 @@ export function DriveScene({
           <Circle cx={242} cy={320} fill="#FFFFFF" r={7} />
         </Svg>
       </Animated.View>
+      {children}
     </View>
   );
 }

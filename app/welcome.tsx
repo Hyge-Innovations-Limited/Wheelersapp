@@ -1,12 +1,13 @@
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText } from "@/components/app-text";
 import { DriveScene } from "@/components/rider/drive-scene";
+import { PriceTalk } from "@/components/rider/scene-extras";
 import { WheelersWordmark } from "@/components/wheelers-wordmark";
 import { brand } from "@/constants/brand";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
@@ -34,6 +35,29 @@ export default function WelcomeScreen() {
     };
   }, [router]);
 
+  // The car carries the person on: it drives off, and the next screen's cars
+  // drive in, so the two screens read as one road. Back here, it is waiting.
+  const [leaving, setLeaving] = useState(false);
+  const going = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      setLeaving(false);
+      return () => {
+        if (going.current) clearTimeout(going.current);
+        going.current = null;
+      };
+    }, []),
+  );
+
+  function go(returning: boolean) {
+    if (going.current) return;
+    setLeaving(true);
+    going.current = setTimeout(() => {
+      going.current = null;
+      router.push(returning ? { pathname: "/choose", params: { have: "1" } } : "/choose");
+    }, 330);
+  }
+
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
   }
@@ -53,14 +77,17 @@ export default function WelcomeScreen() {
         </Animated.View>
       </View>
 
-      <DriveScene height={210} />
+      {/* What Wheelers is, shown before a word is read: a price named, a driver taking it. */}
+      <DriveScene height={270} leaving={leaving}>
+        <PriceTalk bottom={132} />
+      </DriveScene>
 
       <Animated.View
         entering={FadeInDown.delay(250).duration(400)}
         style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 12) + theme.spacing.lg }]}>
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push("/choose")}
+          onPress={() => go(false)}
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
           <AppText color={brand.ink} variant="label">
             Get started
@@ -70,7 +97,7 @@ export default function WelcomeScreen() {
         <Pressable
           accessibilityRole="button"
           hitSlop={8}
-          onPress={() => router.push({ pathname: "/choose", params: { have: "1" } })}
+          onPress={() => go(true)}
           style={({ pressed }) => [styles.haveRow, pressed && styles.havePressed]}>
           <AppText color="#CFC6B8" variant="bodySmall">
             {"Already have an account? "}
