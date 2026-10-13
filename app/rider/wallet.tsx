@@ -30,7 +30,7 @@ export default function WalletScreen() {
   const { overview, error: overviewError, refresh: refreshWalletOverview } = useWalletOverview();
   const { hidden: balanceHidden, toggle: toggleBalanceHidden } = useBalanceHidden();
   const transactions = useWalletTransactions(RECENT_COUNT);
-  const deposit = useDepositAccount({ provision: false });
+  const deposit = useDepositAccount({ provision: true });
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
   const handledRedirectRef = useRef<string | null>(null);

@@ -601,6 +601,12 @@ export default function DestinationSearchScreen() {
     void requestLocationAccess().then(() => refreshLocation());
   };
 
+  /** Empties From and leaves the cursor there, with "Use my current location" one tap below. */
+  const handleClearPickup = () => {
+    applyRoute(writeRouteValue(currentRoute(), "pickup", ""));
+    moveTo("pickup");
+  };
+
   const handleClearDestination = () => {
     const route = writeRouteValue(currentRoute(), destinationIndex, "");
     applyRoute(route);
@@ -660,6 +666,7 @@ export default function DestinationSearchScreen() {
   const fieldText = (target: InlineTarget, committed: string) =>
     activeInline === target && isDraftDirty ? searchQuery : committed;
   const destinationText = fieldText(destinationIndex, destinationValue);
+  const pickupText = fieldText("pickup", pickupValue);
 
   return (
     <RScreen contentStyle={styles.container} scroll={false}>
@@ -674,6 +681,17 @@ export default function DestinationSearchScreen() {
 
       <View style={styles.card}>
         <RouteField
+          accessory={
+            pickupText.length > 0 ? (
+              <Pressable
+                accessibilityLabel="Clear pickup"
+                accessibilityRole="button"
+                onPress={handleClearPickup}
+                style={({ pressed }) => [styles.fieldButton, pressed ? styles.pressed : null]}>
+                <Ionicons color={colors.muted} name="close-circle" size={21} />
+              </Pressable>
+            ) : null
+          }
           active={fromIsActive}
           inputRef={(node) => {
             inputRefs.current.pickup = node;
@@ -684,7 +702,7 @@ export default function DestinationSearchScreen() {
           onFocus={() => handleFieldFocus("pickup")}
           onSubmit={handleSearchSubmit}
           placeholder="Search pickup"
-          value={fieldText("pickup", pickupValue)}
+          value={pickupText}
         />
 
         {intermediateStops.map((stop, index) => (

@@ -190,8 +190,10 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       const cached = lastAddressRef.current;
       const nearCache =
         cached &&
-        Math.abs(cached.lat - latitude) < 0.003 &&
-        Math.abs(cached.lng - longitude) < 0.003;
+        // About 60 metres: the address shown for a pickup is the one for this
+        // spot, not for somewhere a few streets back (it was 330 metres).
+        Math.abs(cached.lat - latitude) < 0.00055 &&
+        Math.abs(cached.lng - longitude) < 0.00055;
 
       // Coordinates land NOW — matching, the map arrow and GPS pings must
       // never wait on a network geocoder.
@@ -227,9 +229,11 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     subscriptionRef.current?.remove();
     subscriptionRef.current = await Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.Balanced,
-        distanceInterval: 25,
-        timeInterval: 15_000,
+        // The exact spot, not the neighbourhood: this is where a driver is sent.
+        // Balanced can be a street or two out; High uses GPS.
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 10,
+        timeInterval: 5_000,
       },
       (position) => {
         void updateCurrentLocation(
@@ -242,8 +246,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 
   const refreshLocation = useCallback(async (): Promise<void> => {
     try {
+      // Something to show at once: where the phone last knew it was, if that is recent.
+      const last = await Location.getLastKnownPositionAsync({ maxAge: 60_000, requiredAccuracy: 100 }).catch(() => null);
+      if (last) await updateCurrentLocation(last.coords.latitude, last.coords.longitude);
+      // Then the exact spot from GPS, which is what a pickup is set from.
       const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
       await updateCurrentLocation(
         position.coords.latitude,
