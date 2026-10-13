@@ -1,4 +1,5 @@
 import * as Clipboard from "expo-clipboard";
+import { RIDER_TERMS_KEY } from "@/lib/terms-acceptance";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -175,6 +176,32 @@ export default function RiderAddMoneyScreen() {
               size="md"
               style={styles.stateButton}
               title="Try again"
+              variant="onInk"
+            />
+          </View>
+        ) : deposit.status === "terms-required" ? (
+          <View accessibilityLiveRegion="polite" style={styles.stateBox}>
+            <RText color={rider.colors.cream} variant="bodyBold">
+              Accept the terms to add money
+            </RText>
+            <RText color={rider.colors.onInkSoft} style={styles.stateText} variant="small">
+              Your account number is opened with our payment partner, who needs your name and phone number.
+            </RText>
+            <RButton
+              accessibilityLabel="Read and accept the terms"
+              onPress={() =>
+                router.push({
+                  pathname: "/legal",
+                  params: {
+                    mode: "answer",
+                    who: RIDER_TERMS_KEY,
+                    next: JSON.stringify({ pathname: "/rider-add-money", params: {} }),
+                  },
+                })
+              }
+              size="md"
+              style={styles.stateButton}
+              title="Read and accept"
               variant="onInk"
             />
           </View>

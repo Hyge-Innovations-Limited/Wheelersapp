@@ -8,7 +8,16 @@ import { sendPhoneLoginCode, verifyPhoneLoginCode } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { persistAuthenticatedRole } from "@/lib/auth-state";
 import { useAuth } from "@/lib/auth";
-import { clearNameNeeded, forgetPendingCode, markNameNeeded, rememberPendingCode } from "@/lib/rider-sign-in-state";
+import {
+  clearNameNeeded,
+  clearTermsToAnswer,
+  forgetPendingCode,
+  markNameNeeded,
+  markTermsToAnswer,
+  rememberPendingCode,
+} from "@/lib/rider-sign-in-state";
+import { RIDER_TERMS_KEY, acceptTerms, hasAcceptedTerms } from "@/lib/terms-acceptance";
+import { termsCarried } from "@/lib/consent-sync";
 import { secondsUntil } from "@/lib/countdown";
 import {
   CODE_LENGTH,
@@ -19,7 +28,11 @@ import {
   spacedPhone,
 } from "@/lib/rider-sign-in";
 
-/** Type the 6-digit code, which always comes by SMS. A known number goes to "welcome back"; a new one to a short sign-up. */
+/**
+ * Type the 6-digit code, which always comes by SMS. A known number goes to
+ * "welcome back"; a new one to a short sign-up. An account that has not agreed
+ * to the terms (here or on WhatsApp) reads and answers them first.
+ */
 export default function RiderCodeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ phone?: string; sentAt?: string }>();
@@ -69,6 +82,20 @@ export default function RiderCodeScreen() {
       // comes back to the name screen.
       if (needsName) await markNameNeeded();
       else await clearNameNeeded();
+      // The terms are agreed once for the account, in the app or on WhatsApp.
+      // The server says which (an older server says nothing: then this phone's
+      // own record stands). Agreed: never shown. Not yet: shown once, now.
+      const agreed =
+        result.privacyConsent === "AGREED" ||
+        (result.privacyConsent === undefined && (await hasAcceptedTerms(RIDER_TERMS_KEY)));
+      // Sign-in has asked the account itself: no older answer on this phone speaks for it.
+      await termsCarried();
+      if (agreed) {
+        await acceptTerms(RIDER_TERMS_KEY);
+        await clearTermsToAnswer();
+      } else {
+        await markTermsToAnswer();
+      }
       await storeLocalAccessToken(result.accessToken);
       await persistAuthenticatedRole("RIDER");
       await refreshAuthState();
@@ -77,12 +104,16 @@ export default function RiderCodeScreen() {
       // walk into them again.
       if (router.canDismiss()) router.dismissAll();
 
-      if (needsName) {
-        router.replace("/rider-new");
+      const next = needsName
+        ? { pathname: "/rider-new", params: {} }
+        : { pathname: "/rider-welcome-back", params: { name: firstNameOf(name), email: result.user.email ?? "" } };
+      if (agreed) {
+        router.replace(next as never);
       } else {
+        // Read, then Accept or Decline; either way they go on to where they were headed.
         router.replace({
-          pathname: "/rider-welcome-back",
-          params: { name: firstNameOf(name), email: result.user.email ?? "" },
+          pathname: "/legal",
+          params: { mode: "answer", who: RIDER_TERMS_KEY, next: JSON.stringify(next) },
         });
       }
     } catch (failure) {

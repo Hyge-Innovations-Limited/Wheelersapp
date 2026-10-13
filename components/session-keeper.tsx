@@ -5,6 +5,7 @@ import { useRouter, type Href } from "expo-router";
 import { getStoredLocalAccessToken, storeLocalAccessToken } from "@/lib/access-token";
 import { checkSession, refreshAccessToken } from "@/lib/api";
 import { publicEntryRoute } from "@/lib/app-variant";
+import { carryTermsToAccount } from "@/lib/consent-sync";
 import { useAuth } from "@/lib/auth";
 import { renewSessionIfDue } from "@/lib/session-renewal";
 
@@ -34,6 +35,11 @@ export function SessionKeeper() {
         // Signed out from the dashboard: found out here, on opening the app, not screen by screen.
         stillValid: (token) => checkSession(token),
       }).catch(() => "offline" as const);
+
+      // An answer to the terms given before answers were kept on the account goes up to it, once.
+      if (outcome === "fresh" || outcome === "renewed") {
+        void getStoredLocalAccessToken().then((token) => (token ? carryTermsToAccount(token) : undefined));
+      }
 
       if (outcome === "renewed") {
         await refreshAuthState();

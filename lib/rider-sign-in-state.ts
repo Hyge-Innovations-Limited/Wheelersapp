@@ -68,3 +68,26 @@ export async function isNameNeeded(): Promise<boolean> {
 export async function clearNameNeeded(): Promise<void> {
   await AsyncStorage.removeItem(NEEDS_NAME_KEY).catch(() => undefined);
 }
+
+/**
+ * This rider's account has not answered the terms yet (not here, not on
+ * WhatsApp). Said when they sign in, so closing the app on the terms comes
+ * back to the terms; cleared the moment they accept or decline.
+ */
+const TERMS_TO_ANSWER_KEY = "wheelers.rider.terms-to-answer";
+
+export async function markTermsToAnswer(): Promise<void> {
+  await AsyncStorage.setItem(TERMS_TO_ANSWER_KEY, "1").catch(() => undefined);
+}
+
+export async function hasTermsToAnswer(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(TERMS_TO_ANSWER_KEY)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export async function clearTermsToAnswer(): Promise<void> {
+  await AsyncStorage.removeItem(TERMS_TO_ANSWER_KEY).catch(() => undefined);
+}

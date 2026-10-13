@@ -1,9 +1,14 @@
+import { recordPrivacyConsent } from "@/lib/api";
 import { checkDriverKyc, routeForKyc } from "@/lib/driver-kyc";
+import { DRIVER_TERMS_KEY, hasAcceptedTerms } from "@/lib/terms-acceptance";
 import {
   getAuthenticatedRoute,
   type AuthenticatedRoute,
   type StoredAuthState,
 } from "@/lib/auth-state";
+
+/** The driver's acceptance has been sent to their account during this run of the app. */
+let driverTermsSent = false;
 
 export type PostAuthRoute =
   | AuthenticatedRoute
@@ -25,6 +30,17 @@ export async function resolvePostAuthRoute(
 ): Promise<PostAuthRoute> {
   if (state.role !== "DRIVER") {
     return getAuthenticatedRoute(state);
+  }
+
+  // A driver accepts the terms on this phone before signing in. That answer
+  // goes on their account, so WhatsApp does not ask them again. Once per run.
+  if (!driverTermsSent) {
+    driverTermsSent = true;
+    void hasAcceptedTerms(DRIVER_TERMS_KEY)
+      .then((accepted) => (accepted ? recordPrivacyConsent(accessToken, "AGREED") : undefined))
+      .catch(() => {
+        driverTermsSent = false;
+      });
   }
 
   // The server's answer; when it cannot be reached, its last answer. Never

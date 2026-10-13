@@ -1,4 +1,5 @@
-import { isNameNeeded } from "@/lib/rider-sign-in-state";
+import { hasTermsToAnswer, isNameNeeded } from "@/lib/rider-sign-in-state";
+import { RIDER_TERMS_KEY } from "@/lib/terms-acceptance";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
@@ -138,6 +139,15 @@ export default function SplashScreen() {
         const route = await resolvePostAuthRoute(storedAuthState, token);
         if (cancelled || hasNavigated.current) return;
         navigate(route);
+        return;
+      }
+
+      // Signed in, but they left the terms unanswered: back to them, then on.
+      if (storedAuthState && (await hasTermsToAnswer())) {
+        if (cancelled || hasNavigated.current) return;
+        hasNavigated.current = true;
+        const next = { pathname: (await isNameNeeded()) ? "/rider-new" : "/rider", params: {} };
+        router.replace({ pathname: "/legal", params: { mode: "answer", who: RIDER_TERMS_KEY, next: JSON.stringify(next) } });
         return;
       }
 

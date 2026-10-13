@@ -20,6 +20,8 @@ export type DepositAccountState =
   | { status: "pending"; message: string }
   /** The bank will not open an account without a verified phone number. */
   | { status: "phone-required"; message: string }
+  /** They declined the terms: no account is opened until they accept. */
+  | { status: "terms-required"; message: string }
   | { status: "error"; message: string }
   /** No account, and this screen does not open one. */
   | { status: "none" };
@@ -112,7 +114,9 @@ export function useDepositAccount(options: { provision: boolean }): DepositAccou
         next =
           error instanceof ApiError && error.code === "PHONE_REQUIRED"
             ? { status: "phone-required", message }
-            : { status: "error", message };
+            : error instanceof ApiError && error.code === "CONSENT_REQUIRED"
+              ? { status: "terms-required", message }
+              : { status: "error", message };
       }
       if (!alive.current) return;
       setFlow(next);

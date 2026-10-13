@@ -1,7 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -21,52 +20,27 @@ import { sendPhoneLoginCode } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
 import { rememberPendingCode } from "@/lib/rider-sign-in-state";
-import { RIDER_TERMS_KEY, afterAccepting, hasAcceptedTerms } from "@/lib/terms-acceptance";
 
-/** A rider's way in: their phone number, the terms read and accepted, then a code. */
+/** A rider's way in: their phone number, then a code. The terms are answered after the code, once per account. */
 export default function RiderPhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [typed, setTyped] = useState("");
-  const [accepted, setAccepted] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const phone = riderPhoneFrom(typed);
-
-  // Ticked once the terms have been read and accepted on this phone; checked
-  // again every time this screen comes back from the terms.
-  useFocusEffect(
-    useCallback(() => {
-      let live = true;
-      void hasAcceptedTerms(RIDER_TERMS_KEY).then((yes) => {
-        if (live) setAccepted(yes);
-      });
-      return () => {
-        live = false;
-      };
-    }, []),
-  );
 
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
   }
 
+  /** The terms, to read. Agreeing is asked once for the account, after the code, and only if it has not agreed already (here or on WhatsApp). */
   function readTerms() {
-    setError(null);
-    if (!accepted) {
-      // Accepting sends the code straight away when the number is already in:
-      // nobody comes back here to press Continue as well.
-      const number = phone;
-      if (number) afterAccepting(() => void sendCode(number));
-    }
-    router.push({ pathname: "/legal", params: accepted ? { doc: "terms" } : { mode: "accept", who: RIDER_TERMS_KEY } });
+    router.push({ pathname: "/legal", params: { doc: "terms" } });
   }
 
-  /** Continue: with the terms accepted, the code goes out; without, the terms come first and then it does. */
   function onContinue() {
-    if (!phone || sending) return;
-    if (accepted) void sendCode(phone);
-    else readTerms();
+    if (phone && !sending) void sendCode(phone);
   }
 
   async function sendCode(number: string | null = phone) {
@@ -138,19 +112,9 @@ export default function RiderPhoneScreen() {
             />
           </View>
 
-          {/* The tick is given by reading: tapping it opens the terms, and Accept there ticks it. */}
-          <Pressable
-            accessibilityHint={accepted ? "Opens the terms to read again" : "Opens the terms to read and accept"}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: accepted }}
-            hitSlop={6}
-            onPress={readTerms}
-            style={({ pressed }) => [styles.agree, pressed ? styles.pressed : null]}>
-            <View style={[styles.check, accepted ? styles.checkOn : null]}>
-              {accepted ? <Ionicons color={rider.colors.cream} name="checkmark" size={16} /> : null}
-            </View>
+          <Pressable accessibilityRole="link" hitSlop={8} onPress={readTerms} style={({ pressed }) => [styles.agree, pressed ? styles.pressed : null]}>
             <Text style={styles.agreeText}>
-              I accept the <Text style={styles.agreeLink}>Terms and Privacy Policy</Text>
+              Read the <Text style={styles.agreeLink}>Terms and Privacy Policy</Text>
             </Text>
           </Pressable>
 

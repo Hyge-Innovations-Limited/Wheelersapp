@@ -3,6 +3,7 @@ import * as WebBrowser from "expo-web-browser";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
+  BackHandler,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,7 +21,10 @@ import {
   TERMS_UPDATED,
   type LegalSection,
 } from "@/constants/legal-text";
+import { getStoredLocalAccessToken } from "@/lib/access-token";
+import { recordPrivacyConsent } from "@/lib/api";
 import { PRIVACY_URL, TERMS_URL } from "@/lib/legal-links";
+import { clearTermsToAnswer } from "@/lib/rider-sign-in-state";
 import { acceptTerms, forgetAfterAccepting, takeAfterAccepting } from "@/lib/terms-acceptance";
 
 type Doc = "terms" | "privacy";
@@ -33,17 +37,28 @@ const END_SLACK = 96;
  *
  *   /legal?doc=terms|privacy            to read: reached from links and menus
  *   /legal?mode=accept&who=<key>        to read and answer: Accept or Decline
+ *   /legal?mode=answer&who=<key>&next=  the account's own answer, asked once
+ *                                       after sign-in when it has not agreed
+ *                                       here or on WhatsApp
  *
  * In accept mode both are on the one screen (two tabs) and Accept wakes up
  * once the terms have been scrolled to the end. Accepting is remembered for
  * `who` on this phone, the screen closes, and whatever the person had tapped
  * to get here carries on by itself. Declining just closes it.
+ *
+ * In answer mode the answer is the account's: it is saved on the server, so
+ * WhatsApp and every other phone know it and never ask again. Either answer
+ * lets the person on to `next`; there is no way out of the screen but to give
+ * one. Someone who declines is asked again the next time they sign in.
  */
 export default function LegalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ doc?: string; mode?: string; who?: string }>();
-  const accepting = params.mode === "accept" && typeof params.who === "string" && params.who.length > 0;
+  const params = useLocalSearchParams<{ doc?: string; mode?: string; who?: string; next?: string }>();
+  /** The account's own answer, asked after sign-in. */
+  const answering = params.mode === "answer";
+  const accepting =
+    (params.mode === "accept" || answering) && typeof params.who === "string" && params.who.length > 0;
   const who = accepting ? (params.who as string) : "";
 
   const scrollRef = useRef<ScrollView>(null);
@@ -85,7 +100,43 @@ export default function LegalScreen() {
     if (contentOffset.y + layoutMeasurement.height >= contentSize.height - END_SLACK) setReadTerms(true);
   }
 
+  // Answering for the account: there is no way out but an answer.
+  useEffect(() => {
+    if (!answering) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => subscription.remove();
+  }, [answering]);
+
+  /** Where an answer leads: the route this screen was handed, or Home. */
+  function onward() {
+    try {
+      const next = JSON.parse(typeof params.next === "string" ? params.next : "") as { pathname?: unknown; params?: unknown };
+      if (typeof next.pathname === "string" && next.pathname.startsWith("/")) {
+        router.replace({ pathname: next.pathname, params: (next.params ?? {}) as Record<string, string> } as never);
+        return;
+      }
+    } catch {
+      // Nothing usable handed in: Home.
+    }
+    router.replace("/rider");
+  }
+
+  /** The account's answer, saved on the server (so WhatsApp knows it) and then on. A save that fails is sent again when the app next opens. */
+  async function answer(consent: "AGREED" | "DECLINED") {
+    if (saving || (consent === "AGREED" && !readTerms)) return;
+    setSaving(true);
+    try {
+      if (consent === "AGREED") await acceptTerms(who);
+      const token = await getStoredLocalAccessToken();
+      if (token) await recordPrivacyConsent(token, consent).catch(() => undefined);
+      await clearTermsToAnswer();
+    } finally {
+      onward();
+    }
+  }
+
   async function accept() {
+    if (answering) return answer("AGREED");
     if (saving || !readTerms) return;
     setSaving(true);
     await acceptTerms(who);
@@ -101,7 +152,9 @@ export default function LegalScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <RBack icon={accepting ? "close" : "chevron-back"} label={accepting ? "Close" : "Back"} onPress={close} />
+        {answering ? null : (
+          <RBack icon={accepting ? "close" : "chevron-back"} label={accepting ? "Close" : "Back"} onPress={close} />
+        )}
         <View style={styles.headerText}>
           <RText variant="heading">{doc === "terms" ? "Terms of Service" : "Privacy"}</RText>
           <RText variant="caption">Last updated {TERMS_UPDATED}</RText>
@@ -172,7 +225,13 @@ export default function LegalScreen() {
             </Text>
           )}
           <RButton disabled={!readTerms} loading={saving} onPress={() => void accept()} title="Accept" />
-          <RButton onPress={close} size="md" title="Decline" variant="ghost" />
+          <RButton
+            disabled={saving}
+            onPress={answering ? () => void answer("DECLINED") : close}
+            size="md"
+            title="Decline"
+            variant="ghost"
+          />
         </View>
       ) : null}
     </View>

@@ -774,6 +774,8 @@ export interface PhoneLoginResponse {
   tokenType: "Bearer";
   /** True when this number had no Wheelers account until now. */
   isNewUser: boolean;
+  /** Whether this account has agreed to the terms and privacy policy, here or on WhatsApp. Absent on older servers. */
+  privacyConsent?: "PENDING" | "AGREED" | "DECLINED";
   user: BackendUser;
 }
 
@@ -1560,6 +1562,19 @@ export async function refreshAccessToken(accessToken: string): Promise<{ accessT
     accessToken,
     fallbackError: "Could not renew your login.",
   });
+}
+
+/** Has this account agreed to the terms and privacy policy, in the app or on WhatsApp? */
+export async function getPrivacyConsent(accessToken: string): Promise<{ privacyConsent: "PENDING" | "AGREED" | "DECLINED" }> {
+  return requestJson("GET", "/auth/privacy-consent", { accessToken, fallbackError: "Could not check the terms." });
+}
+
+/** Records the person's answer on their account, so WhatsApp and every phone know it. */
+export async function recordPrivacyConsent(
+  accessToken: string,
+  consent: "AGREED" | "DECLINED",
+): Promise<{ privacyConsent: "PENDING" | "AGREED" | "DECLINED" }> {
+  return postJson("/auth/privacy-consent", { consent }, { accessToken, fallbackError: "Could not save your answer." });
 }
 
 /** Is this login still good? Rejects with status 401 when it was signed out (by the person, or an admin). */
