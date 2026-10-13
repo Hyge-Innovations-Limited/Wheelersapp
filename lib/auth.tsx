@@ -1,3 +1,6 @@
+import { termsNotChecked } from "@/lib/consent-sync";
+import { clearTermsToAnswer } from "@/lib/rider-sign-in-state";
+import { forgetAcceptedTerms } from "@/lib/terms-acceptance";
 import React, {
   createContext,
   useCallback,
@@ -79,6 +82,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await clearStoredAuthState();
     // Balances, account numbers, trips: nothing of theirs stays on the phone.
     await clearCachedQueries();
+    // Nor their answer to the terms: the next person to sign in here is asked for their own.
+    await forgetAcceptedTerms();
+    await clearTermsToAnswer();
+    await termsNotChecked();
     setHasToken(false);
   }, []);
 

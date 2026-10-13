@@ -7,7 +7,9 @@ import { TERMS_VERSION } from "@/constants/legal-text";
  * driver side, or both. Kept per version of the terms, so when the terms
  * change everyone is asked again.
  */
-const ACCEPTED_KEY = "wheelers.terms.accepted";
+// "2": ticks from before an acceptance was tied to a sign-in are not read. They
+// outlived logouts, so they could not say who had made them.
+const ACCEPTED_KEY = "wheelers.terms.accepted.2";
 
 type Accepted = { version: string; who: string[] };
 
@@ -37,6 +39,15 @@ export async function acceptTerms(who: string): Promise<void> {
   if (accepted.includes(who)) return;
   const next: Accepted = { version: TERMS_VERSION, who: [...accepted, who].slice(-20) };
   await AsyncStorage.setItem(ACCEPTED_KEY, JSON.stringify(next)).catch(() => undefined);
+}
+
+/**
+ * Forget who accepted on this phone. Done at logout: an acceptance belongs to
+ * the person who gave it, and the next person to sign in on this phone has
+ * not given one.
+ */
+export async function forgetAcceptedTerms(): Promise<void> {
+  await AsyncStorage.removeItem(ACCEPTED_KEY).catch(() => undefined);
 }
 
 /** Who accepted: the rider side or the driver side of this phone. The two have their own sign-in, so each is asked once. */

@@ -1,34 +1,52 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { getPrivacyConsent, recordPrivacyConsent } from "@/lib/api";
-import { DRIVER_TERMS_KEY, RIDER_TERMS_KEY, acceptTerms, hasAcceptedTerms } from "@/lib/terms-acceptance";
+import { getPrivacyConsent } from "@/lib/api";
+import { markTermsToAnswer } from "@/lib/rider-sign-in-state";
+import { RIDER_TERMS_KEY, acceptTerms } from "@/lib/terms-acceptance";
 
 /**
- * The terms are agreed once for the account, in the app or on WhatsApp.
- * Before that was so, accepting in the app was remembered only on the phone,
- * and WhatsApp asked the same person again. This carries that old answer up
- * to the account, once per install, for whoever is signed in when the app
- * first opens after the change. From then on sign-in does the asking.
+ * The terms are agreed once for the account, in the app or on WhatsApp, and
+ * only the account's own record is believed. A tick left on a phone says
+ * nothing about who made it (two people can share a phone), so it is never
+ * sent up as anyone's answer.
+ *
+ * Sign-in asks the account. This covers the people who were already signed
+ * in when that began: the first time the app opens, their account is asked
+ * too. Agreed: nothing shows. Not agreed: a rider is shown the terms once,
+ * like anyone signing in.
  */
-const CARRIED_KEY = "wheelers.terms.carried-to-account";
+const CHECKED_KEY = "wheelers.terms.account-checked";
 
-/** Sign-in under the new rule has dealt with it: nothing old to carry. */
-export async function termsCarried(): Promise<void> {
-  await AsyncStorage.setItem(CARRIED_KEY, "1").catch(() => undefined);
+/** Sign-in has asked the account: there is nothing left to check. */
+export async function termsChecked(): Promise<void> {
+  await AsyncStorage.setItem(CHECKED_KEY, "1").catch(() => undefined);
 }
 
-export async function carryTermsToAccount(accessToken: string): Promise<void> {
+/** Signed out: whoever signs in next is asked afresh. */
+export async function termsNotChecked(): Promise<void> {
+  await AsyncStorage.removeItem(CHECKED_KEY).catch(() => undefined);
+}
+
+/**
+ * Asks the account, once, for someone signed in before sign-in did the asking.
+ * Resolves to "ask" when a rider's account has not agreed and the terms should
+ * be shown; "nothing" otherwise (agreed, already checked, a driver, or the
+ * server could not be reached, in which case it is tried again next time).
+ */
+export async function checkTermsForAccount(accessToken: string, role: "RIDER" | "DRIVER" | null): Promise<"ask" | "nothing"> {
   try {
-    if ((await AsyncStorage.getItem(CARRIED_KEY)) === "1") return;
-    const acceptedHere = (await hasAcceptedTerms(RIDER_TERMS_KEY)) || (await hasAcceptedTerms(DRIVER_TERMS_KEY));
-    if (acceptedHere) {
-      await recordPrivacyConsent(accessToken, "AGREED");
-    } else if ((await getPrivacyConsent(accessToken)).privacyConsent === "AGREED") {
-      // Agreed on WhatsApp: this phone need not ask.
+    if ((await AsyncStorage.getItem(CHECKED_KEY)) === "1") return "nothing";
+    const { privacyConsent } = await getPrivacyConsent(accessToken);
+    await termsChecked();
+    if (privacyConsent === "AGREED") {
       await acceptTerms(RIDER_TERMS_KEY);
+      return "nothing";
     }
-    await termsCarried();
+    // A driver accepts before signing in, each time they sign in on a phone.
+    if (role !== "RIDER") return "nothing";
+    await markTermsToAnswer();
+    return "ask";
   } catch {
-    // The server could not be reached, or is an older one: tried again next time the app opens.
+    return "nothing";
   }
 }

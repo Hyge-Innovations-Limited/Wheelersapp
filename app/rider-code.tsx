@@ -17,7 +17,7 @@ import {
   rememberPendingCode,
 } from "@/lib/rider-sign-in-state";
 import { RIDER_TERMS_KEY, acceptTerms, hasAcceptedTerms } from "@/lib/terms-acceptance";
-import { termsCarried } from "@/lib/consent-sync";
+import { termsChecked } from "@/lib/consent-sync";
 import { secondsUntil } from "@/lib/countdown";
 import {
   CODE_LENGTH,
@@ -89,7 +89,7 @@ export default function RiderCodeScreen() {
         result.privacyConsent === "AGREED" ||
         (result.privacyConsent === undefined && (await hasAcceptedTerms(RIDER_TERMS_KEY)));
       // Sign-in has asked the account itself: no older answer on this phone speaks for it.
-      await termsCarried();
+      await termsChecked();
       if (agreed) {
         await acceptTerms(RIDER_TERMS_KEY);
         await clearTermsToAnswer();

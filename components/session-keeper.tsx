@@ -5,7 +5,9 @@ import { useRouter, type Href } from "expo-router";
 import { getStoredLocalAccessToken, storeLocalAccessToken } from "@/lib/access-token";
 import { checkSession, refreshAccessToken } from "@/lib/api";
 import { publicEntryRoute } from "@/lib/app-variant";
-import { carryTermsToAccount } from "@/lib/consent-sync";
+import { readStoredAuthState } from "@/lib/auth-state";
+import { checkTermsForAccount } from "@/lib/consent-sync";
+import { RIDER_TERMS_KEY } from "@/lib/terms-acceptance";
 import { useAuth } from "@/lib/auth";
 import { renewSessionIfDue } from "@/lib/session-renewal";
 
@@ -36,9 +38,17 @@ export function SessionKeeper() {
         stillValid: (token) => checkSession(token),
       }).catch(() => "offline" as const);
 
-      // An answer to the terms given before answers were kept on the account goes up to it, once.
+      // Someone signed in before the terms were kept on the account: their account
+      // is asked once. A rider whose account has not agreed reads them now.
       if (outcome === "fresh" || outcome === "renewed") {
-        void getStoredLocalAccessToken().then((token) => (token ? carryTermsToAccount(token) : undefined));
+        const token = await getStoredLocalAccessToken();
+        const role = (await readStoredAuthState().catch(() => null))?.role ?? null;
+        if (token && (await checkTermsForAccount(token, role === "RIDER" || role === "DRIVER" ? role : null)) === "ask") {
+          router.push({
+            pathname: "/legal",
+            params: { mode: "answer", who: RIDER_TERMS_KEY, next: JSON.stringify({ pathname: "/rider", params: {} }) },
+          } as never);
+        }
       }
 
       if (outcome === "renewed") {
