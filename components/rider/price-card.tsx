@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, type ReactNode } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { naira, rider } from "@/constants/rider-theme";
 
@@ -43,6 +43,7 @@ export function PriceCard({
   amountNgn,
   minNgn,
   onChange,
+  loading = false,
   children,
 }: {
   label: string;
@@ -52,9 +53,11 @@ export function PriceCard({
   amountNgn: number;
   minNgn: number;
   onChange: (next: number) => void;
+  /** The price for this trip is still on its way: no number is shown, and nothing can be changed yet. */
+  loading?: boolean;
   children?: ReactNode;
 }) {
-  const atFloor = amountNgn <= minNgn;
+  const atFloor = loading || amountNgn <= minNgn;
 
   function change(next: number) {
     if (next === amountNgn) return;
@@ -68,7 +71,11 @@ export function PriceCard({
         <Text maxFontSizeMultiplier={1.2} style={styles.label}>
           {label}
         </Text>
-        {sideLabel && sideValue ? (
+        {loading && sideLabel ? (
+          <Text maxFontSizeMultiplier={1.2} style={styles.side}>
+            {sideLabel} <Text style={styles.sideValue}>…</Text>
+          </Text>
+        ) : sideLabel && sideValue ? (
           <Text maxFontSizeMultiplier={1.2} style={styles.side}>
             {sideLabel} <Text style={styles.sideValue}>{sideValue}</Text>
           </Text>
@@ -91,27 +98,103 @@ export function PriceCard({
           <Ionicons color={colors.cream} name="remove" size={26} />
         </Pressable>
 
-        <Text
-          accessibilityLiveRegion="polite"
-          adjustsFontSizeToFit
-          maxFontSizeMultiplier={1}
-          minimumFontScale={0.5}
-          numberOfLines={1}
-          style={styles.figure}>
-          {naira(amountNgn)}
-        </Text>
+        {loading ? (
+          <View style={styles.figureSlot}>
+            <PriceShimmer />
+          </View>
+        ) : (
+          <PriceDrop>
+            <Text
+              accessibilityLiveRegion="polite"
+              adjustsFontSizeToFit
+              maxFontSizeMultiplier={1}
+              minimumFontScale={0.5}
+              numberOfLines={1}
+              style={styles.figure}>
+              {naira(amountNgn)}
+            </Text>
+          </PriceDrop>
+        )}
 
         <Pressable
           accessibilityLabel="Raise by 100 naira"
           accessibilityRole="button"
+          accessibilityState={{ disabled: loading }}
+          disabled={loading}
           onPress={() => change(stepPriceUp(amountNgn))}
-          style={({ pressed }) => [styles.round, styles.plus, pressed ? styles.pressed : null]}>
+          style={({ pressed }) => [styles.round, styles.plus, loading ? styles.dimmed : null, pressed ? styles.pressed : null]}>
           <Ionicons color={colors.ink} name="add" size={26} />
         </Pressable>
       </View>
 
       {children}
     </View>
+  );
+}
+
+/**
+ * Where the price goes while it is on its way: a bar with a light sweeping
+ * across it, again and again, so the screen plainly says "working on it"
+ * without showing a number that might be wrong.
+ */
+export function PriceShimmer({ width = 168, height = 44, onInk = true }: { width?: number; height?: number; onInk?: boolean }) {
+  const sweep = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(sweep, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [sweep]);
+  const band = Math.max(40, Math.round(width * 0.45));
+  return (
+    <View
+      accessibilityLabel="Getting the price for this trip"
+      accessible
+      style={{
+        width,
+        height,
+        borderRadius: Math.min(12, height / 2),
+        backgroundColor: onInk ? colors.inkLine : colors.line,
+        overflow: "hidden",
+        alignSelf: "center",
+      }}>
+      <Animated.View
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          width: band,
+          backgroundColor: onInk ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.7)",
+          transform: [
+            { translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [-band, width] }) },
+            { skewX: "-18deg" },
+          ],
+        }}
+      />
+    </View>
+  );
+}
+
+/**
+ * The price arriving: it drops into place with a small bounce and a tap on
+ * the hand, so the moment the real quote lands is felt as well as seen.
+ */
+function PriceDrop({ children }: { children: ReactNode }) {
+  const drop = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.spring(drop, { toValue: 1, friction: 6, tension: 120, useNativeDriver: true }).start();
+  }, [drop]);
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity: drop.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 1] }),
+        transform: [{ translateY: drop.interpolate({ inputRange: [0, 1], outputRange: [-22, 0] }) }],
+      }}>
+      {children}
+    </Animated.View>
   );
 }
 
@@ -160,8 +243,8 @@ const styles = StyleSheet.create({
   round: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
   minus: { borderWidth: 2, borderColor: colors.inkLine },
   plus: { backgroundColor: colors.orange },
+  figureSlot: { flex: 1, alignItems: "center", justifyContent: "center" },
   figure: {
-    flex: 1,
     textAlign: "center",
     fontFamily: fonts.display,
     fontSize: 54,

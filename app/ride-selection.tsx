@@ -15,7 +15,7 @@ import {
   naira,
   rider,
 } from "@/components/rider/kit";
-import { PriceCard, PriceCardNote, comparePrice } from "@/components/rider/price-card";
+import { PriceCard, PriceCardNote, PriceShimmer, comparePrice } from "@/components/rider/price-card";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import {
   getRideEstimate,
@@ -26,12 +26,10 @@ import { useAuth } from "@/lib/auth";
 import { resolvePlaceQuery } from "@/lib/google-places";
 import { createIdempotencyKey } from "@/lib/idempotency";
 import {
-  buildInstantRideEstimate,
   parseRideEstimateParam,
   serializeRideEstimate,
 } from "@/lib/ride-estimate";
 import {
-  estimateRide,
   parseRideItineraryParam,
   serializeRideItinerary,
 } from "@/lib/ride-route";
@@ -139,17 +137,14 @@ export default function RideSelectionScreen() {
     () => parseRideEstimateParam(params.estimate),
     [params.estimate],
   );
-  const instantPreview = useMemo(() => estimateRide(itinerary), [itinerary]);
-  const fallbackEstimate = useMemo(
-    () => buildInstantRideEstimate(itinerary),
-    [itinerary],
-  );
+  // Only ever the server's price for this route. A guess shown first and then
+  // corrected ("₦3,800", then "₦10,000") is worse than a moment of nothing.
   const [liveEstimate, setLiveEstimate] = useState<RideEstimateResponse | null>(
-    initialEstimate ?? fallbackEstimate,
+    hasResolvedLiveEstimate(initialEstimate) ? initialEstimate : null,
   );
-  const [isEstimateLoading, setIsEstimateLoading] = useState(
-    () => isBackendConfigured() && !hasResolvedLiveEstimate(initialEstimate),
-  );
+  /** The price could not be fetched: said, with a way to try again, instead of a guess. */
+  const [estimateFailed, setEstimateFailed] = useState(false);
+  const [estimateAttempt, setEstimateAttempt] = useState(0);
   /**
    * What the rider is willing to pay. Wheelers is a bidding market: the fare
    * shown is a suggestion, and the number that actually goes to drivers is
@@ -172,33 +167,29 @@ export default function RideSelectionScreen() {
     ? (Array.isArray(params.estimate) ? params.estimate[0] : params.estimate)
     : "";
   useEffect(() => {
-    setLiveEstimate(initialEstimate ?? fallbackEstimate);
-    setIsEstimateLoading(
-      isBackendConfigured() && !hasResolvedLiveEstimate(initialEstimate),
-    );
+    setLiveEstimate(hasResolvedLiveEstimate(initialEstimate) ? initialEstimate : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serializedEstimateParam, serializedItinerary]);
 
   useEffect(() => {
     if (!isBackendConfigured() || !isReady || !user) {
-      setIsEstimateLoading(false);
       return;
     }
 
     const destinationLabel = itinerary.stops[itinerary.stops.length - 1];
     if (!destinationLabel) {
-      setIsEstimateLoading(false);
       return;
     }
 
     let cancelled = false;
-    setIsEstimateLoading(true);
+    setEstimateFailed(false);
 
+    // At once: the trip screen has usually started this same request already,
+    // and addresses and prices are kept, so this joins it rather than repeating it.
     const timeout = setTimeout(async () => {
       try {
         const accessToken = await getAccessTokenWithRetry(getAccessToken);
         if (!accessToken || cancelled) {
-          if (!cancelled) setIsEstimateLoading(false);
           return;
         }
 
@@ -220,12 +211,11 @@ export default function RideSelectionScreen() {
         });
         if (!cancelled) {
           setLiveEstimate(response);
-          setIsEstimateLoading(false);
         }
       } catch {
-        if (!cancelled) setIsEstimateLoading(false);
+        if (!cancelled) setEstimateFailed(true);
       }
-    }, 50);
+    }, 0);
 
     return () => {
       cancelled = true;
@@ -233,7 +223,7 @@ export default function RideSelectionScreen() {
     };
     // Use serialized string to avoid object-reference re-fires
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getAccessToken, isReady, serializedItinerary, user]);
+  }, [getAccessToken, isReady, serializedItinerary, user, estimateAttempt]);
 
   const resolvedEstimate = hasResolvedLiveEstimate(liveEstimate)
     ? liveEstimate
@@ -242,13 +232,11 @@ export default function RideSelectionScreen() {
     ? getLiveEstimateFareNgn(liveEstimate)
     : null;
   /** The price Wheelers suggests for this trip: the server's fare for the route. */
-  const suggestedNgn =
-    liveEstimateFareNgn !== null
-      ? liveEstimateFareNgn
-      : instantPreview.priceNgn;
+  const suggestedNgn = liveEstimateFareNgn ?? 0;
 
   const hasLiveFare = Boolean(resolvedEstimate && liveEstimateFareNgn !== null);
-  const isFareResolving = isEstimateLoading && !hasLiveFare;
+  /** No real price for this route yet (still coming, or it failed): nothing priced is shown or sent. */
+  const isFareResolving = !hasLiveFare;
 
   // The server's own floor for this trip (the fare at 90% of the recommended
   // rate): an offer under it is refused, so the stepper stops there. Until
@@ -260,10 +248,8 @@ export default function RideSelectionScreen() {
 
   const tripMinutes = resolvedEstimate
     ? Math.max(1, Math.ceil(resolvedEstimate.plannedDurationSeconds / 60))
-    : instantPreview.etaMinutes;
-  const distanceLabel = resolvedEstimate
-    ? `${resolvedEstimate.plannedDistanceKm.toFixed(1)} km`
-    : instantPreview.distanceLabel;
+    : null;
+  const distanceLabel = resolvedEstimate ? `${resolvedEstimate.plannedDistanceKm.toFixed(1)} km` : null;
 
   const scheduleSummary = scheduledAt ? formatScheduledAt(scheduledAt) : null;
   const pickupFullAddress = getFullPlaceLabel(
@@ -294,7 +280,7 @@ export default function RideSelectionScreen() {
     scheduledRideIdempotencyKeyRef.current = null;
   }, [scheduledAt, serializedItinerary]);
 
-  const estimateParam = serializeRideEstimate(liveEstimate ?? fallbackEstimate);
+  const estimateParam = resolvedEstimate ? serializeRideEstimate(resolvedEstimate) : undefined;
 
   /**
    * Opens the trip for changing. Tapping an address names which one (`edit`):
@@ -316,7 +302,7 @@ export default function RideSelectionScreen() {
   const handleSchedule = () => {
     router.push({
       pathname: "/schedule-ride",
-      params: { itinerary: serializedItinerary, estimate: estimateParam },
+      params: { itinerary: serializedItinerary, ...(estimateParam ? { estimate: estimateParam } : {}) },
     });
   };
 
@@ -385,7 +371,7 @@ export default function RideSelectionScreen() {
       pathname: "/matching",
       params: {
         itinerary: serializedItinerary,
-        estimate: estimateParam,
+        ...(estimateParam ? { estimate: estimateParam } : {}),
         offer: String(effectiveOfferNgn),
       },
     });
@@ -459,22 +445,43 @@ export default function RideSelectionScreen() {
 
         <View style={styles.chips}>
           <View style={styles.chip}>
-            <RText variant="smallBold">{distanceLabel}</RText>
+            {distanceLabel ? <RText variant="smallBold">{distanceLabel}</RText> : <PriceShimmer height={16} onInk={false} width={56} />}
           </View>
           <View style={styles.chip}>
-            <RText variant="smallBold">About {tripMinutes} min</RText>
+            {tripMinutes !== null ? (
+              <RText variant="smallBold">About {tripMinutes} min</RText>
+            ) : (
+              <PriceShimmer height={16} onInk={false} width={72} />
+            )}
           </View>
         </View>
+
+        {estimateFailed && !hasLiveFare ? (
+          <RCard style={styles.infoCard}>
+            <Ionicons color={colors.danger} name="cloud-offline-outline" size={24} />
+            <View style={styles.infoText}>
+              <RText variant="bodyBold">We couldn&apos;t get the price</RText>
+              <RText variant="small" color={colors.muted}>
+                Check your connection, then try again.
+              </RText>
+            </View>
+            <RLink color={colors.orangeText} onPress={() => setEstimateAttempt((count) => count + 1)} title="Try again" />
+          </RCard>
+        ) : null}
 
         {scheduledAt ? (
           <>
             <RCard style={styles.estimateCard}>
               <RText variant="small" color={colors.muted}>
-                {isFareResolving ? "Checking the price for this route" : "Suggested price"}
+                {isFareResolving ? "Getting the price for this route" : "Suggested price"}
               </RText>
-              <RText variant="figure" color={colors.orangeText} style={styles.estimateFigure}>
-                {naira(suggestedNgn)}
-              </RText>
+              {isFareResolving ? (
+                <PriceShimmer onInk={false} />
+              ) : (
+                <RText variant="figure" color={colors.orangeText} style={styles.estimateFigure}>
+                  {naira(suggestedNgn)}
+                </RText>
+              )}
             </RCard>
 
             <RCard style={styles.infoCard}>
@@ -492,14 +499,15 @@ export default function RideSelectionScreen() {
             <PriceCard
               amountNgn={effectiveOfferNgn}
               label="Your offer"
+              loading={isFareResolving}
               minNgn={minOfferNgn}
               onChange={setOfferNgn}
               sideLabel="Suggested price"
               sideValue={naira(suggestedNgn)}>
-              {comparison ? <PriceCardNote strong>{comparison}</PriceCardNote> : null}
+              {comparison && !isFareResolving ? <PriceCardNote strong>{comparison}</PriceCardNote> : null}
               <PriceCardNote>
                 {isFareResolving
-                  ? "Checking the price for this route."
+                  ? "Getting the price for this route."
                   : effectiveOfferNgn <= minOfferNgn
                     ? "This is the minimum offer for this trip."
                     : `Minimum offer: ${naira(minOfferNgn)}`}
@@ -529,7 +537,7 @@ export default function RideSelectionScreen() {
           </>
         )}
 
-        {balanceNgn !== null ? (
+        {balanceNgn !== null && !isFareResolving ? (
           <RCard style={styles.infoCard}>
             <Ionicons color={colors.ink} name="wallet-outline" size={24} />
             <View style={styles.infoText}>
@@ -563,7 +571,9 @@ export default function RideSelectionScreen() {
           disabled={isFareResolving}
           loading={isSubmitting}
           onPress={() => void handleBookRide()}
-          title={scheduledAt ? "Schedule ride" : `Find drivers at ${naira(effectiveOfferNgn)}`}
+          title={
+            isFareResolving ? "Getting your price…" : scheduledAt ? "Schedule ride" : `Find drivers at ${naira(effectiveOfferNgn)}`
+          }
         />
       </View>
     </RScreen>

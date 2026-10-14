@@ -32,7 +32,6 @@ import {
 } from "@/lib/place-search-history";
 import { useSavedPlaces } from "@/lib/saved-places";
 import {
-  buildInstantRideEstimate,
   serializeRideEstimate,
 } from "@/lib/ride-estimate";
 import {
@@ -485,17 +484,17 @@ export default function DestinationSearchScreen() {
     // An estimate fetched for an earlier version of the route is not this
     // route's estimate; the price screen fetches its own when given the
     // instant one.
+    // The quote fetched for this exact route, if it is in; otherwise the price
+    // screen picks up the request already on its way. Never a made-up figure.
     const estimate =
-      prefetchedEstimate && prefetchedEstimate.key === serializedItinerary
-        ? prefetchedEstimate.estimate
-        : buildInstantRideEstimate(itinerary);
+      prefetchedEstimate && prefetchedEstimate.key === serializedItinerary ? prefetchedEstimate.estimate : null;
 
     Keyboard.dismiss();
     router.push({
       pathname: "/ride-selection",
       params: {
         itinerary: serializedItinerary,
-        estimate: serializeRideEstimate(estimate),
+        ...(estimate ? { estimate: serializeRideEstimate(estimate) } : {}),
         ...(scheduledAt ? { scheduledAt } : null),
       },
     });
