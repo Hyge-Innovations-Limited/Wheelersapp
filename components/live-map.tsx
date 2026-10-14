@@ -25,6 +25,8 @@ type LiveMapProps = PropsWithChildren<{
     longitudeDelta: number;
   };
   fitPadding?: Partial<EdgePadding>;
+  /** Tapping the blue dot of where the phone is. Without it the dot is just shown. */
+  onMyLocationPress?: () => void;
 }>;
 
 const defaultInitialDelta = {
@@ -44,6 +46,7 @@ export function LiveMap({
   initialCenter,
   initialDelta = defaultInitialDelta,
   fitPadding,
+  onMyLocationPress,
 }: LiveMapProps) {
   const mapRef = useRef<import("react-native-maps").default | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -205,8 +208,22 @@ export function LiveMap({
         showsTraffic
         style={StyleSheet.absoluteFill}
         toolbarEnabled={false}
+        userLocationCalloutEnabled={false}
         ref={mapRef}
       >
+        {/* The blue dot itself can't be tapped on every phone, so an
+            invisible target sits on it, big enough for a thumb. */}
+        {onMyLocationPress && currentLocation ? (
+          <Marker
+            accessibilityLabel="Set your pickup"
+            anchor={{ x: 0.5, y: 0.5 }}
+            coordinate={toLatLng(currentLocation)}
+            onPress={onMyLocationPress}
+            tracksViewChanges={false}>
+            <View style={styles.myLocationTarget} />
+          </Marker>
+        ) : null}
+
         {routePolyline.length >= 2 ? (
           <Polyline
             coordinates={routePolyline}
@@ -261,6 +278,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.mapBase,
     overflow: "hidden",
     position: "relative",
+  },
+  myLocationTarget: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    // All but invisible: a fully clear view is not tappable on some Androids.
+    backgroundColor: "rgba(255,255,255,0.01)",
   },
   marker: {
     borderColor: theme.colors.black,

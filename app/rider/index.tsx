@@ -288,6 +288,10 @@ export default function RiderHomeScreen() {
           // Where the rider is; Lagos only until the phone knows.
           initialCenter={currentLocation ?? riderHomeCenter}
           initialDelta={{ latitudeDelta: 0.038, longitudeDelta: 0.03 }}
+          // Tapping where you are: the trip opens on From, ready to set the pickup.
+          onMyLocationPress={() =>
+            router.push({ pathname: "/destination-search", params: { edit: "pickup" } } as Href)
+          }
         />
       </Animated.View>
 

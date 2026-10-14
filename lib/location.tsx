@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { BackgroundLocationDisclosure } from "@/components/BackgroundLocationDisclosure";
-import { setPlaceSearchBias } from "@/lib/google-places";
+import { rememberExactPlace, setPlaceSearchBias } from "@/lib/google-places";
 
 /**
  * Persisted marker that the user explicitly tapped "Not now" on the Play
@@ -99,6 +99,13 @@ function formatAddress(parts: Location.LocationGeocodedAddress[]): string | null
     .join(", ");
 }
 
+/** Metres between two nearby points; flat-earth is plenty at this scale. */
+function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const dLat = (b.lat - a.lat) * 111_320;
+  const dLng = (b.lng - a.lng) * 111_320 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.hypot(dLat, dLng);
+}
+
 async function resolveAddress(lat: number, lng: number): Promise<string> {
   try {
     const address = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
@@ -132,6 +139,11 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     const pretend = mockLocation ?? devFallbackFor(gpsLocation);
     return pretend ? { lat: pretend.lat, lng: pretend.lng, address: pretend.address } : gpsLocation;
   }, [mockLocation, gpsLocation]);
+
+  // A dev preset stands in for the GPS spot, so it is sent as its point too.
+  useEffect(() => {
+    if (mockLocation) rememberExactPlace(mockLocation.address, mockLocation);
+  }, [mockLocation]);
 
   // Place search ranks results by distance from the rider. Without this it has
   // no idea where they are and falls back to no bias at all.
@@ -181,11 +193,32 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   // update behind it, freezing the driver's location entirely.
   const lastAddressRef = useRef<{ lat: number; lng: number; address: string } | null>(null);
 
+  // The point a pickup of "where I am" is sent as, kept under its address.
+  // Moved on a real move or a sharper fix, not on every few metres of GPS
+  // wobble, so the price fetched for it a moment ago still matches.
+  const exactSpotRef = useRef<{ lat: number; lng: number; address: string; accuracy: number | null } | null>(null);
+  const pinExactSpot = useCallback(
+    (address: string, lat: number, lng: number, accuracy: number | null) => {
+      const previous = exactSpotRef.current;
+      if (previous && previous.address === address) {
+        const moved = metresBetween(previous, { lat, lng });
+        const sharper = accuracy !== null && previous.accuracy !== null && accuracy < previous.accuracy - 5;
+        const blurrier = accuracy !== null && previous.accuracy !== null && accuracy > previous.accuracy + 10;
+        if (blurrier && moved < accuracy) return;
+        if (moved < 15 && !sharper) return;
+      }
+      exactSpotRef.current = { lat, lng, address, accuracy };
+      rememberExactPlace(address, { lat, lng });
+    },
+    [],
+  );
+
   const updateCurrentLocation = useCallback(
     async (
       latitude: number,
       longitude: number,
       providedAddress?: string | null,
+      accuracy: number | null = null,
     ) => {
       const cached = lastAddressRef.current;
       const nearCache =
@@ -205,14 +238,19 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 
       if (providedAddress) {
         lastAddressRef.current = { lat: latitude, lng: longitude, address: providedAddress };
+        pinExactSpot(providedAddress, latitude, longitude, accuracy);
         return;
       }
-      if (nearCache) return;
+      if (nearCache && cached) {
+        pinExactSpot(cached.address, latitude, longitude, accuracy);
+        return;
+      }
 
       void resolveAddress(latitude, longitude)
         .then((address) => {
           if (!address) return;
           lastAddressRef.current = { lat: latitude, lng: longitude, address };
+          pinExactSpot(address, latitude, longitude, accuracy);
           // Attach the label only if the fix hasn't moved on meanwhile.
           setGpsLocation((prev) =>
             prev && prev.lat === latitude && prev.lng === longitude
@@ -222,7 +260,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => {});
     },
-    [],
+    [pinExactSpot],
   );
 
   const startWatchingLocation = useCallback(async () => {
@@ -239,6 +277,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         void updateCurrentLocation(
           position.coords.latitude,
           position.coords.longitude,
+          null,
+          position.coords.accuracy ?? null,
         );
       },
     );
@@ -248,14 +288,16 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     try {
       // Something to show at once: where the phone last knew it was, if that is recent.
       const last = await Location.getLastKnownPositionAsync({ maxAge: 60_000, requiredAccuracy: 100 }).catch(() => null);
-      if (last) await updateCurrentLocation(last.coords.latitude, last.coords.longitude);
-      // Then the exact spot from GPS, which is what a pickup is set from.
+      if (last) await updateCurrentLocation(last.coords.latitude, last.coords.longitude, null, last.coords.accuracy ?? null);
+      // Then the exact spot, the best fix the phone can give: this is what a pickup is set from.
       const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Highest,
       });
       await updateCurrentLocation(
         position.coords.latitude,
         position.coords.longitude,
+        null,
+        position.coords.accuracy ?? null,
       );
       setError(null);
     } catch (locationError) {

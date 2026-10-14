@@ -187,9 +187,17 @@ export default function DestinationSearchScreen() {
   // Show the rider where they will actually be collected. The pickup field
   // used to sit on a hardcoded neighbourhood, so a rider anywhere else was
   // quietly booked from the wrong side of the city.
+  // It follows the phone while the rider leaves it alone: a sharper fix that
+  // lands a moment later updates the address too, not only the first guess.
+  const autoPickupRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!currentLocation?.address) return;
-    setPickupValue((existing) => (isCurrentLocationLabel(existing) ? currentLocation.address : existing));
+    const address = currentLocation?.address;
+    if (!address) return;
+    setPickupValue((existing) => {
+      if (!isCurrentLocationLabel(existing) && existing !== autoPickupRef.current) return existing;
+      autoPickupRef.current = address;
+      return address;
+    });
   }, [currentLocation?.address]);
   const [routeStops, setRouteStops] = useState(seededItinerary.stops);
   // What is being typed into the active field. It becomes that field's value

@@ -23,6 +23,27 @@ const resolvedPlaceCache = new Map<
 >();
 const resolvedPlaceInflight = new Map<string, Promise<ResolvedPlace>>();
 
+/**
+ * Places known to the metre, by the words shown for them: the rider's own GPS
+ * spot under the address it was given. A pickup set from "where I am" goes to
+ * drivers as that exact point, never as wherever a search for its address
+ * text lands (the middle of the street, or the area).
+ */
+const exactPlaces = new Map<string, ResolvedPlace>();
+const EXACT_PLACES_KEPT = 30;
+
+export function rememberExactPlace(label: string, point: { lat: number; lng: number }): void {
+  const address = label.trim();
+  if (!address || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
+  const key = address.toLowerCase();
+  exactPlaces.delete(key);
+  exactPlaces.set(key, { lat: point.lat, lng: point.lng, address });
+  if (exactPlaces.size > EXACT_PLACES_KEPT) {
+    const oldest = exactPlaces.keys().next().value;
+    if (oldest !== undefined) exactPlaces.delete(oldest);
+  }
+}
+
 type GoogleAutocompletePrediction = {
   description?: string;
   place_id?: string;
@@ -519,6 +540,9 @@ export async function resolvePlaceQuery(input: string): Promise<ResolvedPlace> {
   }
 
   const cacheKey = normalizedInput.toLowerCase();
+  const exact = exactPlaces.get(cacheKey);
+  if (exact) return exact;
+
   const cached = resolvedPlaceCache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < RESOLVED_PLACE_CACHE_TTL_MS) {
     return cached.value;
