@@ -2,8 +2,8 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useAuth } from "@/lib/auth";
 import * as Clipboard from "expo-clipboard";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Share, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, RefreshControl, Share, StyleSheet, View } from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
@@ -37,49 +37,37 @@ export default function ReferralScreen() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadSummary() {
-      if (!isBackendConfigured() || !isReady || !user) {
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setErrorMessage(null);
-
-      try {
-        const accessToken = await getAccessTokenWithRetry(getAccessToken);
-        if (!accessToken) {
-          throw new Error("Sign in again to load your referral code.");
-        }
-
-        const nextSummary = await getReferralSummary({ accessToken });
-        if (!cancelled) {
-          setSummary(nextSummary);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Could not load your referral code.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
+  // Loaded on open, and again whenever the page is pulled down.
+  const [refreshing, setRefreshing] = useState(false);
+  const loadSummary = useCallback(async () => {
+    if (!isBackendConfigured() || !isReady || !user) {
+      setIsLoading(false);
+      return;
     }
-
-    void loadSummary();
-
-    return () => {
-      cancelled = true;
-    };
+    setErrorMessage(null);
+    try {
+      const accessToken = await getAccessTokenWithRetry(getAccessToken);
+      if (!accessToken) {
+        throw new Error("Sign in again to load your referral code.");
+      }
+      setSummary(await getReferralSummary({ accessToken }));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not load your referral code.");
+    } finally {
+      setIsLoading(false);
+    }
   }, [getAccessToken, isReady, user]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    void loadSummary();
+  }, [loadSummary]);
+
+  async function pullToRefresh() {
+    setRefreshing(true);
+    await loadSummary();
+    setRefreshing(false);
+  }
 
   // Nobody is handed a code: each person creates their own, once. It is theirs
   // for good: links and QR codes already shared keep working.
@@ -148,7 +136,17 @@ export default function ReferralScreen() {
   return (
     <AppScreen
       backgroundColor={theme.colors.offWhite}
+      bounces
       contentStyle={styles.container}
+      refreshControl={
+        <RefreshControl
+          colors={[theme.colors.orange]}
+          onRefresh={() => void pullToRefresh()}
+          refreshing={refreshing}
+          tintColor={theme.colors.orange}
+          title="Updating"
+        />
+      }
       scroll
     >
       <StatusBar style="dark" backgroundColor={theme.colors.offWhite} />
@@ -159,7 +157,7 @@ export default function ReferralScreen() {
         <View style={styles.headerCopy}>
           <AppText variant="screenTitle">Referral rewards</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>
-            Share your code with riders.
+            Share your code with drivers and riders.
           </AppText>
         </View>
       </View>
@@ -177,12 +175,12 @@ export default function ReferralScreen() {
             YOUR CODE
           </AppText>
           <AppText variant="metric" style={styles.code}>
-            {isLoading ? "LOADING" : referralCode || (creating ? "NOT SET" : "UNAVAILABLE")}
+            {isLoading ? "LOADING" : referralCode || (creating ? "NOT SET" : "PULL TO RETRY")}
           </AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>
             {creating
-              ? "Create your code below, then share it with riders."
-              : "Riders enter this code when they sign up, or scan your QR code."}
+              ? "Create your code below, then share it with drivers and riders."
+              : "Drivers and riders enter this code when they sign up, or scan your QR code."}
           </AppText>
         </View>
       </AppCard>
@@ -233,7 +231,7 @@ export default function ReferralScreen() {
             />
           </View>
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.qrHint}>
-            Let a rider scan this with their phone camera. It opens a chat with
+            Let a driver or rider scan this with their phone camera. It opens a chat with
             Wheelers with your code already filled in.
           </AppText>
           <AppText variant="bodySmall" numberOfLines={2} selectable style={styles.qrLink}>

@@ -253,7 +253,7 @@ export default function DriverSettingsScreen() {
               <MaterialIcons color={theme.colors.orange} name="qr-code-2" size={glyphSize} />
             </View>
             <View style={styles.menuInfo}>
-              <AppText variant="bodyMedium">Refer riders</AppText>
+              <AppText variant="bodyMedium">Refer drivers and riders</AppText>
               <AppText variant="bodySmall" color={theme.colors.muted}>Your QR code, link and referral code</AppText>
             </View>
             <ChevronRightIcon size={responsive.scale(18)} />
