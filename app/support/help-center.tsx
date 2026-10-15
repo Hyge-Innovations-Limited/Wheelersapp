@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { RBack, RButton, RScreen, RText, rider } from "@/components/rider/kit";
 
 /** What riders most often write in about. Each one opens the chat on that subject. */
-const TOPICS = [
+const RIDER_TOPICS = [
   "Lost item",
   "Wrong charge",
   "Wallet not credited",
@@ -14,8 +14,19 @@ const TOPICS = [
   "Scheduled ride did not arrive",
 ];
 
+/** What drivers most often write in about. */
+const DRIVER_TOPICS = [
+  "Payout not received",
+  "Wrong fare or commission",
+  "Problem with a rider",
+  "My papers or verification",
+  "Item left in my car",
+];
+
 export default function HelpCenterScreen() {
   const router = useRouter();
+  const { who } = useLocalSearchParams<{ who?: string }>();
+  const TOPICS = who === "driver" ? DRIVER_TOPICS : RIDER_TOPICS;
 
   return (
     <RScreen contentStyle={styles.container} scroll>

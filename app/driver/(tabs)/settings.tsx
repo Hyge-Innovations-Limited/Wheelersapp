@@ -2,7 +2,7 @@ import { openPrivacy, openTerms } from '@/lib/legal-links';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
@@ -174,12 +174,10 @@ export default function DriverSettingsScreen() {
     );
   };
 
+  // Our own support, in the app, as riders have it: the team sees the
+  // conversation in admin with the driver's account beside it.
   const handleContactSupport = () => {
-    // Open WhatsApp or email for support
-    const supportUrl = 'https://wa.me/2349060003900?text=Hi%2C%20I%20need%20help%20with%20my%20driver%20account';
-    Linking.openURL(supportUrl).catch(() => {
-      Alert.alert('Could not open support chat', 'Please contact us at support@wheelers.ng');
-    });
+    router.push({ pathname: '/support/help-center', params: { who: 'driver' } } as Href);
   };
 
   const cardBg = isDark ? theme.colors.darkSurface : theme.colors.white;
@@ -342,7 +340,7 @@ export default function DriverSettingsScreen() {
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Customer support</AppText>
-              <AppText variant="bodySmall" color={theme.colors.muted}>Chat with us on WhatsApp</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>Chat with the Wheelers team in the app</AppText>
             </View>
             <ChevronRightIcon size={responsive.scale(18)} />
           </Pressable>
@@ -552,7 +550,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     overflow: 'hidden',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.card,
   },
 
@@ -565,7 +563,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderRadius: theme.radii.xs,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
