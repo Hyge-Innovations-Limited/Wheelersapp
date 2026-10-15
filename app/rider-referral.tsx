@@ -46,8 +46,7 @@ export default function RiderReferralScreen() {
   const [addError, setAddError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
 
-  // Choosing your own code.
-  const [editing, setEditing] = useState(false);
+  // Choosing your own code: once. It is theirs for good, so links already shared keep working.
   const [wanted, setWanted] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -115,7 +114,6 @@ export default function RiderReferralScreen() {
     try {
       await setReferralCode({ accessToken: await token(), code: chosen });
       await refresh();
-      setEditing(false);
       setWanted("");
     } catch (failure) {
       setSaveError(toUserMessage(failure, "That code could not be saved. Try another one."));
@@ -173,30 +171,17 @@ export default function RiderReferralScreen() {
               variant="onInk"
             />
           </View>
-          {editing ? null : (
-            <RLink
-              color={colors.orange}
-              disabled={!code}
-              onPress={() => {
-                setEditing(true);
-                setSaveError(null);
-              }}
-              style={styles.start}
-              title="Change your code"
-            />
-          )}
         </RCard>
       )}
 
-      {editing || creating ? (
+      {creating ? (
         <RCard style={styles.block} tone="outline">
           <RInput
             autoCapitalize="characters"
             autoCorrect={false}
-            autoFocus={editing}
             error={saveError}
-            hint={creating ? "4 to 12 letters or numbers." : "4 to 12 letters or numbers. Your old code stops working."}
-            label={creating ? "Your code" : "New code"}
+            hint="4 to 12 letters or numbers. It can't be changed later."
+            label="Your code"
             maxLength={12}
             onChangeText={(value) => {
               setWanted(tidyCode(value));
@@ -209,26 +194,13 @@ export default function RiderReferralScreen() {
             value={wanted}
           />
           <View style={styles.row}>
-            {creating ? null : (
-              <RButton
-                onPress={() => {
-                  setEditing(false);
-                  setWanted("");
-                  setSaveError(null);
-                }}
-                size="md"
-                style={styles.flex}
-                title="Cancel"
-                variant="ghost"
-              />
-            )}
             <RButton
               disabled={tidyCode(wanted).length < 4}
               loading={saving}
               onPress={() => void saveOwnCode()}
               size="md"
               style={styles.flex}
-              title={creating ? "Create code" : "Save code"}
+              title="Create code"
               variant="dark"
             />
           </View>

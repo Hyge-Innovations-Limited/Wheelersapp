@@ -81,9 +81,9 @@ export default function ReferralScreen() {
     };
   }, [getAccessToken, isReady, user]);
 
-  // Nobody is handed a code: each person creates their own, and can change it.
+  // Nobody is handed a code: each person creates their own, once. It is theirs
+  // for good: links and QR codes already shared keep working.
   const [wanted, setWanted] = useState("");
-  const [changing, setChanging] = useState(false);
   const [savingCode, setSavingCode] = useState(false);
   const [codeError, setCodeError] = useState<string | undefined>(undefined);
 
@@ -100,7 +100,6 @@ export default function ReferralScreen() {
       if (!accessToken) throw new Error("Sign in again to save your referral code.");
       const saved = await setReferralCode({ accessToken, code: chosen });
       setSummary((current) => (current ? { ...current, ...saved } : current));
-      setChanging(false);
       setWanted("");
     } catch (error) {
       setCodeError(error instanceof Error ? error.message : "That code could not be saved. Try another one.");
@@ -189,15 +188,11 @@ export default function ReferralScreen() {
         </View>
       </AppCard>
 
-      {creating || changing ? (
+      {creating ? (
         <AppCard style={styles.codeForm}>
           <AppInput
-            label={creating ? "Create your referral code" : "New referral code"}
-            hint={
-              creating
-                ? "4 to 12 letters or numbers. Your name works well."
-                : "4 to 12 letters or numbers. Your old code stops working."
-            }
+            label="Create your referral code"
+            hint="4 to 12 letters or numbers. Your name works well. It can't be changed later."
             placeholder="e.g. TUNDE"
             value={wanted}
             onChangeText={(text) => {
@@ -215,22 +210,9 @@ export default function ReferralScreen() {
             disabled={wanted.length < REFERRAL_CODE_MIN}
             loading={savingCode}
             onPress={() => void handleSaveCode()}
-            title={creating ? "Create code" : "Save code"}
+            title="Create code"
           />
-          {changing ? (
-            <AppButton
-              onPress={() => {
-                setChanging(false);
-                setWanted("");
-                setCodeError(undefined);
-              }}
-              title="Cancel"
-              variant="inverse"
-            />
-          ) : null}
         </AppCard>
-      ) : referralCode ? (
-        <AppButton onPress={() => setChanging(true)} title="Change my code" variant="inverse" />
       ) : null}
 
       {shareLink ? (
