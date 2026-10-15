@@ -2,7 +2,7 @@ import { Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import {
   isOfferStale,
   RING_WINDOW_MS,
@@ -140,6 +140,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     const { offer } = entry;
     const ask = offer.riderOfferNgn ?? offer.fareEstimateNgn;
     return (
+      <OnLight key={`missed-${offer.rideId}`}>
       <Pressable
         key={`missed-${offer.rideId}`}
         disabled={entry.reason === 'taken'}
@@ -162,6 +163,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             : 'Tap to view — you can still try a bid'}
         </AppText>
       </Pressable>
+      </OnLight>
     );
   }
 
@@ -192,6 +194,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     // vanishing mid-thought.
     if (bid.outcome) {
       return (
+        <OnLight key={offer.rideId}>
         <View key={offer.rideId} style={[styles.card, styles.cardResolved]}>
           <View style={styles.topRow}>
             <AppText variant="label" color={theme.colors.muted}>
@@ -205,10 +208,12 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             {offer.pickup.address} → {offer.destination.address} · your bid {formatNgn(bid.amountNgn)}
           </AppText>
         </View>
+        </OnLight>
       );
     }
 
     return (
+      <OnLight key={offer.rideId}>
       <Pressable
         key={offer.rideId}
         onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
@@ -230,7 +235,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                     : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
           {tookPrice ? (
-            <AppText variant="caption" color={theme.colors.muted}>the rider's price</AppText>
+            <AppText variant="caption" color={theme.colors.muted}>the rider&apos;s price</AppText>
           ) : !accepted && !paying && timeLeft ? (
             <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText>
           ) : !accepted && !paying && !bid.outcome ? (
@@ -257,6 +262,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             </Pressable>
             <View style={styles.priceRow}>
               {bidChoices(riderAsk, offer).map(({ fareNgn, ratePerKmNgn }) => (
+                <OnLight key={fareNgn}>
                 <Pressable
                   key={fareNgn}
                   disabled={busyRideId === offer.rideId}
@@ -269,6 +275,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                     <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>{formatNgn(fareNgn)}</AppText>
                   ) : null}
                 </Pressable>
+                </OnLight>
               ))}
             </View>
           </View>
@@ -290,15 +297,18 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             )}
             {/* Took the rider's own price: nothing to change, so no "Change bid". */}
             {tookRidersPrice(bid) ? null : (
+              <OnLight>
               <Pressable
                 onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
                 style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
                 <AppText variant="label">Change bid</AppText>
               </Pressable>
+              </OnLight>
             )}
           </View>
         )}
       </Pressable>
+      </OnLight>
     );
   }
 
@@ -323,6 +333,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     const timeLeft = !stale && Number.isFinite(expiresMs) ? countdown(expiresMs, now) : null;
 
     return (
+      <OnLight key={offer.rideId}>
       <View
         key={offer.rideId}
         style={[styles.card, red ? styles.cardDeclined : stale ? styles.cardStale : styles.cardRequest]}>
@@ -410,6 +421,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             </Pressable>
             <View style={styles.priceRow}>
               {bidChoices(riderAsk, offer).map(({ fareNgn, ratePerKmNgn }) => (
+                <OnLight key={fareNgn}>
                 <Pressable
                   key={fareNgn}
                   disabled={busyRideId === offer.rideId}
@@ -422,6 +434,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                     <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>{formatNgn(fareNgn)}</AppText>
                   ) : null}
                 </Pressable>
+                </OnLight>
               ))}
             </View>
             <View style={styles.quietRow}>
@@ -442,6 +455,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           </View>
         )}
       </View>
+      </OnLight>
     );
   }
 }

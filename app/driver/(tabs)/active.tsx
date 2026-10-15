@@ -2,7 +2,7 @@ import { Href, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { DriverRequestFeed } from '@/components/driver-request-feed';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
@@ -54,6 +54,7 @@ export default function DriverActiveScreen() {
       </View>
 
       {currentRide && tripScreen ? (
+        <OnLight>
         <Pressable
           onPress={() => router.push(tripScreen)}
           style={({ pressed }) => [styles.tripCard, pressed && styles.pressed]}>
@@ -70,6 +71,7 @@ export default function DriverActiveScreen() {
           </View>
           <AppText variant="h3" color={theme.colors.orange}>›</AppText>
         </Pressable>
+        </OnLight>
       ) : null}
 
       {!showFeed && !currentRide ? (

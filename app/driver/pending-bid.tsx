@@ -5,7 +5,7 @@ import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { BID_LIFETIME_MS } from '@/lib/driver-session-reducer';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
@@ -175,6 +175,7 @@ export default function PendingBidScreen() {
       </View>
 
       {/* Status — the one line the driver opened this page for. */}
+      <OnLight>
       <View style={[
         styles.statusCard,
         accepted ? styles.statusAccepted : stage === 'paying' ? styles.statusPaying : stage === 'declined' && !repriced ? styles.statusDeclined : styles.statusWaiting,
@@ -229,8 +230,10 @@ export default function PendingBidScreen() {
           );
         })() : null}
       </View>
+      </OnLight>
 
       {/* The trip */}
+      <OnLight>
       <View style={styles.card}>
         <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
           Trip
@@ -266,8 +269,10 @@ export default function PendingBidScreen() {
           {offer.isGroupRide ? ` · group · ${offer.riderCount ?? 2} riders` : ''}
         </AppText>
       </View>
+      </OnLight>
 
       {/* The money */}
+      <OnLight>
       <View style={styles.card}>
         <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
           Fare
@@ -282,10 +287,12 @@ export default function PendingBidScreen() {
         </View>
         <PerKmChip priceNgn={fare} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />
       </View>
+      </OnLight>
 
       {/* Change the bid — a bid is a negotiation, not a commitment. Not once the
           driver took the rider's own price, nor once the rider has answered. */}
       {stage === 'waiting' || stage === 'countered' || stage === 'declined' ? tookRidersPrice(bid) && stage === 'waiting' ? null : (
+        <OnLight>
         <View style={styles.card}>
           <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
             {stage === 'declined' ? 'Send a new bid' : 'Change your bid'}
@@ -299,6 +306,7 @@ export default function PendingBidScreen() {
           ) : null}
           {editOpen ? (
             <>
+              <OnLight>
               <View style={styles.editRow}>
                 <AppText variant="h3">₦</AppText>
                 <TextInput
@@ -312,6 +320,7 @@ export default function PendingBidScreen() {
                 />
                 {perKm ? <AppText variant="h3" color={theme.colors.muted}>/km</AppText> : null}
               </View>
+              </OnLight>
               {perKm && typedFare !== null ? (
                 <AppText variant="bodySmall" color={theme.colors.muted}>
                   Rider pays {formatNgn(typedFare)}
@@ -320,12 +329,14 @@ export default function PendingBidScreen() {
               ) : null}
               <View style={styles.chipRow}>
                 {(perKm ? RATE_NUDGES_NGN : bidNudgesNgn(Number(editAmount) || bid.amountNgn)).map((step) => (
+                  <OnLight key={step}>
                   <Pressable
                     key={step}
                     onPress={() => setEditAmount(String(Math.max(0, (Number(editAmount) || editStart) + step)))}
                     style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}>
                     <AppText variant="label">{step > 0 ? `+${step.toLocaleString()}` : `-${Math.abs(step).toLocaleString()}`}</AppText>
                   </Pressable>
+                  </OnLight>
                 ))}
               </View>
               <AppButton
@@ -345,6 +356,7 @@ export default function PendingBidScreen() {
             />
           )}
         </View>
+        </OnLight>
       ) : null}
 
       <View style={styles.actions}>

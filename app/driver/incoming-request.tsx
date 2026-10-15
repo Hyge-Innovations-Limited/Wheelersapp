@@ -27,7 +27,7 @@ import { AppButton } from '@/components/app-button';
 import { bidCeilingNgn } from '@/lib/bid-limits';
 import { bidCeilingFareNgn, bidChoices, bidsPerKm, fareFromRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
 import { estimateEtaMinutes, haversineKm } from '@/lib/geo';
@@ -494,15 +494,18 @@ export default function IncomingRequestScreen() {
               )}
               <AppText variant="h2">{isGroupRide ? 'Shared ride' : 'Ride request'}</AppText>
             </View>
+            <OnLight>
             <View style={styles.timerBadge}>
               <AppText variant="monoSmall" color={theme.colors.muted}>
                 OPEN
               </AppText>
             </View>
+            </OnLight>
           </View>
 
           {/* Per-seat negotiation: each rider set their own price — answer each. */}
           {isGroupRide && offer.groupMembers && offer.groupMembers.length > 0 && (
+            <OnLight>
             <View style={styles.seatsCard}>
               <AppText variant="monoSmall" color={theme.colors.muted}>
                 {offer.groupMembers.length} RIDERS · NEGOTIATE EACH SEAT
@@ -569,6 +572,7 @@ export default function IncomingRequestScreen() {
                 );
               })}
             </View>
+            </OnLight>
           )}
 
           {/* Group rides are a different job at the same distance — say so up front. */}
@@ -582,6 +586,7 @@ export default function IncomingRequestScreen() {
 
           {/* Route — a full stop-by-stop timeline when several riders share it,
               so the driver can see the real shape of the job before bidding. */}
+          <OnLight>
           <View style={styles.routeCard}>
             {routeStops.map((stop, index) => {
               const isLast = index === routeStops.length - 1;
@@ -615,9 +620,11 @@ export default function IncomingRequestScreen() {
               );
             })}
           </View>
+          </OnLight>
 
           {/* Driver→pickup, live */}
           {toPickupLabel ? (
+            <OnLight>
             <View style={styles.toPickupCard}>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
                 To pickup
@@ -626,22 +633,28 @@ export default function IncomingRequestScreen() {
                 {toPickupLabel}
               </AppText>
             </View>
+            </OnLight>
           ) : null}
 
           {/* Metrics row */}
           <View style={styles.metricsRow}>
+            <OnLight>
             <View style={styles.metricCard}>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Distance</AppText>
               <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
                 {distanceKm}
               </AppText>
             </View>
+            </OnLight>
+            <OnLight>
             <View style={styles.metricCard}>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Duration</AppText>
               <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
                 {durationMin}
               </AppText>
             </View>
+            </OnLight>
+            <OnLight>
             <View style={styles.metricCard}>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
                 {lastBidNgn ? 'Your bid' : "Rider's offer"}
@@ -650,6 +663,7 @@ export default function IncomingRequestScreen() {
                 {formatNgn(activeFare)}
               </AppText>
             </View>
+            </OnLight>
           </View>
 
           {/* This price per km to the driver (their share after the booking fee) — tap for how. */}
@@ -658,6 +672,7 @@ export default function IncomingRequestScreen() {
           {/* Actions — per-seat groups negotiate above; a lump-sum accept has
               no rider on the other end to approve it. */}
           {hasSeats ? (
+            <OnLight>
             <View style={styles.bidSentWrap}>
               {answeredSeatCount > 0 ? (
                 <>
@@ -676,7 +691,9 @@ export default function IncomingRequestScreen() {
                 />
               )}
             </View>
+            </OnLight>
           ) : bidSent ? (
+            <OnLight>
             <View style={styles.bidSentWrap}>
               <AppText variant="label" color={theme.colors.green}>
                 {lastBidNgn ? `Bid of ${formatNgn(lastBidNgn)} sent` : 'Offer accepted'}
@@ -685,8 +702,10 @@ export default function IncomingRequestScreen() {
                 Waiting for rider to confirm...
               </AppText>
             </View>
+            </OnLight>
           ) : bidMode ? (
             <View style={styles.bidInputWrap}>
+              <OnLight>
               <View style={styles.bidInputRow}>
                 <AppText variant="h3" color={theme.colors.muted}>₦</AppText>
                 <TextInput
@@ -702,6 +721,7 @@ export default function IncomingRequestScreen() {
                 />
                 {perKm ? <AppText variant="h3" color={theme.colors.muted}>/km</AppText> : null}
               </View>
+              </OnLight>
               {typedFare !== null && perKm ? (
                 <AppText variant="bodySmall" style={styles.bidCapHint}>
                   Rider pays {formatNgn(typedFare)}
@@ -737,6 +757,7 @@ export default function IncomingRequestScreen() {
               <View style={styles.suggestionRow}>
                 {/* New pricing: the bid is the rate, the fare under it is what the rider sees. */}
                 {bidChoices(activeFare, offer).map(({ fareNgn, ratePerKmNgn }) => (
+                  <OnLight key={fareNgn}>
                   <Pressable
                     key={fareNgn}
                     onPress={() => { setBidAmount(''); void handleSubmitBidAt(fareNgn); }}
@@ -750,11 +771,14 @@ export default function IncomingRequestScreen() {
                       </AppText>
                     ) : null}
                   </Pressable>
+                  </OnLight>
                 ))}
               </View>
+              <OnLight>
               <Pressable onPress={handleBidPress} style={({ pressed }) => [styles.otherAmountBtn, pressed && { opacity: 0.7 }]}>
                 <AppText variant="label" color={theme.colors.muted}>{perKm ? 'Other rate' : 'Other amount'}</AppText>
               </Pressable>
+              </OnLight>
             </View>
           )}
 

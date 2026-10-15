@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppButton } from '@/components/app-button';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { SectionHeader } from '@/components/SectionHeader';
 import { theme } from '@/theme';
 
@@ -53,6 +53,7 @@ export function RideRequestSheet({
       </View>
 
       {/* Fare breakdown */}
+      <OnLight>
       <View style={styles.fareBreakdown}>
         <View style={styles.fareRow}>
           <AppText variant="bodySmall" color={theme.colors.muted}>Gross fare</AppText>
@@ -68,6 +69,7 @@ export function RideRequestSheet({
           <AppText variant="monoLarge" color={theme.colors.green}>{formatNgn(driverPayout)}</AppText>
         </View>
       </View>
+      </OnLight>
 
       <View style={styles.routeMeta}>
         <View style={styles.stopRow}>

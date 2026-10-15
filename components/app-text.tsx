@@ -1,9 +1,21 @@
+import { createContext, useContext, type ReactNode } from 'react';
 import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
 
 type Variant = keyof typeof styles;
+
+/**
+ * Inside a card that stays white in dark mode. Text there keeps the dark ink:
+ * without this, text with no colour of its own turned white in dark mode and
+ * vanished on the white card ("Change bid" on Active).
+ */
+const OnLightCard = createContext(false);
+
+export function OnLight({ children }: { children: ReactNode }) {
+  return <OnLightCard.Provider value>{children}</OnLightCard.Provider>;
+}
 
 type AppTextProps = TextProps & {
   variant?: Exclude<Variant, 'base'>;
@@ -19,7 +31,8 @@ export function AppText({
   ...props
 }: AppTextProps) {
   const { isDark } = useAppTheme();
-  const resolvedColor = color ?? (isDark ? theme.colors.offWhite : theme.colors.black);
+  const onLight = useContext(OnLightCard);
+  const resolvedColor = color ?? (isDark && !onLight ? theme.colors.offWhite : theme.colors.black);
   return (
     <Text
       {...props}
