@@ -48,3 +48,13 @@ test('an empty label or a broken point is not kept', async () => {
   rememberExactPlace('Nowhere Street', { lat: Number.NaN, lng: 3.3 });
   await assert.rejects(resolvePlaceQuery('Nowhere Street'));
 });
+
+test('a Plus Code is told apart from a place name', async () => {
+  const { isPlusCode } = require(outFile);
+  assert.equal(isPlusCode('GFVQ+VQ4'), true);
+  assert.equal(isPlusCode('GFVQ+VQ4, Ikorodu, Lagos'), true);
+  assert.equal(isPlusCode('6FR5GFVQ+VQ'), true);
+  assert.equal(isPlusCode('15 Aiyetoro Street'), false);
+  assert.equal(isPlusCode('Ilemere'), false);
+  assert.equal(isPlusCode(''), false);
+});

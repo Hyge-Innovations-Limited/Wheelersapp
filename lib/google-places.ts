@@ -505,6 +505,50 @@ function mapGeocodeResultToResolvedPlace(result: GoogleGeocodeResult): ResolvedP
   };
 }
 
+/**
+ * "GFVQ+VQ4": a Plus Code, what Google gives a spot with no street address.
+ * Exact, but nobody reads it as a place, so it is never shown as one.
+ */
+const PLUS_CODE = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{0,3}(\b|$)/i;
+
+export function isPlusCode(text: string | null | undefined): boolean {
+  return typeof text === "string" && PLUS_CODE.test(text.trim());
+}
+
+/** Spot-level answers only: a reverse lookup asked for these never comes back as a Plus Code. */
+const SPOT_TYPES = "street_address|premise|subpremise|route|point_of_interest|establishment|neighborhood|sublocality";
+
+/**
+ * A name a person reads for the spot the phone is on: the street if Google
+ * has one, else the neighbourhood and town ("Ilemere Rd, Ikorodu, Lagos").
+ * Null when Google has nothing better or is not set up.
+ */
+export async function readableNameForSpot(lat: number, lng: number): Promise<string | null> {
+  if (!googleMapsApiKey) return null;
+  const params = new URLSearchParams({ latlng: `${lat},${lng}`, key: googleMapsApiKey, language: "en", result_type: SPOT_TYPES });
+  const response = await fetchGoogle(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
+  if (!response.ok) return null;
+  const data = (await response.json()) as GoogleGeocodeResponse;
+  for (const result of data.results ?? []) {
+    const name = nameFromComponents(result.address_components ?? []);
+    if (name) return name;
+  }
+  return null;
+}
+
+function nameFromComponents(components: GoogleAddressComponent[]): string | null {
+  const part = (...types: string[]) =>
+    cleanPart(components.find((component) => types.some((type) => (component.types ?? []).includes(type)))?.long_name);
+  const number = part("street_number");
+  const route = part("route");
+  const street = route && !/^unnamed road$/i.test(route) ? (number ? `${number} ${route}` : route) : null;
+  const parts = [part("premise", "point_of_interest", "establishment"), street, part("neighborhood", "sublocality_level_1", "sublocality"), part("locality", "administrative_area_level_2"), part("administrative_area_level_1")]
+    .filter((value): value is string => value !== null && !isPlusCode(value))
+    .filter((value, index, list) => list.findIndex((other) => other.toLowerCase() === value.toLowerCase()) === index);
+  // A town alone ("Lagos") says too little to be worth showing over the phone's own answer.
+  return parts.length >= 2 ? parts.join(", ") : null;
+}
+
 export function isGoogleMapsConfigured(): boolean {
   return Boolean(googleMapsApiKey);
 }

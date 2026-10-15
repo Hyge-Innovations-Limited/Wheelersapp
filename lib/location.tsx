@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { BackgroundLocationDisclosure } from "@/components/BackgroundLocationDisclosure";
-import { rememberExactPlace, setPlaceSearchBias } from "@/lib/google-places";
+import { isPlusCode, readableNameForSpot, rememberExactPlace, setPlaceSearchBias } from "@/lib/google-places";
 
 /**
  * Persisted marker that the user explicitly tapped "Not now" on the Play
@@ -95,6 +95,8 @@ function formatAddress(parts: Location.LocationGeocodedAddress[]): string | null
     first.region,
   ]
     .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    // "GFVQ+VQ4" and "Unnamed Road" are not places anyone reads.
+    .filter((part) => !isPlusCode(part) && !/^unnamed road$/i.test(part.trim()))
     .filter((part, index, list) => list.findIndex((item) => item.toLowerCase() === part.toLowerCase()) === index)
     .join(", ");
 }
@@ -106,13 +108,19 @@ function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: n
   return Math.hypot(dLat, dLng);
 }
 
+/**
+ * The words shown for where the phone is. The phone's own lookup first (it is
+ * free); where it has no street there (it answers with a Plus Code like
+ * "GFVQ+VQ4"), Google is asked for the street or neighbourhood instead.
+ * The pickup itself is always the exact point; this is only its name.
+ */
 async function resolveAddress(lat: number, lng: number): Promise<string> {
-  try {
-    const address = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-    return formatAddress(address) ?? `Current location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-  } catch {
-    return `Current location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-  }
+  const parts = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng }).catch(() => []);
+  const fromPhone = formatAddress(parts);
+  const street = parts[0]?.street;
+  if (street && !isPlusCode(street) && !/^unnamed road$/i.test(street)) return fromPhone ?? street;
+  const fromGoogle = await readableNameForSpot(lat, lng).catch(() => null);
+  return fromGoogle ?? fromPhone ?? `Current location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
 }
 
 export function LocationProvider({ children }: { children: ReactNode }) {
