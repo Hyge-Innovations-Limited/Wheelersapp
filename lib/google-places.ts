@@ -68,6 +68,7 @@ type GoogleAddressComponent = {
 
 type GoogleGeocodeResult = {
   formatted_address?: string;
+  types?: string[];
   geometry?: {
     location?: {
       lat?: number;
@@ -515,38 +516,76 @@ export function isPlusCode(text: string | null | undefined): boolean {
   return typeof text === "string" && PLUS_CODE.test(text.trim());
 }
 
-/** Spot-level answers only: a reverse lookup asked for these never comes back as a Plus Code. */
-const SPOT_TYPES = "street_address|premise|subpremise|route|point_of_interest|establishment|neighborhood|sublocality";
-
 /**
- * A name a person reads for the spot the phone is on: the street if Google
- * has one, else the neighbourhood and town ("Ilemere Rd, Ikorodu, Lagos").
- * Null when Google has nothing better or is not set up.
+ * A name a person reads for the spot the phone is on, the way ride apps show
+ * it: the street, or the named place there (an estate like "Orupodi"), then
+ * the area ("Ilemere"), then the town: "Orupodi, Ilemere, Ikorodu",
+ * "3 Herbert Macaulay Way, Yaba". Null when Google has nothing better or is
+ * not set up. One lookup, made only where the phone itself found no street.
  */
 export async function readableNameForSpot(lat: number, lng: number): Promise<string | null> {
   if (!googleMapsApiKey) return null;
-  const params = new URLSearchParams({ latlng: `${lat},${lng}`, key: googleMapsApiKey, language: "en", result_type: SPOT_TYPES });
+  const params = new URLSearchParams({ latlng: `${lat},${lng}`, key: googleMapsApiKey, language: "en" });
   const response = await fetchGoogle(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
   if (!response.ok) return null;
   const data = (await response.json()) as GoogleGeocodeResponse;
-  for (const result of data.results ?? []) {
-    const name = nameFromComponents(result.address_components ?? []);
-    if (name) return name;
-  }
-  return null;
+  placesLog(`reverse ← ${data.status}`, { results: data.results?.length ?? 0 });
+  return placeLabelFromResults(data.results ?? []);
 }
 
-function nameFromComponents(components: GoogleAddressComponent[]): string | null {
-  const part = (...types: string[]) =>
-    cleanPart(components.find((component) => types.some((type) => (component.types ?? []).includes(type)))?.long_name);
-  const number = part("street_number");
-  const route = part("route");
-  const street = route && !/^unnamed road$/i.test(route) ? (number ? `${number} ${route}` : route) : null;
-  const parts = [part("premise", "point_of_interest", "establishment"), street, part("neighborhood", "sublocality_level_1", "sublocality"), part("locality", "administrative_area_level_2"), part("administrative_area_level_1")]
-    .filter((value): value is string => value !== null && !isPlusCode(value))
-    .filter((value, index, list) => list.findIndex((other) => other.toLowerCase() === value.toLowerCase()) === index);
-  // A town alone ("Lagos") says too little to be worth showing over the phone's own answer.
-  return parts.length >= 2 ? parts.join(", ") : null;
+const UNNAMED_ROAD = /^unnamed road$/i;
+const POSTCODE = /\s*\b\d{5,6}\b/g;
+
+/**
+ * Google's reverse answers, best first, made into one label. Its first answer
+ * has the street; the area is often only in a later one (at a spot in Ilemere
+ * the first says "Ikorodu, Ikorodu", the next "Ilemere"), so all are read.
+ * Exported for tests.
+ */
+export function placeLabelFromResults(results: GoogleGeocodeResult[]): string | null {
+  const top = results.find((result) => !(result.types ?? []).every((type) => type === "plus_code")) ?? results[0];
+  if (!top) return null;
+  const parts = top.address_components ?? [];
+  const named = (component: GoogleAddressComponent | undefined) => cleanPart(component?.long_name);
+  const of = (list: GoogleAddressComponent[], ...types: string[]) =>
+    named(list.find((component) => types.some((type) => (component.types ?? []).includes(type))));
+
+  const state = of(parts, "administrative_area_level_1");
+  const lga = of(parts, "administrative_area_level_2");
+  const same = (a: string | null, b: string | null) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
+  const tooBroad = (name: string | null) => !name || same(name, state) || same(name, lga) || same(name, "Lagos") || same(name, "Nigeria") || isPlusCode(name);
+
+  const route = of(parts, "route");
+  const number = of(parts, "street_number");
+  const street = route && !UNNAMED_ROAD.test(route) ? (number ? `${number} ${route}` : route) : null;
+
+  // No street: the named place Google put in its own line but not in the parts ("Orupodi").
+  const known = new Set(parts.map((component) => named(component)?.toLowerCase()).filter(Boolean));
+  const place = street
+    ? null
+    : (top.formatted_address ?? "")
+        .split(",")
+        .map((token) => token.replace(POSTCODE, "").trim())
+        .find((token) => token && !known.has(token.toLowerCase()) && !tooBroad(token) && !UNNAMED_ROAD.test(token)) ?? null;
+
+  // The area: the first neighbourhood or town, in any answer, finer than the local government.
+  let area: string | null = null;
+  for (const result of results) {
+    for (const type of ["neighborhood", "sublocality_level_1", "sublocality", "locality"]) {
+      const name = of(result.address_components ?? [], type);
+      if (!tooBroad(name)) {
+        area = name;
+        break;
+      }
+    }
+    if (area) break;
+  }
+  const town = of(parts, "locality") ?? lga;
+
+  const label = [street ?? place, area, tooBroad(town) && !same(town, lga) ? null : town]
+    .filter((value): value is string => !!value)
+    .filter((value, index, list) => list.findIndex((other) => same(other, value)) === index);
+  return label.length >= 2 ? label.join(", ") : null;
 }
 
 export function isGoogleMapsConfigured(): boolean {

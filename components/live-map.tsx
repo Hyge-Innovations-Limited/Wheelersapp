@@ -53,6 +53,11 @@ export function LiveMap({
   const lastFitSignatureRef = useRef<string | null>(null);
   const hasFittedOnceRef = useRef(false);
   const { currentLocation } = useAppLocation();
+  // What the map shows now, to tell a tap on the blue dot from a tap elsewhere.
+  const viewRef = useRef<{ latitudeDelta: number; longitudeDelta: number } | null>({
+    latitudeDelta: initialDelta.latitudeDelta,
+    longitudeDelta: initialDelta.longitudeDelta,
+  });
 
   const routePolyline = useMemo(
     () => (route?.coordinates ?? []).map(toLatLng),
@@ -209,20 +214,29 @@ export function LiveMap({
         style={StyleSheet.absoluteFill}
         toolbarEnabled={false}
         userLocationCalloutEnabled={false}
+        // The blue dot reports no taps of its own (an invisible marker on it
+        // did not catch them on Android), so a tap on the map near the dot,
+        // within about a thumb's width at this zoom, counts as tapping it.
+        onPress={
+          onMyLocationPress
+            ? (event) => {
+                const tapped = event.nativeEvent.coordinate;
+                const view = viewRef.current;
+                if (!currentLocation || !tapped || !view) return;
+                if (
+                  Math.abs(tapped.latitude - currentLocation.lat) < view.latitudeDelta * 0.06 &&
+                  Math.abs(tapped.longitude - currentLocation.lng) < view.longitudeDelta * 0.09
+                ) {
+                  onMyLocationPress();
+                }
+              }
+            : undefined
+        }
+        onRegionChangeComplete={(region) => {
+          viewRef.current = region;
+        }}
         ref={mapRef}
       >
-        {/* The blue dot itself can't be tapped on every phone, so an
-            invisible target sits on it, big enough for a thumb. */}
-        {onMyLocationPress && currentLocation ? (
-          <Marker
-            accessibilityLabel="Set your pickup"
-            anchor={{ x: 0.5, y: 0.5 }}
-            coordinate={toLatLng(currentLocation)}
-            onPress={onMyLocationPress}
-            tracksViewChanges={false}>
-            <View style={styles.myLocationTarget} />
-          </Marker>
-        ) : null}
 
         {routePolyline.length >= 2 ? (
           <Polyline
@@ -278,13 +292,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.mapBase,
     overflow: "hidden",
     position: "relative",
-  },
-  myLocationTarget: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    // All but invisible: a fully clear view is not tappable on some Androids.
-    backgroundColor: "rgba(255,255,255,0.01)",
   },
   marker: {
     borderColor: theme.colors.borderLight,

@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,4 +57,15 @@ test('a Plus Code is told apart from a place name', async () => {
   assert.equal(isPlusCode('15 Aiyetoro Street'), false);
   assert.equal(isPlusCode('Ilemere'), false);
   assert.equal(isPlusCode(''), false);
+});
+
+test('a spot reads like a ride app shows it, from what Google really answered', () => {
+  const { placeLabelFromResults } = require(outFile);
+  const google = JSON.parse(readFileSync(join(here, 'fixtures/google-reverse.json'), 'utf8'));
+  // Ilemere, where the first answer is only "Ikorodu, Ikorodu" and the area is in a later one.
+  assert.equal(placeLabelFromResults(google.ilemereOrupodi), 'Orupodi, Ilemere, Ikorodu');
+  assert.equal(placeLabelFromResults(google.ilemereAdebs), 'Adebs Rd, Ilemere, Ikorodu');
+  assert.equal(placeLabelFromResults(google.yaba), '3 Herbert Macaulay Way, Yaba');
+  assert.equal(placeLabelFromResults(google.lekkiPhase1), '68 Admiralty Way, Lekki Phase I, Lekki');
+  assert.equal(placeLabelFromResults([]), null);
 });
