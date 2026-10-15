@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   activeIconCircle: {
     backgroundColor: theme.colors.orangeLight,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   targetIconCircle: {
     backgroundColor: '#222',

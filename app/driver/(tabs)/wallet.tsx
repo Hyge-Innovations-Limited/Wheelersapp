@@ -19,7 +19,7 @@ import { useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 // ── Icons ──────────────────────────────────────────────
@@ -142,7 +142,7 @@ export default function DriverWalletTabScreen() {
           adjustsFontSizeToFit
           minimumFontScale={0.6}
           numberOfLines={1}>
-          {balanceVisible ? formatNgn(balanceNgn) : 'NGN ****'}
+          {balanceVisible ? formatNgn(balanceNgn) : '₦****'}
         </AppText>
         {lockedNgn > 0 && (
           <AppText variant="bodySmall" color="#9C948D" numberOfLines={1}>
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     gap: 8,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.card,
   },
   accountLabel: {
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.orangeLight,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.orange,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     ...theme.shadows.card,
   },
   btnPressed: {
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.radii.md,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.card,
   },
   earningsLeft: {
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.offWhite,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },

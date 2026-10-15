@@ -21,7 +21,7 @@ import { theme } from '@/theme';
 const FREE_WAIT_SECONDS = 180; // 3 minutes
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 export default function DriverArrivedScreen() {
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
     alignItems: 'center',
     justifyContent: 'center',

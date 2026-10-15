@@ -32,7 +32,7 @@ function countCompletedQuests(todayRides: number, todayEarnings: number, totalRi
 }
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 const LAGOS_REGION = {
@@ -459,8 +459,9 @@ export default function DriverHomeScreen() {
         >
           <AppText
             variant="label"
-            color={isOnline ? theme.colors.orange : theme.colors.white}
-            numberOfLines={1}>
+            color={isOnline ? theme.colors.orange : theme.colors.black}
+            numberOfLines={1}
+            style={styles.toggleText}>
             {isOnline ? 'Go Offline' : 'Go Online'}
           </AppText>
         </Pressable>
@@ -506,7 +507,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.subtle,
   },
   statusOnline: {
@@ -611,7 +612,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.card,
   },
   metricItem: {
@@ -629,12 +630,16 @@ const styles = StyleSheet.create({
 
   // Toggle button
   toggleBtn: {
-    borderRadius: theme.radii.sm,
+    borderRadius: theme.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
     ...theme.shadows.card,
+  },
+  // The one big action on the screen, as on the rider side: large, heavy, easy to hit while parked.
+  toggleText: {
+    fontFamily: 'HankenGrotesk_800ExtraBold',
+    fontSize: 18,
+    lineHeight: 23,
   },
   toggleBtnOnline: {
     backgroundColor: theme.colors.orange,

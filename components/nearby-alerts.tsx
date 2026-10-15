@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radii.xl,
     borderWidth: theme.borders.thick,
     borderBottomWidth: 0,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     paddingHorizontal: theme.spacing.gutter,
     paddingTop: theme.spacing.xl,
   },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: theme.colors.orange,
     borderWidth: 2,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
   },
   pointText: { flex: 1, gap: 2 },
   primary: {
@@ -295,6 +295,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.black,
     ...theme.shadows.card,
   },
-  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }] },
+  pressed: { opacity: 0.72 },
   secondary: { alignSelf: 'center', marginTop: theme.spacing.md, padding: theme.spacing.sm },
 });

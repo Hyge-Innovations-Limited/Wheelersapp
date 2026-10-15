@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.01)",
   },
   marker: {
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderWidth: theme.borders.thick,
     ...theme.shadows.card,
   },

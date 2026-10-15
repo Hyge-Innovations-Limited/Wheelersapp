@@ -86,7 +86,7 @@ function getQuestIcon(icon: Quest['icon'], size: number) {
 }
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 // ── Component ──────────────────────────────────────────
@@ -128,7 +128,7 @@ export default function DriverQuestsScreen() {
       description: 'Complete 5 rides today',
       target: 5,
       current: Math.min(todayRides, 5),
-      rewardLabel: 'NGN 500 bonus',
+      rewardLabel: '₦500 bonus',
       icon: 'rides',
       active: true,
     },
@@ -138,17 +138,17 @@ export default function DriverQuestsScreen() {
       description: 'Complete 10 rides today',
       target: 10,
       current: Math.min(todayRides, 10),
-      rewardLabel: 'NGN 1,500 bonus',
+      rewardLabel: '₦1,500 bonus',
       icon: 'rides',
       active: true,
     },
     {
       id: 'earnings-10k',
       title: 'Big Earner',
-      description: 'Earn NGN 10,000 today',
+      description: 'Earn ₦10,000 today',
       target: 10000,
       current: Math.min(todayEarnings, 10000),
-      rewardLabel: 'NGN 800 bonus',
+      rewardLabel: '₦800 bonus',
       icon: 'earnings',
       active: true,
     },
@@ -168,7 +168,7 @@ export default function DriverQuestsScreen() {
       description: 'Complete 100 total rides',
       target: 100,
       current: Math.min(totalRides, 100),
-      rewardLabel: 'NGN 5,000 bonus',
+      rewardLabel: '₦5,000 bonus',
       icon: 'streak',
       active: true,
     },
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.radii.md,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     padding: theme.spacing.lg,
     ...theme.shadows.card,
   },
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.orangeLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     padding: theme.spacing.md,
     alignItems: 'center',
     gap: 4,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderRadius: theme.radii.xs,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.orangeLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.green,
     borderRadius: theme.radii.xs,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.green,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -401,8 +401,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: theme.colors.borderLight,
-    borderWidth: 1,
-    borderColor: theme.colors.black,
     overflow: 'hidden',
   },
   progressFill: {

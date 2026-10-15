@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderRadius: theme.radius.md,
     gap: theme.spacing.md,
     backgroundColor: theme.colors.white,

@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: theme.radii.pill,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     backgroundColor: theme.colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: '78%',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     gap: 4,

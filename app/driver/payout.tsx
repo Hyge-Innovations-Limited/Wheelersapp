@@ -18,7 +18,7 @@ import { theme } from '@/theme';
 // Kobo when there is any: the lines must add up to what lands.
 function formatNgn(amount: number): string {
   const kobo = Math.round(amount * 100) % 100 !== 0;
-  return `NGN ${amount.toLocaleString('en-NG', { minimumFractionDigits: kobo ? 2 : 0, maximumFractionDigits: 2 })}`;
+  return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: kobo ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 
 export default function DriverPayoutScreen() {

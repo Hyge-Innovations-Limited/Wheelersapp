@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
   },
   dividerLine: { flex: 1, height: theme.borders.regular, backgroundColor: brand.hairline },
-  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOpacity: 0, elevation: 0 },
+  pressed: { opacity: 0.72 },
   disabled: { opacity: 0.6 },
   footer: { alignItems: "center", gap: theme.spacing.lg, paddingBottom: theme.spacing.lg },
   signInRow: { flexDirection: "row", alignItems: "center" },

@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderRadius: theme.radii.sm,
     backgroundColor: theme.colors.white,
     paddingHorizontal: theme.spacing.md,

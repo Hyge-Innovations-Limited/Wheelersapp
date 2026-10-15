@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.orangeLight,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,

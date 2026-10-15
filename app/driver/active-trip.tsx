@@ -23,7 +23,7 @@ import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 /** A live trip timer: 0:07 → 12:45 → 1:02:33. Coarse "1 min" reads frozen. */
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: theme.colors.white,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderRadius: theme.radii.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: theme.colors.orange,
     borderWidth: 1.5,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
   },

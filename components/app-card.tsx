@@ -18,7 +18,7 @@ export function AppCard({
 }: AppCardProps) {
   const { isDark } = useAppTheme();
   const bg = backgroundColor ?? (isDark ? theme.colors.darkSurface : theme.colors.white);
-  const border = borderColor ?? (isDark ? theme.colors.darkBorder : theme.colors.black);
+  const border = borderColor ?? (isDark ? theme.colors.darkBorder : theme.colors.borderLight);
   return (
     <View style={[styles.card, { backgroundColor: bg, borderColor: border }, style]}>
       {children}
@@ -28,9 +28,9 @@ export function AppCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: theme.borders.thick,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
     ...theme.shadows.card,
   },
 });

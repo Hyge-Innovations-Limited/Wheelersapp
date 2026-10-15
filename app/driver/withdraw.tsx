@@ -35,7 +35,7 @@ import { useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 // There is deliberately NO minimum-withdrawal constant here. The app used to
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.subtle,
   },
 
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
     padding: 16,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.subtle,
   },
   selectText: {
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     padding: 16,
     gap: 8,
     ...theme.shadows.subtle,
@@ -779,14 +779,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   input: {
-    fontFamily: 'ClashDisplay_600Semibold',
+    fontFamily: 'HankenGrotesk_600SemiBold',
     fontSize: 18,
     color: theme.colors.black,
     padding: 0,
   },
   amountInput: {
     fontSize: 28,
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_700Bold',
   },
 
   // Next button
@@ -798,7 +798,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     ...theme.shadows.card,
   },
   btnPressed: {
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 0,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.card,
   },
   feeCard: {
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radii.xl,
     borderWidth: theme.borders.thick,
     borderBottomWidth: 0,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -900,11 +900,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   searchInput: {
     flex: 1,
-    fontFamily: 'ClashDisplay_500Medium',
+    fontFamily: 'HankenGrotesk_500Medium',
     fontSize: 14,
     color: theme.colors.black,
     padding: 0,
@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   bankName: {
     flex: 1,

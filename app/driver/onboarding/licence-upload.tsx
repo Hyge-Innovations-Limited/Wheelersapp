@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   previewWrap: {
     borderRadius: theme.radius.md,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     overflow: "hidden",
     ...theme.shadows.card,
   },

@@ -21,7 +21,7 @@ const periods: { label: string; value: Period }[] = [
 ];
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.subtle,
   },
 
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
     padding: 4,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.subtle,
   },
   tab: {
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     alignItems: 'center',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.card,
   },
   summaryItem: {
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xs,
     backgroundColor: theme.colors.orangeLight,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },

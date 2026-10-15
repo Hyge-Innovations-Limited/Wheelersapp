@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: '78%',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     gap: 4,

@@ -40,7 +40,7 @@ function isTab(value: unknown): value is Tab {
 }
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: theme.radii.pill,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   filterChipActive: {
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
     padding: 4,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.subtle,
   },
   tab: {
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderRadius: theme.radii.xs,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     borderRadius: 63,
     backgroundColor: theme.colors.orange,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     ...theme.shadows.card,
   },
   actionButtonSecondary: {
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
 });

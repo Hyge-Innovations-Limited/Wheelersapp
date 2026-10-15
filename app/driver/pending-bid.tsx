@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   },
   // White while waiting; green accepted; yellow paying; red declined.
   statusWaiting: {
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   statusAccepted: {
     borderColor: theme.colors.green,
@@ -451,14 +451,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderRadius: theme.radii.sm,
     paddingHorizontal: theme.spacing.md,
     backgroundColor: theme.colors.white,
   },
   editInput: {
     flex: 1,
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_700Bold',
     fontSize: 22,
     color: theme.colors.black,
     minHeight: 52,
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: theme.radii.sm,
     borderWidth: 1.5,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   chipPressed: {

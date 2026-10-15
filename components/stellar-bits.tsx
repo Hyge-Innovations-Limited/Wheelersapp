@@ -16,7 +16,7 @@ export function xlmText(amount: number | string, digits = 2): string {
 }
 
 export function ngnText(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 export function shortKey(key: string, keep = 6): string {

@@ -43,11 +43,11 @@ const styles = StyleSheet.create({
   },
   highlightedCard: {
     backgroundColor: theme.colors.orange,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
   },
   neutralCard: {
     backgroundColor: theme.colors.white,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   copy: {
     paddingRight: 26,

@@ -9,7 +9,7 @@ import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 function tripScreenFor(status: string): Href | null {

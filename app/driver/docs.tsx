@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderRadius: theme.radius.md,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   needHead: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },

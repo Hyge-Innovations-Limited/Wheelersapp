@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: theme.radius.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     overflow: "hidden",
     ...theme.shadows.subtle,
   },

@@ -11,7 +11,8 @@ const colors = {
   green: '#00C48C',
   red: '#FF3333',
   white: '#FFFFFF',
-  muted: '#786F68',
+  // The rider side's muted brown: easier to read on cream than the old grey.
+  muted: '#5C534B',
   mutedLight: '#B5ACA4',
   borderLight: '#E6DFD2',
   danger: '#CC3333',
@@ -41,36 +42,40 @@ const spacing = {
 
 const radii = {
   xs: 8,
-  sm: 10,
-  md: 14,
+  sm: 12,
+  md: 16,
   lg: 20,
   xl: 28,
   pill: 999,
 } as const;
 
+// The rider look: outlines are a thin warm line, not a heavy black stroke.
 const borderWidths = {
-  thick: 2.5,
-  regular: 1.5,
+  thick: 1.5,
+  regular: 1,
 } as const;
 
+// Soft lift, as on the rider side: no hard offset "stamp" under cards.
 const cardShadow: ViewStyle = {
   shadowColor: colors.black,
   shadowOffset: {
-    width: 3,
-    height: 3,
+    width: 0,
+    height: 4,
   },
-  shadowOpacity: 1,
-  shadowRadius: 0,
-  elevation: 5,
+  shadowOpacity: 0.07,
+  shadowRadius: 14,
+  elevation: 2,
 };
 
 const subtleShadow: ViewStyle = {
-  ...cardShadow,
+  shadowColor: colors.black,
   shadowOffset: {
-    width: 2,
+    width: 0,
     height: 2,
   },
-  elevation: 3,
+  shadowOpacity: 0.05,
+  shadowRadius: 8,
+  elevation: 1,
 };
 
 const shadowPresets = {
@@ -88,7 +93,7 @@ const status = {
 const cardVariants = {
   default: {
     backgroundColor: colors.white,
-    borderColor: colors.black,
+    borderColor: colors.borderLight,
   },
   accent: {
     backgroundColor: colors.orangeLight,
@@ -108,81 +113,84 @@ const cardVariants = {
   },
 } as const;
 
+// Bricolage Grotesque for headings and money, Hanken Grotesk for everything
+// read: the same type as the rider side, so both halves of the app are one app.
 const typography = {
   display: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_800ExtraBold',
     fontSize: 36,
     lineHeight: 38,
     letterSpacing: -1,
   } satisfies TextStyle,
   h1: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_800ExtraBold',
     fontSize: 26,
     lineHeight: 30,
     letterSpacing: -0.7,
   } satisfies TextStyle,
   h2: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_700Bold',
     fontSize: 19,
     lineHeight: 23,
     letterSpacing: -0.3,
   } satisfies TextStyle,
   h3: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_700Bold',
     fontSize: 16,
     lineHeight: 19,
   } satisfies TextStyle,
   body: {
-    fontFamily: 'ClashDisplay_500Medium',
-    fontSize: 14,
-    lineHeight: 19,
+    fontFamily: 'HankenGrotesk_500Medium',
+    fontSize: 15,
+    lineHeight: 20,
   } satisfies TextStyle,
   bodyMedium: {
-    fontFamily: 'ClashDisplay_600Semibold',
-    fontSize: 14,
-    lineHeight: 19,
+    fontFamily: 'HankenGrotesk_600SemiBold',
+    fontSize: 15,
+    lineHeight: 20,
   } satisfies TextStyle,
   bodySmall: {
-    fontFamily: 'ClashDisplay_500Medium',
-    fontSize: 11,
-    lineHeight: 15,
-  } satisfies TextStyle,
-  label: {
-    fontFamily: 'ClashDisplay_700Bold',
-    fontSize: 13,
+    fontFamily: 'HankenGrotesk_500Medium',
+    fontSize: 12,
     lineHeight: 16,
   } satisfies TextStyle,
+  label: {
+    fontFamily: 'HankenGrotesk_700Bold',
+    fontSize: 14,
+    lineHeight: 18,
+  } satisfies TextStyle,
   mono: {
-    fontFamily: 'ClashDisplay_600Semibold',
+    fontFamily: 'HankenGrotesk_600SemiBold',
+    fontVariant: ['tabular-nums'],
     fontSize: 13,
     lineHeight: 17,
   } satisfies TextStyle,
   monoSmall: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'HankenGrotesk_700Bold',
     fontSize: 10,
     lineHeight: 13,
     letterSpacing: 0.45,
   } satisfies TextStyle,
   monoLarge: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_700Bold',
     fontSize: 18,
     lineHeight: 21,
   } satisfies TextStyle,
   screenTitle: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_700Bold',
     fontSize: 21,
     lineHeight: 24,
     letterSpacing: -0.4,
   } satisfies TextStyle,
   metric: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_800ExtraBold',
     fontSize: 26,
     lineHeight: 30,
   } satisfies TextStyle,
   caption: {
-    fontFamily: 'ClashDisplay_500Medium',
-    fontSize: 10,
-    lineHeight: 13,
+    fontFamily: 'HankenGrotesk_500Medium',
+    fontSize: 11,
+    lineHeight: 14,
   } satisfies TextStyle,
 } as const;
 

@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   mapChip: {
     backgroundColor: theme.colors.white,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderRadius: theme.radius.sm,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 4,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.orange,
     borderRadius: 16,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     transform: [{ rotate: '45deg' }],
   },
   pulse: {

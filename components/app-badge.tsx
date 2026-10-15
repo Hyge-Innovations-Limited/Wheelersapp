@@ -13,18 +13,18 @@ type AppBadgeProps = {
 const colors = {
   orange: {
     backgroundColor: theme.colors.orange,
-    color: theme.colors.offWhite,
-    borderColor: theme.colors.black,
+    color: theme.colors.black,
+    borderColor: theme.colors.orange,
   },
   green: {
     backgroundColor: theme.colors.green,
     color: theme.colors.offWhite,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.green,
   },
   white: {
     backgroundColor: theme.colors.white,
     color: theme.colors.orange,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   dark: {
     backgroundColor: theme.colors.black,
@@ -48,9 +48,9 @@ export function AppBadge({ label, variant = 'orange' }: AppBadgeProps) {
 const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: theme.spacing.sm,
     paddingVertical: 4,
     borderWidth: theme.borders.regular,
-    borderRadius: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
   },
 });

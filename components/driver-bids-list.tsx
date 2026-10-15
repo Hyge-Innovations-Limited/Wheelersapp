@@ -8,7 +8,7 @@ import { useDriverSession } from '@/lib/driver-session';
 import { theme } from '@/theme';
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 function formatDate(dateStr: string): string {

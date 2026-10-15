@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: theme.radii.md,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   },
   // White while waiting; green accepted; yellow paying; red declined.
   cardBid: {
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   cardPaying: {
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.xs,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   quietRow: {
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.green,
     backgroundColor: theme.colors.green,
   },
   bidBtn: {
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   chip: {
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radii.sm,
     borderWidth: 1.5,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   cancelChip: {

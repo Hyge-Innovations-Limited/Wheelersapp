@@ -118,7 +118,7 @@ const tabStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   countBadgeText: {
-    fontFamily: 'ClashDisplay_700Bold',
+    fontFamily: 'BricolageGrotesque_700Bold',
     fontSize: 9,
     lineHeight: 12,
     color: theme.colors.white,
@@ -163,7 +163,7 @@ export default function DriverTabsLayout() {
         // Six tabs share the width where five used to, so the label drops a
         // point and gives up its letter-spacing rather than truncating.
         tabBarLabelStyle: {
-          fontFamily: 'ClashDisplay_600Semibold',
+          fontFamily: 'HankenGrotesk_600SemiBold',
           fontSize: responsive.font(10),
           letterSpacing: 0,
         },
@@ -175,8 +175,8 @@ export default function DriverTabsLayout() {
         },
         tabBarStyle: {
           backgroundColor: isDark ? theme.colors.darkSurface : theme.colors.white,
-          borderTopWidth: theme.borders.thick,
-          borderTopColor: isDark ? theme.colors.darkBorder : theme.colors.black,
+          borderTopWidth: 1,
+          borderTopColor: isDark ? theme.colors.darkBorder : theme.colors.borderLight,
           height: barRowHeight + bottomPadding,
           paddingTop: 6,
           paddingBottom: bottomPadding,

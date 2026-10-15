@@ -30,12 +30,12 @@ const variants = {
   },
   light: {
     backgroundColor: theme.colors.white,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     textColor: theme.colors.black,
   },
   outline: {
     backgroundColor: 'transparent',
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     textColor: theme.colors.black,
   },
 } as const;

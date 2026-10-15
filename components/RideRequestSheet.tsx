@@ -9,7 +9,7 @@ import { theme } from '@/theme';
 const PLATFORM_FEE_RATE = 0.0008; // 0.08%
 
 function formatNgn(amount: number): string {
-  return `NGN ${Math.round(amount).toLocaleString('en-NG')}`;
+  return `₦${Math.round(amount).toLocaleString('en-NG')}`;
 }
 
 type RideRequestData = {
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: theme.colors.offWhite,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderTopLeftRadius: theme.radii.lg,
     borderTopRightRadius: theme.radii.lg,
     padding: theme.spacing.lg,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   fareBreakdown: {
     backgroundColor: theme.colors.white,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     borderRadius: theme.radii.sm,
     padding: theme.spacing.md,
     gap: theme.spacing.xs,

@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.subtle,
   },
 
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   avatarCircle: {
     backgroundColor: theme.colors.orangeLight,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
     overflow: 'hidden',
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     ...theme.shadows.card,
   },
 
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderRadius: theme.radii.xs,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },

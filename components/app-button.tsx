@@ -15,10 +15,11 @@ type AppButtonProps = {
 };
 
 const variantStyles = {
+  // As on the rider side: solid orange, dark words, no outline.
   primary: {
     backgroundColor: theme.colors.orange,
-    borderColor: theme.colors.black,
-    textColor: theme.colors.offWhite,
+    borderColor: theme.colors.orange,
+    textColor: theme.colors.black,
     shadowColor: theme.colors.black,
   },
   ghost: {
@@ -29,7 +30,7 @@ const variantStyles = {
   },
   inverse: {
     backgroundColor: theme.colors.white,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     textColor: theme.colors.orange,
     shadowColor: theme.colors.black,
   },
@@ -85,13 +86,13 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 52,
-    borderWidth: theme.borders.thick,
-    borderRadius: theme.radius.sm,
+    minHeight: 56,
+    borderWidth: 2,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    ...theme.shadows.card,
   },
   content: {
     flexDirection: 'row',
@@ -101,15 +102,16 @@ const styles = StyleSheet.create({
   },
   label: {
     textAlign: 'center',
+    fontFamily: 'HankenGrotesk_800ExtraBold',
+    fontSize: 17,
+    lineHeight: 22,
   },
   flat: {
     shadowOpacity: 0,
     elevation: 0,
   },
   pressed: {
-    transform: [{ translateX: 2 }, { translateY: 2 }],
-    shadowOpacity: 0,
-    elevation: 0,
+    opacity: 0.72,
   },
   disabled: {
     opacity: 0.4,

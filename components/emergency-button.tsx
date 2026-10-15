@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     borderRadius: theme.radius.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.danger,
     overflow: "hidden",
     ...theme.shadows.card,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radius.xl,
     borderWidth: theme.borders.thick,
     borderBottomWidth: 0,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
   },
   sheetHandle: {
     alignSelf: "center",
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     borderRadius: theme.radius.md,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   kindRowPrimary: {
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     borderRadius: theme.radius.md,
     borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
 });

@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: theme.radii.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     backgroundColor: theme.colors.orange,
     alignItems: 'center',
     justifyContent: 'center',

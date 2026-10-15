@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.orange,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.orange,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: theme.spacing.lg,

@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderRadius: theme.radius.sm,
     borderWidth: theme.borders.thick,
-    borderColor: theme.colors.black,
+    borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.orangeLight,
     alignItems: "center",
     justifyContent: "center",
