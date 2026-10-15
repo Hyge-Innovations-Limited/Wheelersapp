@@ -32,6 +32,47 @@ const resolvedPlaceInflight = new Map<string, Promise<ResolvedPlace>>();
 const exactPlaces = new Map<string, ResolvedPlace>();
 const EXACT_PLACES_KEPT = 30;
 
+/**
+ * A place picked from the suggestions, looked up by its Google id the moment
+ * it is tapped: its exact spot, under the words the rider picked. Searching
+ * those words again instead used to land on a Plus Code ("G98X+2PX, Lagos
+ * Mainland") or a spot nearby. While the lookup runs, asking for the place
+ * waits for it rather than searching the words.
+ */
+const pickedPlaces = new Map<string, Promise<ResolvedPlace | null>>();
+
+export function rememberPickedPlace(label: string, placeId: string): void {
+  const address = label.trim();
+  const id = placeId.trim();
+  if (!address || !id || !googleMapsApiKey) return;
+  const key = address.toLowerCase();
+  if (exactPlaces.has(key) || pickedPlaces.has(key)) return;
+  const lookup = fetchPlaceSpot(id)
+    .then((point) => {
+      if (!point) return null;
+      rememberExactPlace(address, point);
+      return { lat: point.lat, lng: point.lng, address };
+    })
+    .catch(() => null)
+    .finally(() => pickedPlaces.delete(key));
+  pickedPlaces.set(key, lookup);
+}
+
+/** Where a Google place is, by its id: the location field only, the cheapest lookup there is. */
+async function fetchPlaceSpot(placeId: string): Promise<{ lat: number; lng: number } | null> {
+  const response = await fetchGoogle(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+    headers: { "X-Goog-Api-Key": getGoogleMapsApiKey(), "X-Goog-FieldMask": "location" },
+  });
+  if (!response.ok) {
+    placesLog(`place ← HTTP ${response.status}`, { placeId });
+    return null;
+  }
+  const data = (await response.json()) as { location?: { latitude?: number; longitude?: number } };
+  const lat = data.location?.latitude;
+  const lng = data.location?.longitude;
+  return typeof lat === "number" && typeof lng === "number" ? { lat, lng } : null;
+}
+
 export function rememberExactPlace(label: string, point: { lat: number; lng: number }): void {
   const address = label.trim();
   if (!address || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
@@ -493,7 +534,11 @@ async function fetchGoogleGeocodeResults(query: string): Promise<GoogleGeocodeRe
 function mapGeocodeResultToResolvedPlace(result: GoogleGeocodeResult): ResolvedPlace | null {
   const lat = result.geometry?.location?.lat;
   const lng = result.geometry?.location?.lng;
-  const address = cleanPart(result.formatted_address);
+  const formatted = cleanPart(result.formatted_address);
+  // "G98X+2PX, Lagos Mainland, …" is not an address anyone reads: name it from its parts instead.
+  const address = formatted && isPlusCode(formatted)
+    ? (placeLabelFromResults([result]) ?? cleanPart(formatted.replace(/^[^,]*,\s*/, "")))
+    : formatted;
 
   if (typeof lat !== "number" || typeof lng !== "number" || !address) {
     return null;
@@ -625,6 +670,11 @@ export async function resolvePlaceQuery(input: string): Promise<ResolvedPlace> {
   const cacheKey = normalizedInput.toLowerCase();
   const exact = exactPlaces.get(cacheKey);
   if (exact) return exact;
+  const picked = pickedPlaces.get(cacheKey);
+  if (picked) {
+    const spot = await picked;
+    if (spot) return spot;
+  }
 
   const cached = resolvedPlaceCache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < RESOLVED_PLACE_CACHE_TTL_MS) {

@@ -22,6 +22,7 @@ import { toUserMessage } from "@/lib/error-messages";
 import {
   fetchGooglePlaceSuggestions,
   isGoogleMapsConfigured,
+  rememberPickedPlace,
   resolvePlaceQuery,
   type PlaceSuggestion,
 } from "@/lib/google-places";
@@ -583,7 +584,10 @@ export default function DestinationSearchScreen() {
       .then((next) => setRecentPlaces(next))
       .catch(() => {});
 
-    handleSuggestionPress(formatSuggestionValue(place));
+    // The exact spot of what was picked, by its Google id, under the words shown.
+    const value = formatSuggestionValue(place);
+    rememberPickedPlace(value, place.id);
+    handleSuggestionPress(value);
   };
 
   const handleSearchSubmit = () => {
