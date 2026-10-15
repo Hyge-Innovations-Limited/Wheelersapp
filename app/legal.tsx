@@ -65,6 +65,10 @@ export default function LegalScreen() {
   // The text's height and the window it is read through: text that fits has no end to reach.
   const contentHeight = useRef(0);
   const viewHeight = useRef(0);
+  // Where the last line of the text ends. Reaching it is reaching the end,
+  // whatever numbers a phone's scroll events carry: on some Androids they
+  // arrived late or as zero, so Accept never woke up.
+  const endOfText = useRef(0);
   const [doc, setDoc] = useState<Doc>(params.doc === "privacy" ? "privacy" : "terms");
   const [readTerms, setReadTerms] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -97,7 +101,18 @@ export default function LegalScreen() {
   function onScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     if (doc !== "terms" || readTerms) return;
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    if (contentOffset.y + layoutMeasurement.height >= contentSize.height - END_SLACK) setReadTerms(true);
+    const seen = (contentOffset?.y ?? 0) + (layoutMeasurement?.height || viewHeight.current);
+    const ends = [contentSize?.height || contentHeight.current, endOfText.current].filter((value) => value > 0);
+    if (ends.length > 0 && seen >= Math.min(...ends) - END_SLACK) setReadTerms(true);
+  }
+
+  /**
+   * Accept tapped before the end: take them there rather than do nothing.
+   * Once the text has rolled to its end, Accept is live.
+   */
+  function toTheEnd() {
+    scrollRef.current?.scrollToEnd({ animated: true });
+    setTimeout(() => setReadTerms(true), 650);
   }
 
   // Answering for the account: there is no way out but an answer.
@@ -136,6 +151,7 @@ export default function LegalScreen() {
   }
 
   async function accept() {
+    if (!readTerms) return toTheEnd();
     if (answering) return answer("AGREED");
     if (saving || !readTerms) return;
     setSaving(true);
@@ -177,6 +193,7 @@ export default function LegalScreen() {
       </View>
 
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.body}
         onContentSizeChange={(_, height) => {
           // Short enough to fit without scrolling: there is no end to scroll to.
@@ -209,6 +226,9 @@ export default function LegalScreen() {
         <Pressable
           accessibilityRole="link"
           hitSlop={8}
+          onLayout={(event) => {
+            endOfText.current = event.nativeEvent.layout.y + event.nativeEvent.layout.height;
+          }}
           onPress={() => void WebBrowser.openBrowserAsync(doc === "terms" ? TERMS_URL : PRIVACY_URL).catch(() => undefined)}
           style={styles.web}>
           <Text style={styles.webText}>
@@ -221,10 +241,17 @@ export default function LegalScreen() {
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
           {readTerms ? null : (
             <Text accessibilityLiveRegion="polite" style={styles.hint}>
-              Scroll to the end to accept.
+              Scroll to the end to accept, or tap Accept to go there.
             </Text>
           )}
-          <RButton disabled={!readTerms} loading={saving} onPress={() => void accept()} title="Accept" />
+          {/* Never disabled: tapped early it scrolls to the end, so nobody is stuck behind it. */}
+          <RButton
+            accessibilityHint={readTerms ? undefined : "Scrolls to the end of the terms first"}
+            loading={saving}
+            onPress={() => void accept()}
+            style={readTerms ? null : styles.notYet}
+            title="Accept"
+          />
           <RButton
             disabled={saving}
             onPress={answering ? () => void answer("DECLINED") : close}
@@ -247,6 +274,8 @@ const styles = StyleSheet.create({
   tabOn: { backgroundColor: rider.colors.ink },
   tabText: { fontFamily: rider.fonts.bold, fontSize: 15, color: rider.colors.ink },
   tabTextOn: { color: rider.colors.cream },
+  // Only the room above the buttons: the text never pushes Accept off the screen.
+  scroll: { flex: 1 },
   body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28, gap: 18 },
   section: { gap: 8 },
   sectionTitle: { fontSize: 17 },
@@ -261,5 +290,6 @@ const styles = StyleSheet.create({
     borderTopColor: rider.colors.line,
     backgroundColor: rider.colors.card,
   },
+  notYet: { opacity: 0.55 },
   hint: { fontFamily: rider.fonts.medium, fontSize: 14, lineHeight: 19, color: rider.colors.muted, textAlign: "center" },
 });
