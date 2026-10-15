@@ -159,8 +159,7 @@ export default function ReferralScreen() {
         <View style={styles.headerCopy}>
           <AppText variant="screenTitle">Referral rewards</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>
-            Share your code. Cashback can only be used for rides within the App
-            cash.
+            Share your code with riders.
           </AppText>
         </View>
       </View>
@@ -279,11 +278,6 @@ export default function ReferralScreen() {
         />
       </View>
 
-      <AppCard style={styles.rulesCard}>
-        <RuleRow text="If they take a ride within 30 days, you earn NGN 1,000 ride cashback." />
-        <RuleRow text="If they do not ride after 30 days, you earn NGN 500." />
-        <RuleRow text="Unused cashback freezes after 30 days. One fresh referral unlocks one frozen cashback." />
-      </AppCard>
 
       <View style={styles.actions}>
         <AppButton
@@ -326,20 +320,6 @@ function StatCard({
   );
 }
 
-function RuleRow({ text }: { text: string }) {
-  return (
-    <View style={styles.ruleRow}>
-      <View style={styles.ruleDot} />
-      <AppText
-        variant="bodySmall"
-        color={theme.colors.muted}
-        style={styles.ruleText}
-      >
-        {text}
-      </AppText>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   codeForm: { gap: theme.spacing.md },
@@ -414,26 +394,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     alignItems: "center",
     justifyContent: "center",
-  },
-  rulesCard: {
-    gap: theme.spacing.sm,
-  },
-  ruleRow: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-    alignItems: "flex-start",
-  },
-  ruleDot: {
-    width: 8,
-    height: 8,
-    borderRadius: theme.radius.pill,
-    borderWidth: theme.borders.regular,
-    borderColor: theme.colors.black,
-    backgroundColor: theme.colors.orange,
-    marginTop: 7,
-  },
-  ruleText: {
-    flex: 1,
   },
   actions: {
     flexDirection: "row",
