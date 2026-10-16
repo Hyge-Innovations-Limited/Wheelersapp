@@ -39,6 +39,7 @@ import {
   selectOfferState,
   recordBid,
   reduceDriverSession,
+  ringDeadlineMs,
   type DriverSessionState,
   type GroupSeat,
 } from '@/lib/driver-session-reducer';
@@ -50,6 +51,13 @@ import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { markTripChatClosed } from '@/lib/trip-chat';
 import { emitStartResult, isTripCodeError } from '@/lib/trip-code';
 import { emitKycRequired, knownDriverKyc } from '@/lib/driver-kyc';
+import { toUserMessage } from '@/lib/error-messages';
+import {
+  hideRideOverlay,
+  onRideOverlayAction,
+  showRideOverlay,
+  takeRideOverlayAction,
+} from '@/lib/ride-overlay';
 
 /** On this phone too, not only on the server: an unapproved driver never goes online or bids. */
 function blockedForKyc(): boolean {
@@ -932,6 +940,65 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     });
     return () => subscription.remove();
   }, [syncActiveRide]);
+
+  // Android, another app in front: a new request is shown over it (lib/ride-overlay.ts).
+  // One card per request, the newest; it goes when the request does.
+  const overlaidRef = useRef<{ rideId: string | null; seen: Set<string> }>({ rideId: null, seen: new Set() });
+  useEffect(() => {
+    const overlaid = overlaidRef.current;
+    const waiting = session.offers.filter((offer) => !session.pendingBids[offer.rideId]);
+    if (overlaid.rideId && !waiting.some((offer) => offer.rideId === overlaid.rideId)) {
+      hideRideOverlay(overlaid.rideId);
+      overlaid.rideId = null;
+    }
+    const fresh = waiting.filter((offer) => !overlaid.seen.has(offer.rideId));
+    for (const offer of fresh) overlaid.seen.add(offer.rideId);
+    for (const rideId of overlaid.seen) {
+      if (!session.offers.some((offer) => offer.rideId === rideId)) overlaid.seen.delete(rideId);
+    }
+    if (AppState.currentState === 'active' || session.status === 'offline') return;
+    const newest = fresh[fresh.length - 1];
+    if (!newest) return;
+    showRideOverlay(newest, ringDeadlineMs(newest) - Date.now());
+    overlaid.rideId = newest.rideId;
+  }, [session.offers, session.pendingBids, session.status]);
+
+  // What the driver pressed on the card: Wheelers is in front by then.
+  const handleOverlayChoice = useCallback(async () => {
+    const choice = takeRideOverlayAction();
+    if (!choice) return;
+    const open = () => {
+      selectOffer(choice.rideId);
+      router.push('/driver/incoming-request' as never);
+    };
+    if (choice.action === 'open') {
+      open();
+      return;
+    }
+    try {
+      await acceptRide(choice.rideId, undefined, lastOnlineCoordsRef.current ?? undefined);
+      router.navigate('/driver/(tabs)/home' as never);
+    } catch (failure) {
+      if (sessionRef.current.offers.some((offer) => offer.rideId === choice.rideId)) open();
+      Alert.alert('Not accepted', toUserMessage(failure, 'That request may have been taken. Check it and try again.'));
+    }
+  }, [acceptRide, selectOffer]);
+
+  useEffect(() => {
+    const stopListening = onRideOverlayAction(() => void handleOverlayChoice());
+    const subscription = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next !== 'active') return;
+      // Back in the app: its own screens show the requests now.
+      hideRideOverlay();
+      overlaidRef.current.rideId = null;
+      void handleOverlayChoice();
+    });
+    void handleOverlayChoice();
+    return () => {
+      stopListening();
+      subscription.remove();
+    };
+  }, [handleOverlayChoice]);
 
   const value = useMemo<DriverSessionContextValue>(
     () => ({

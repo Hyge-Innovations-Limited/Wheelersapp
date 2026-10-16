@@ -8,6 +8,7 @@ import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import { useNearbyAlerts } from '@/components/nearby-alerts';
+import { useRideOverlaySetting } from '@/lib/ride-overlay';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { deleteAccount } from '@/lib/api';
@@ -127,6 +128,7 @@ export default function DriverSettingsScreen() {
   const { isDark, toggleTheme } = useAppTheme();
   const { session } = useDriverSession();
   const nearbyAlerts = useNearbyAlerts(getAccessToken, session.status !== 'offline');
+  const overlaySetting = useRideOverlaySetting();
   const responsive = useResponsive();
 
   const handleLogout = () => {
@@ -422,6 +424,40 @@ export default function DriverSettingsScreen() {
                 value={nearbyAlerts.enabled}
                 onValueChange={nearbyAlerts.toggle}
                 disabled={nearbyAlerts.busy}
+                trackColor={{ false: theme.colors.borderLight, true: theme.colors.orange }}
+                thumbColor={theme.colors.white}
+              />
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ── Requests over other apps: Android's own switch, opened from here ── */}
+      {overlaySetting.supported ? (
+        <View style={styles.section}>
+          <AppText
+            variant="label"
+            color={theme.colors.muted}
+            style={[styles.sectionLabel, { fontSize: responsive.font(10) }]}
+            numberOfLines={1}>
+            RIDE REQUESTS
+          </AppText>
+          <View style={[styles.card, { backgroundColor: cardBg }]}>
+            <View style={[styles.menuItem, menuItemStyle]}>
+              <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: overlaySetting.allowed ? theme.colors.orangeLight : subtleBg }]}>
+                <AppText variant="label" color={overlaySetting.allowed ? theme.colors.orange : theme.colors.muted}>▣</AppText>
+              </View>
+              <View style={styles.menuInfo}>
+                <AppText variant="bodyMedium">Show requests over other apps</AppText>
+                <AppText variant="bodySmall" color={theme.colors.muted}>
+                  {overlaySetting.allowed
+                    ? 'On — a new request pops up with Accept while you are in WhatsApp, Maps or any app'
+                    : 'Off — you only see requests inside Wheelers'}
+                </AppText>
+              </View>
+              <Switch
+                value={overlaySetting.allowed}
+                onValueChange={overlaySetting.change}
                 trackColor={{ false: theme.colors.borderLight, true: theme.colors.orange }}
                 thumbColor={theme.colors.white}
               />

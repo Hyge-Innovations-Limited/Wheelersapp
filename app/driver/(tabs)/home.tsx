@@ -18,6 +18,7 @@ import { useAppLocation } from '@/lib/location';
 import { useAppNotifications } from '@/lib/notifications';
 import { useQuestBadge } from '@/lib/quest-badge-context';
 import { useResponsive } from '@/lib/responsive';
+import { offerRideOverlayOnce } from '@/lib/ride-overlay';
 import { playBidAlertChime, playRideRequestSound, stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
 import { toUserMessage } from '@/lib/error-messages';
@@ -198,6 +199,14 @@ export default function DriverHomeScreen() {
 
   const isOnline = session.status !== 'offline';
   const nearbyAlerts = useNearbyAlerts(getAccessToken, isOnline);
+
+  // Online on this phone for the first time: offer requests over other apps
+  // (Android). A moment later, so it never lands on top of a location prompt.
+  useEffect(() => {
+    if (!isOnline) return;
+    const timer = setTimeout(() => void offerRideOverlayOnce(), 1500);
+    return () => clearTimeout(timer);
+  }, [isOnline]);
 
   // An honest read on silence: how long since anything happened. Fifteen
   // quiet minutes means the driver is probably parked outside demand — say

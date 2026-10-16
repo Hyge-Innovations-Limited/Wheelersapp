@@ -1,0 +1,6 @@
+{
+  "name": "ride-overlay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android only: a ride request shown over other apps while Wheelers is in the background (lib/ride-overlay.ts)"
+}
