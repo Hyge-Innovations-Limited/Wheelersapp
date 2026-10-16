@@ -23,6 +23,7 @@ import {
 import { AppButton } from "@/components/app-button";
 import { AppText } from "@/components/app-text";
 import { publicEntryRoute } from "@/lib/app-variant";
+import { biometricKind, biometricName, confirmOwner, type BiometricKind } from "@/lib/biometrics";
 import { clearStoredAuthState } from "@/lib/auth-state";
 import { theme } from "@/theme";
 
@@ -42,6 +43,8 @@ const PUBLIC_ROUTES = new Set([
 type StoredAppLockState = {
   pinHash: string;
   appLockEnabled: boolean;
+  /** Unlock with Face ID or a fingerprint; the PIN still works. */
+  biometricsEnabled?: boolean;
 };
 
 type AppLockContextValue = {
@@ -52,6 +55,12 @@ type AppLockContextValue = {
   createPin: (pin: string) => Promise<void>;
   changePin: (currentPin: string, nextPin: string) => Promise<void>;
   setAppLockEnabled: (enabled: boolean) => Promise<void>;
+  /** Face ID or a fingerprint on this phone, when it has one set up; null when it has not. */
+  biometrics: BiometricKind | null;
+  biometricsEnabled: boolean;
+  /** Turning it on asks for it once first, so it is only on when it works. Returns whether it is on. */
+  setBiometricsEnabled: (enabled: boolean) => Promise<boolean>;
+  unlockWithBiometrics: () => Promise<boolean>;
   unlock: (pin: string) => Promise<boolean>;
   lock: () => void;
   clearPin: () => Promise<void>;
@@ -85,6 +94,7 @@ async function readStoredAppLockState(): Promise<StoredAppLockState | null> {
     return {
       pinHash: parsed.pinHash,
       appLockEnabled: parsed.appLockEnabled,
+      biometricsEnabled: parsed.biometricsEnabled === true,
     };
   } catch {
     return null;
@@ -107,10 +117,14 @@ export function AppLockProvider({ children }: PropsWithChildren) {
   const [pinHash, setPinHash] = useState<string | null>(null);
   const [appLockEnabled, setAppLockEnabledState] = useState(false);
   const [isLocked, setLocked] = useState(false);
+  const [biometrics, setBiometrics] = useState<BiometricKind | null>(null);
+  const [biometricsEnabled, setBiometricsEnabledState] = useState(false);
 
   useEffect(() => {
     void (async () => {
-      const stored = await readStoredAppLockState();
+      const [stored, kind] = await Promise.all([readStoredAppLockState(), biometricKind()]);
+      setBiometrics(kind);
+      setBiometricsEnabledState(Boolean(kind) && stored?.biometricsEnabled === true);
       setPinHash(stored?.pinHash ?? null);
       setAppLockEnabledState(stored?.appLockEnabled ?? false);
       setLocked(Boolean(stored?.pinHash) && Boolean(stored?.appLockEnabled));
@@ -150,6 +164,7 @@ export function AppLockProvider({ children }: PropsWithChildren) {
         await writeStoredAppLockState({
           pinHash: nextHash,
           appLockEnabled: true,
+          biometricsEnabled,
         });
         setPinHash(nextHash);
         setAppLockEnabledState(true);
@@ -173,6 +188,7 @@ export function AppLockProvider({ children }: PropsWithChildren) {
         await writeStoredAppLockState({
           pinHash: nextHash,
           appLockEnabled,
+          biometricsEnabled,
         });
         setPinHash(nextHash);
       },
@@ -184,9 +200,28 @@ export function AppLockProvider({ children }: PropsWithChildren) {
         await writeStoredAppLockState({
           pinHash,
           appLockEnabled: enabled,
+          biometricsEnabled,
         });
         setAppLockEnabledState(enabled);
         setLocked(enabled ? true : false);
+      },
+      biometrics,
+      biometricsEnabled,
+      setBiometricsEnabled: async (enabled: boolean) => {
+        if (!pinHash) throw new Error("Create a PIN first.");
+        if (enabled) {
+          if (!biometrics) throw new Error("Set up Face ID or a fingerprint in your phone's settings first.");
+          if (!(await confirmOwner(`Use ${biometricName(biometrics)} to unlock Wheelers`))) return false;
+        }
+        await writeStoredAppLockState({ pinHash, appLockEnabled, biometricsEnabled: enabled });
+        setBiometricsEnabledState(enabled);
+        return enabled;
+      },
+      unlockWithBiometrics: async () => {
+        if (!biometricsEnabled || !biometrics) return false;
+        const owner = await confirmOwner("Unlock Wheelers");
+        if (owner) setLocked(false);
+        return owner;
       },
       unlock: async (pin: string) => {
         if (!pinHash) {
@@ -209,10 +244,11 @@ export function AppLockProvider({ children }: PropsWithChildren) {
         await writeStoredAppLockState(null);
         setPinHash(null);
         setAppLockEnabledState(false);
+        setBiometricsEnabledState(false);
         setLocked(false);
       },
     }),
-    [appLockEnabled, isLocked, pinHash, ready],
+    [appLockEnabled, biometrics, biometricsEnabled, isLocked, pinHash, ready],
   );
 
   return (
@@ -236,7 +272,7 @@ export function AppLockOverlay({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { ready, hasPin, appLockEnabled, isLocked, unlock, clearPin } =
+  const { ready, hasPin, appLockEnabled, isLocked, unlock, clearPin, biometrics, biometricsEnabled, unlockWithBiometrics } =
     useAppLock();
   const [pin, setPin] = useState("");
   const [isResetting, setResetting] = useState(false);
@@ -248,13 +284,15 @@ export function AppLockOverlay({
     }
   }, [isLocked]);
 
-  if (
-    !ready ||
-    !hasPin ||
-    !appLockEnabled ||
-    !isLocked ||
-    PUBLIC_ROUTES.has(pathname)
-  ) {
+  // Locked, and they chose Face ID / fingerprint: ask at once, the PIN is the fallback.
+  const shown = ready && hasPin && appLockEnabled && isLocked && !PUBLIC_ROUTES.has(pathname);
+  useEffect(() => {
+    if (shown && biometricsEnabled) void unlockWithBiometrics();
+    // Once each time the lock comes up.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, biometricsEnabled]);
+
+  if (!shown) {
     return null;
   }
 
@@ -266,8 +304,16 @@ export function AppLockOverlay({
         </View>
         <AppText variant="h2">Unlock Wheelers</AppText>
         <AppText variant="bodySmall" color={theme.colors.muted}>
-          Enter your 4-digit PIN to continue.
+          {biometricsEnabled ? `Use ${biometricName(biometrics)}, or enter your 4-digit PIN.` : "Enter your 4-digit PIN to continue."}
         </AppText>
+
+        {biometricsEnabled ? (
+          <AppButton
+            onPress={() => void unlockWithBiometrics()}
+            title={`Use ${biometricName(biometrics)}`}
+            variant="inverse"
+          />
+        ) : null}
 
         <TextInput
           autoFocus

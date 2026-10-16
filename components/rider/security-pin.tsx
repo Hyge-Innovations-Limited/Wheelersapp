@@ -9,6 +9,7 @@ import { publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { clearStoredAuthState } from "@/lib/auth-state";
 import { toUserMessage } from "@/lib/error-messages";
+import { biometricName } from "@/lib/biometrics";
 
 const { colors, fonts } = rider;
 const digits = (value: string) => value.replace(/\D/g, "").slice(0, 4);
@@ -17,7 +18,7 @@ const digits = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 export function RiderSecurityPin() {
   const router = useRouter();
   const { logout } = useAuth();
-  const { hasPin, appLockEnabled, createPin, changePin, clearPin, setAppLockEnabled } = useAppLock();
+  const { hasPin, appLockEnabled, createPin, changePin, clearPin, setAppLockEnabled, biometrics, biometricsEnabled, setBiometricsEnabled } = useAppLock();
   const [current, setCurrent] = useState("");
   const [pin, setPin] = useState("");
   const [again, setAgain] = useState("");
@@ -71,6 +72,20 @@ export function RiderSecurityPin() {
     }
   }
 
+  /** Face ID / fingerprint instead of typing the PIN: asked for once as it is switched on. */
+  async function toggleBiometrics() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await setBiometricsEnabled(!biometricsEnabled);
+    } catch (failure) {
+      setError(toUserMessage(failure, `${biometricName(biometrics)} could not be switched on. Try again.`));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function forgot() {
     if (resetting) return;
     setResetting(true);
@@ -109,6 +124,26 @@ export function RiderSecurityPin() {
             thumbColor={colors.card}
             trackColor={{ false: colors.line, true: colors.orange }}
             value={appLockEnabled}
+          />
+        </RCard>
+      ) : null}
+
+      {/* Only on a phone with Face ID or a fingerprint set up (and a build that can use it). */}
+      {hasPin && appLockEnabled && biometrics ? (
+        <RCard style={styles.lockRow}>
+          <View style={styles.flex}>
+            <RText variant="bodyBold">Unlock with {biometricName(biometrics)}</RText>
+            <RText color={colors.muted} variant="small">
+              Instead of typing your PIN. The PIN still works.
+            </RText>
+          </View>
+          <Switch
+            accessibilityLabel={`Unlock with ${biometricName(biometrics)}`}
+            disabled={busy}
+            onValueChange={() => void toggleBiometrics()}
+            thumbColor={colors.card}
+            trackColor={{ false: colors.line, true: colors.orange }}
+            value={biometricsEnabled}
           />
         </RCard>
       ) : null}

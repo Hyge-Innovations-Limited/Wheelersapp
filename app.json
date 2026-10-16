@@ -112,6 +112,12 @@
             "notificationBody": "Location stays active for live trip progress and safety updates."
           }
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Wheelers uses Face ID to unlock the app instead of your PIN."
+        }
       ]
     ],
     "experiments": {

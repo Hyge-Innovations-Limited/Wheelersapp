@@ -16,6 +16,7 @@ import { useAppLock } from "@/lib/app-lock";
 import { RiderSecurityPin } from "@/components/rider/security-pin";
 import { theme } from "@/theme";
 import { toUserMessage } from "@/lib/error-messages";
+import { biometricName } from "@/lib/biometrics";
 
 /** One route for both sides of the app: each gets its own look. */
 export default function SecurityPinScreen() {
@@ -25,7 +26,7 @@ export default function SecurityPinScreen() {
 function DriverSecurityPinScreen() {
   const router = useRouter();
   const { logout } = useAuth();
-  const { hasPin, appLockEnabled, createPin, changePin, clearPin, setAppLockEnabled } =
+  const { hasPin, appLockEnabled, createPin, changePin, clearPin, setAppLockEnabled, biometrics, biometricsEnabled, setBiometricsEnabled } =
     useAppLock();
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -163,6 +164,19 @@ function DriverSecurityPinScreen() {
               title="Require PIN on app open"
               toggleValue={appLockEnabled}
             />
+            {appLockEnabled && biometrics ? (
+              <SettingsRow
+                icon="fingerprint"
+                onToggle={() =>
+                  void setBiometricsEnabled(!biometricsEnabled).catch((error: unknown) =>
+                    Alert.alert("Not switched on", toUserMessage(error, `${biometricName(biometrics)} could not be switched on.`)),
+                  )
+                }
+                showDivider={false}
+                title={`Unlock with ${biometricName(biometrics)}`}
+                toggleValue={biometricsEnabled}
+              />
+            ) : null}
           </AppCard>
 
           <AppCard style={styles.card}>
