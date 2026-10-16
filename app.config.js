@@ -123,6 +123,9 @@ module.exports = () => ({
       // "Continue with Apple" is tapped — which is why EAS kept reporting
       // "Synced capabilities: No updates": there was nothing to sync.
       usesAppleSignIn: true,
+      // Passkeys for wheelersng.com: the site names this app in
+      // /.well-known/apple-app-site-association. Needs a new build to take effect.
+      associatedDomains: [...(appJson.expo.ios?.associatedDomains ?? []), "webcredentials:wheelersng.com"],
       infoPlist: {
         ...appJson.expo.ios?.infoPlist,
         CFBundleDisplayName: HOME_SCREEN_NAME,

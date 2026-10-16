@@ -565,7 +565,7 @@ function getErrorMessage(payload: unknown, fallback: string): string {
  * place that knows about base URLs, auth headers, and error shapes.
  */
 export async function apiRequest<TResponse>(
-  method: "GET" | "POST" | "PUT",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   options: {
     accessToken?: string;
@@ -578,7 +578,7 @@ export async function apiRequest<TResponse>(
 }
 
 async function requestJson<TResponse>(
-  method: "GET" | "POST" | "PUT",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   options: {
     accessToken?: string;
@@ -799,6 +799,44 @@ export async function verifyPhoneLoginCode(input: {
     { phone: input.phone, code: input.code },
     { fallbackError: "We could not check that code. Please try again." },
   );
+}
+
+/** Passkeys: the server's side of making one and signing in with one (lib/passkeys.ts is the phone's). */
+export async function passkeyRegistrationOptions(input: { accessToken: string }): Promise<Record<string, unknown>> {
+  return postJson("/auth/passkey/register/options", {}, { accessToken: input.accessToken, fallbackError: "Passkeys are not working right now." });
+}
+
+export async function savePasskey(input: { accessToken: string; response: Record<string, unknown>; deviceName: string }): Promise<{ id: string }> {
+  return postJson("/auth/passkey/register/verify", { response: input.response, deviceName: input.deviceName }, {
+    accessToken: input.accessToken,
+    fallbackError: "The passkey could not be set up. Please try again.",
+  });
+}
+
+export async function passkeySignInOptions(): Promise<{ challengeId: string; options: Record<string, unknown> }> {
+  return postJson("/auth/passkey/login/options", {}, { fallbackError: "Passkeys are not working right now. Sign in with your phone number." });
+}
+
+export async function signInWithPasskey(input: { challengeId: string; response: Record<string, unknown> }): Promise<PhoneLoginResponse> {
+  return postJson("/auth/passkey/login/verify", input, { fallbackError: "We could not sign you in with that passkey. Sign in with your phone number." });
+}
+
+export interface PasskeySummary {
+  id: string;
+  deviceName: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export async function listPasskeys(input: { accessToken: string }): Promise<{ passkeys: PasskeySummary[] }> {
+  return getJson("/auth/passkeys", { accessToken: input.accessToken, fallbackError: "Could not load your passkeys." });
+}
+
+export async function removePasskey(input: { accessToken: string; id: string }): Promise<{ removed: true }> {
+  return requestJson("DELETE", `/auth/passkeys/${encodeURIComponent(input.id)}`, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not remove that passkey.",
+  });
 }
 
 export async function getCurrentProfile(input: {

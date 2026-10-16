@@ -16,8 +16,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandLogo } from "@/components/brand-logo";
 import { DriveScene } from "@/components/rider/drive-scene";
 import { RBack, RButton, RText, rider } from "@/components/rider/kit";
-import { sendPhoneLoginCode } from "@/lib/api";
+import { passkeySignInOptions, sendPhoneLoginCode, signInWithPasskey } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
+import { useAuth } from "@/lib/auth";
+import { toUserMessage } from "@/lib/error-messages";
+import { finishRiderSignIn } from "@/lib/finish-rider-sign-in";
+import { PasskeyCancelled, passkeysAvailable, signWithPasskey } from "@/lib/passkeys";
 import { groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
 import { rememberPendingCode } from "@/lib/rider-sign-in-state";
 
@@ -29,6 +33,10 @@ export default function RiderPhoneScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const phone = riderPhoneFrom(typed);
+  const { refreshAuthState } = useAuth();
+  const [withPasskey, setWithPasskey] = useState(false);
+  /** Only where it works: this build has passkeys and the phone supports them. */
+  const [passkeyReady] = useState(() => passkeysAvailable());
 
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
@@ -41,6 +49,26 @@ export default function RiderPhoneScreen() {
 
   function onContinue() {
     if (phone && !sending) void sendCode(phone);
+  }
+
+  /** Face ID or a fingerprint instead of an SMS code: the same steps after, as after a code. */
+  async function passkeySignIn() {
+    if (withPasskey || sending) return;
+    setWithPasskey(true);
+    setError(null);
+    try {
+      const { challengeId, options } = await passkeySignInOptions();
+      const response = await signWithPasskey(options);
+      const result = await signInWithPasskey({ challengeId, response });
+      await finishRiderSignIn(result, router, refreshAuthState);
+    } catch (failure) {
+      // Closing the phone's own prompt is a choice, not a failure.
+      if (!(failure instanceof PasskeyCancelled)) {
+        setError(toUserMessage(failure, "We could not sign you in with a passkey. Use your phone number."));
+      }
+    } finally {
+      setWithPasskey(false);
+    }
   }
 
   async function sendCode(number: string | null = phone) {
@@ -127,12 +155,24 @@ export default function RiderPhoneScreen() {
           <View style={styles.spacer} />
 
           <RButton
-            disabled={!phone}
+            disabled={!phone || withPasskey}
             loading={sending}
             onPress={onContinue}
             title="Continue"
             variant="dark"
           />
+          {passkeyReady ? (
+            <RButton
+              accessibilityHint="Signs you in with Face ID or a fingerprint instead of a text message"
+              disabled={sending}
+              loading={withPasskey}
+              onPress={() => void passkeySignIn()}
+              size="md"
+              style={styles.passkey}
+              title="Sign in with a passkey"
+              variant="ghost"
+            />
+          ) : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -140,6 +180,7 @@ export default function RiderPhoneScreen() {
 }
 
 const styles = StyleSheet.create({
+  passkey: { marginTop: 12 },
   screen: { flex: 1, backgroundColor: rider.colors.cream },
   scroll: { flexGrow: 1 },
   scene: { backgroundColor: rider.colors.ink, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: "hidden" },

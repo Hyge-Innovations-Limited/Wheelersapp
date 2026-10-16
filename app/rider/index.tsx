@@ -26,6 +26,7 @@ import { LiveMap } from "@/components/live-map";
 import { naira, rider, RText } from "@/components/rider/kit";
 import type { ScheduledRide } from "@/lib/api";
 import { useEmailGate } from "@/lib/email-gate";
+import { usePasskeyOffer } from "@/lib/passkey-account";
 import { useAppLocation } from "@/lib/location";
 import { useAppNotifications } from "@/lib/notifications";
 import { useRiderTrips } from "@/lib/rider-trips";
@@ -120,6 +121,8 @@ export default function RiderHomeScreen() {
   const { currentRide } = useRideSession();
   // Signed up before the app asked for an email: asked once now.
   useEmailGate();
+  // Then, once, a passkey to sign in with next time (never in the middle of a trip).
+  usePasskeyOffer(Boolean(currentRide));
 
   /* ── permissions: one ask at a time ─────────────────────────────────── */
 

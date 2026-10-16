@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { clearStoredAuthState } from "@/lib/auth-state";
 import { toUserMessage } from "@/lib/error-messages";
 import { biometricName } from "@/lib/biometrics";
+import { RiderPasskeys } from "@/components/rider/passkeys-card";
 
 const { colors, fonts } = rider;
 const digits = (value: string) => value.replace(/\D/g, "").slice(0, 4);
@@ -176,6 +177,8 @@ export function RiderSecurityPin() {
           variant="dark"
         />
       </RCard>
+
+      <RiderPasskeys />
 
       {hasPin ? (
         <RCard style={styles.block} tone="outline">

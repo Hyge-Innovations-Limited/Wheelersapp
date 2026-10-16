@@ -1,6 +1,7 @@
 import { termsNotChecked } from "@/lib/consent-sync";
 import { clearTermsToAnswer } from "@/lib/rider-sign-in-state";
 import { forgetAcceptedTerms } from "@/lib/terms-acceptance";
+import { forgetPasskeyOffer } from "@/lib/passkeys";
 import React, {
   createContext,
   useCallback,
@@ -86,6 +87,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await forgetAcceptedTerms();
     await clearTermsToAnswer();
     await termsNotChecked();
+    // And the next account here is offered a passkey of its own.
+    await forgetPasskeyOffer();
     setHasToken(false);
   }, []);
 
