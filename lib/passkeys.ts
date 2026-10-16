@@ -36,6 +36,9 @@ export async function forgetPasskeyOffer(): Promise<void> {
 
 /** This phone and build can make and use passkeys. */
 export function passkeysAvailable(): boolean {
+  // Android checks the website lists this app's signing key (assetlinks.json);
+  // until it does every try fails, so the button stays hidden there.
+  if (Platform.OS === "android" && process.env.EXPO_PUBLIC_ANDROID_PASSKEYS !== "on") return false;
   const passkeys = module();
   if (!passkeys) return false;
   try {
