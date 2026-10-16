@@ -11,6 +11,7 @@ import {
   startWalletPinReset,
 } from '@/lib/api';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 const PIN_LENGTH = 4;
 
@@ -115,7 +116,7 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
         startCreate('create');
       }
     } catch (e) {
-      showNotice({ title: 'Something went wrong', body: e instanceof Error ? e.message : 'Please try again.' });
+      showNotice({ title: 'Something went wrong', body: toUserMessage(e, 'Please try again.') });
     }
     return promise;
   }, [showNotice, startCreate, token]);
@@ -168,7 +169,7 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
     } catch (e) {
       firstEntry.current = null;
       setDigits('');
-      setError(e instanceof Error ? e.message : 'Please try again.');
+      setError(toUserMessage(e, 'Please try again.'));
       if (e instanceof ApiError && e.code?.startsWith('CODE_')) setMode('reset-code');
     } finally {
       setBusy(false);
@@ -204,7 +205,7 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
         setMode('reset-warn');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Please try again.');
+      setError(toUserMessage(e, 'Please try again.'));
     } finally {
       setBusy(false);
     }

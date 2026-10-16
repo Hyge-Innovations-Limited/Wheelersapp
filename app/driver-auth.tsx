@@ -16,6 +16,7 @@ import {
   getGoogleWebClientId,
   loadGoogleSignin,
 } from "@/lib/google-signin";
+import { toUserMessage } from "@/lib/error-messages";
 
 export default function DriverAuthScreen() {
   const router = useRouter();
@@ -85,7 +86,7 @@ export default function DriverAuthScreen() {
 
       Alert.alert(
         "Sign in failed",
-        error instanceof Error ? error.message : "Could not sign in with Apple.",
+        toUserMessage(error, "Could not sign in with Apple."),
       );
     } finally {
       setLoadingProvider(null);
@@ -136,7 +137,7 @@ export default function DriverAuthScreen() {
 
       Alert.alert(
         "Sign in failed",
-        error instanceof Error ? error.message : "Could not sign in with Google.",
+        toUserMessage(error, "Could not sign in with Google."),
       );
     } finally {
       setLoadingProvider(null);

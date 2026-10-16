@@ -15,6 +15,7 @@ import { clearStoredAuthState } from "@/lib/auth-state";
 import { useAppLock } from "@/lib/app-lock";
 import { RiderSecurityPin } from "@/components/rider/security-pin";
 import { theme } from "@/theme";
+import { toUserMessage } from "@/lib/error-messages";
 
 /** One route for both sides of the app: each gets its own look. */
 export default function SecurityPinScreen() {
@@ -56,7 +57,7 @@ function DriverSecurityPinScreen() {
     } catch (error) {
       Alert.alert(
         "PIN setup failed",
-        error instanceof Error ? error.message : "Could not create your PIN.",
+        toUserMessage(error, "Could not create your PIN."),
       );
     } finally {
       setIsSaving(false);
@@ -84,7 +85,7 @@ function DriverSecurityPinScreen() {
     } catch (error) {
       Alert.alert(
         "PIN update failed",
-        error instanceof Error ? error.message : "Could not change your PIN.",
+        toUserMessage(error, "Could not change your PIN."),
       );
     } finally {
       setIsSaving(false);
@@ -98,7 +99,7 @@ function DriverSecurityPinScreen() {
     } catch (error) {
       Alert.alert(
         "App lock update failed",
-        error instanceof Error ? error.message : "Could not update app lock.",
+        toUserMessage(error, "Could not update app lock."),
       );
     } finally {
       setIsSaving(false);

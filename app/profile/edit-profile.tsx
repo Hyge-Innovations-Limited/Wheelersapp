@@ -15,6 +15,7 @@ import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getCurrentProfile, isBackendConfigured, updateCurrentProfile } from "@/lib/api";
 import { RiderEditProfile } from "@/components/rider/edit-profile";
 import { theme } from "@/theme";
+import { toUserMessage } from "@/lib/error-messages";
 
 function normalizeUsernameInput(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -131,7 +132,7 @@ function DriverEditProfileScreen() {
     } catch (error) {
       Alert.alert(
         "Save failed",
-        error instanceof Error ? error.message : "Could not update your profile.",
+        toUserMessage(error, "Could not update your profile."),
       );
     } finally {
       setIsSaving(false);

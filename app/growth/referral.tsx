@@ -23,6 +23,7 @@ import { REFERRAL_CODE_MIN, tidyReferralCode } from "@/lib/referral-entry";
 import QRCodeStyled from "react-native-qrcode-styled";
 
 import { theme } from "@/theme";
+import { toUserMessage } from "@/lib/error-messages";
 
 function formatNgn(value: number | null | undefined): string {
   const amount = Number.isFinite(value) ? Number(value) : 0;
@@ -52,7 +53,7 @@ export default function ReferralScreen() {
       }
       setSummary(await getReferralSummary({ accessToken }));
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not load your referral code.");
+      setErrorMessage(toUserMessage(error, "Could not load your referral code."));
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +91,7 @@ export default function ReferralScreen() {
       setSummary((current) => (current ? { ...current, ...saved } : current));
       setWanted("");
     } catch (error) {
-      setCodeError(error instanceof Error ? error.message : "That code could not be saved. Try another one.");
+      setCodeError(toUserMessage(error, "That code could not be saved. Try another one."));
     } finally {
       setSavingCode(false);
     }

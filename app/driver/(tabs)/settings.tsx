@@ -26,6 +26,7 @@ import { useAppLocation } from '@/lib/location';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 const APP_VERSION = '1.0.0';
 
@@ -165,7 +166,7 @@ export default function DriverSettingsScreen() {
             } catch (err) {
               Alert.alert(
                 'Error',
-                err instanceof Error ? err.message : 'Could not delete account. Please try again.',
+                toUserMessage(err, 'Could not delete account. Please try again.'),
               );
             }
           },

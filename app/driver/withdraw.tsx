@@ -33,6 +33,7 @@ import { useAppTheme } from '@/lib/theme-context';
 import { invalidateWalletCache, useWalletOverview } from '@/lib/wallet-overview';
 import { useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -198,7 +199,7 @@ export default function DriverWithdrawScreen() {
     } catch (err) {
       Alert.alert(
         'Verification failed',
-        err instanceof Error ? err.message : 'Could not verify account. Please check the details and try again.',
+        toUserMessage(err, 'Could not verify account. Please check the details and try again.'),
       );
     } finally {
       setVerifying(false);
@@ -302,7 +303,7 @@ export default function DriverWithdrawScreen() {
     } catch (err) {
       Alert.alert(
         'Withdrawal failed',
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+        toUserMessage(err, 'Something went wrong. Please try again.'),
       );
     } finally {
       pinGate.done();

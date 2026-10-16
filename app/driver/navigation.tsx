@@ -20,6 +20,7 @@ import { useAppLocation } from '@/lib/location';
 import { useCourseBearing, useLiveRoute } from '@/lib/use-live-route';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -135,7 +136,7 @@ export default function DriverNavigationScreen() {
             try {
               await cancelTrip(ride.rideId, 'driver_cancelled');
             } catch (err) {
-              Alert.alert('Error', err instanceof Error ? err.message : 'Could not cancel the trip. Please try again.');
+              Alert.alert('Error', toUserMessage(err, 'Could not cancel the trip. Please try again.'));
             }
           },
         },
@@ -147,7 +148,7 @@ export default function DriverNavigationScreen() {
     try {
       await arriveAtPickup(ride.rideId);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not confirm arrival. Please try again.');
+      Alert.alert('Error', toUserMessage(err, 'Could not confirm arrival. Please try again.'));
     }
   };
 

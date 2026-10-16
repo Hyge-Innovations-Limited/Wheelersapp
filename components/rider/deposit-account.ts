@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCachedQuery } from "@/lib/cached-query";
+import { toUserMessage } from "@/lib/error-messages";
 
 export type DepositAccount = WalletDepositInfoResponse;
 
@@ -110,7 +111,7 @@ export function useDepositAccount(options: { provision: boolean }): DepositAccou
           }
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Could not load deposit info.";
+        const message = toUserMessage(error, "Could not load deposit info.");
         next =
           error instanceof ApiError && error.code === "PHONE_REQUIRED"
             ? { status: "phone-required", message }

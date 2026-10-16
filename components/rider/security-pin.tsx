@@ -8,6 +8,7 @@ import { useAppLock } from "@/lib/app-lock";
 import { publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { clearStoredAuthState } from "@/lib/auth-state";
+import { toUserMessage } from "@/lib/error-messages";
 
 const { colors, fonts } = rider;
 const digits = (value: string) => value.replace(/\D/g, "").slice(0, 4);
@@ -51,7 +52,7 @@ export function RiderSecurityPin() {
       setPin("");
       setAgain("");
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Your PIN could not be saved. Try again.");
+      setError(toUserMessage(failure, "Your PIN could not be saved. Try again."));
     } finally {
       setBusy(false);
     }
@@ -64,7 +65,7 @@ export function RiderSecurityPin() {
     try {
       await setAppLockEnabled(!appLockEnabled);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "The app lock could not be changed. Try again.");
+      setError(toUserMessage(failure, "The app lock could not be changed. Try again."));
     } finally {
       setBusy(false);
     }

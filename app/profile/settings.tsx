@@ -19,6 +19,7 @@ import {
   markLogoutPending,
 } from "@/lib/auth-state";
 import { theme } from "@/theme";
+import { toUserMessage } from "@/lib/error-messages";
 
 const accountSettingIds = new Set([
   "edit-profile",
@@ -258,7 +259,7 @@ function SettingsScreenBody({
       } catch (error) {
         Alert.alert(
           "Logout failed",
-          error instanceof Error ? error.message : "Could not log you out.",
+          toUserMessage(error, "Could not log you out."),
         );
       }
     }

@@ -28,6 +28,7 @@ import { persistAuthenticatedRole } from "@/lib/auth-state";
 import { resolvePostAuthRoute } from "@/lib/post-auth";
 import { getDisplayErrorMessage } from "@/lib/errors";
 import { theme } from "@/theme";
+import { toUserMessage } from "@/lib/error-messages";
 
 type AuthMode = "signup" | "signin";
 
@@ -98,7 +99,7 @@ export default function AccountAuthScreen() {
     } catch (error) {
       Alert.alert(
         mode === "signup" ? "Check your sign-up details" : "Check your sign-in details",
-        error instanceof Error ? error.message : "Enter your email and password.",
+        toUserMessage(error, "Enter your email and password."),
       );
       return;
     }

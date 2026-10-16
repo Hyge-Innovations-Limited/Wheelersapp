@@ -35,6 +35,7 @@ import { useAppLocation } from '@/lib/location';
 import { useResponsive } from '@/lib/responsive';
 import { stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 120;
@@ -224,7 +225,7 @@ export default function IncomingRequestScreen() {
       await acceptRide(offer.rideId, undefined, currentLocation ?? undefined);
       setBidSent(true);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not accept ride.');
+      Alert.alert('Error', toUserMessage(err, 'Could not accept ride.'));
     }
   };
 
@@ -266,7 +267,7 @@ export default function IncomingRequestScreen() {
       // A seat answer is engagement — dismissing must not reject the ride.
       setBidSent(true);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not accept this seat.');
+      Alert.alert('Error', toUserMessage(err, 'Could not accept this seat.'));
     }
   };
 
@@ -285,7 +286,7 @@ export default function IncomingRequestScreen() {
       setSeatBidMode(null);
       setSeatBidAmount('');
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not bid on this seat.');
+      Alert.alert('Error', toUserMessage(err, 'Could not bid on this seat.'));
     }
   };
 
@@ -338,7 +339,7 @@ export default function IncomingRequestScreen() {
       await acceptRide(offer.rideId, amount, currentLocation ?? undefined);
       setBidSent(true);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not submit bid.');
+      Alert.alert('Error', toUserMessage(err, 'Could not submit bid.'));
     }
   };
 

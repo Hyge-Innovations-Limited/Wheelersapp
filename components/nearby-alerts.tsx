@@ -17,6 +17,7 @@ import {
   setStandbyEnabledLocally,
 } from '@/lib/standby-location';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 const OFFERED_KEY = 'wheelers.driver.standby.offered';
 const IOS = Platform.OS === 'ios';
@@ -147,7 +148,7 @@ export function useNearbyAlerts(
       if (!isOnline) await resumeStandbyIfEnabled(token);
       return true;
     } catch (error) {
-      Alert.alert('Could not turn on alerts', error instanceof Error ? error.message : 'Please try again.');
+      Alert.alert('Could not turn on alerts', toUserMessage(error, 'Please try again.'));
       return false;
     } finally {
       setBusy(false);

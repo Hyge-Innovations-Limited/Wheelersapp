@@ -17,6 +17,7 @@ import { TripProgressBar } from '@/components/TripProgressBar';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 const FREE_WAIT_SECONDS = 180; // 3 minutes
 
@@ -89,7 +90,7 @@ export default function DriverArrivedScreen() {
     try {
       await startTrip(ride.rideId);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not start trip. Please try again.');
+      Alert.alert('Error', toUserMessage(err, 'Could not start trip. Please try again.'));
     }
   };
 
@@ -109,7 +110,7 @@ export default function DriverArrivedScreen() {
             try {
               await cancelTrip(ride.rideId, 'rider_no_show');
             } catch (err) {
-              Alert.alert('Error', err instanceof Error ? err.message : 'Could not cancel the trip. Please try again.');
+              Alert.alert('Error', toUserMessage(err, 'Could not cancel the trip. Please try again.'));
             }
           },
         },

@@ -13,6 +13,7 @@ import { RATE_NUDGES_NGN, bidCeilingFareNgn, bidNudgesNgn, bidsPerKm, driverRate
 import { PerKmChip } from '@/components/PerKmChip';
 import { theme } from '@/theme';
 import { bidStage, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
+import { toUserMessage } from '@/lib/error-messages';
 
 
 /** How often to ask the backend about a bid the rider has accepted but whose
@@ -142,7 +143,7 @@ export default function PendingBidScreen() {
       setEditOpen(false);
       setEditAmount('');
     } catch (err) {
-      Alert.alert('Could not update bid', err instanceof Error ? err.message : 'Please try again.');
+      Alert.alert('Could not update bid', toUserMessage(err, 'Please try again.'));
     } finally {
       setSendingBid(false);
     }

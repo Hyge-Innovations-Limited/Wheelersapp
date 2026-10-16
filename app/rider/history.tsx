@@ -31,6 +31,7 @@ import {
   pickupWords,
   routeWords,
 } from "@/lib/trip-words";
+import { toUserMessage } from "@/lib/error-messages";
 
 const { colors, fonts, radius } = rider;
 
@@ -139,7 +140,7 @@ export default function RiderTripsScreen() {
               .catch((error: unknown) => {
                 Alert.alert(
                   "Could not cancel this ride",
-                  error instanceof Error ? error.message : "Please try again.",
+                  toUserMessage(error, "Please try again."),
                 );
               })
               .finally(() => setCancellingId(null));

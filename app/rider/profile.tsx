@@ -15,6 +15,7 @@ import { clearRiderTripsCache } from "@/lib/rider-trips";
 import { clearNameNeeded } from "@/lib/rider-sign-in-state";
 import { clearSavedPlaces } from "@/lib/saved-places";
 import { useWalletOverview } from "@/lib/wallet-overview";
+import { toUserMessage } from "@/lib/error-messages";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -175,7 +176,7 @@ export default function RiderYouScreen() {
     } catch (error) {
       Alert.alert(
         "Logout failed",
-        error instanceof Error ? error.message : "Could not log you out.",
+        toUserMessage(error, "Could not log you out."),
       );
     } finally {
       setIsLoggingOut(false);
@@ -204,7 +205,7 @@ export default function RiderYouScreen() {
     } catch (error) {
       Alert.alert(
         "Could not switch",
-        error instanceof Error ? error.message : "Please try again.",
+        toUserMessage(error, "Please try again."),
       );
     } finally {
       setIsSwitching(false);

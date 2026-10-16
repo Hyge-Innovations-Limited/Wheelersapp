@@ -20,6 +20,7 @@ import { useQuestBadge } from '@/lib/quest-badge-context';
 import { useResponsive } from '@/lib/responsive';
 import { playBidAlertChime, playRideRequestSound, stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 function countCompletedQuests(todayRides: number, todayEarnings: number, totalRides: number, rating: number): number {
   let count = 0;
@@ -283,7 +284,7 @@ export default function DriverHomeScreen() {
         await goOnline(currentLocation.lat, currentLocation.lng);
       }
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not update status. Please try again.');
+      Alert.alert('Error', toUserMessage(err, 'Could not update status. Please try again.'));
     }
   };
 

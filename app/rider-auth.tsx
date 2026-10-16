@@ -18,6 +18,7 @@ import {
   getGoogleWebClientId,
   loadGoogleSignin,
 } from "@/lib/google-signin";
+import { toUserMessage } from "@/lib/error-messages";
 
 /**
  * Where the rider app opens: Apple, Google, or email.
@@ -62,7 +63,7 @@ export default function RiderAuthScreen() {
   }
 
   function reportFailure(error: unknown, fallback: string) {
-    Alert.alert("Sign in failed", error instanceof Error ? error.message : fallback);
+    Alert.alert("Sign in failed", toUserMessage(error, fallback));
   }
 
   async function handleAppleSignIn() {

@@ -24,6 +24,7 @@ import { useAppLocation } from '@/lib/location';
 import { stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
 import { bidStage, outcomeLabel, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
+import { toUserMessage } from '@/lib/error-messages';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -108,7 +109,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
       void stopRideRequestSound();
       await acceptRide(offer.rideId, amountNgn, currentLocation ?? undefined);
     } catch (err) {
-      Alert.alert('Could not send bid', err instanceof Error ? err.message : 'Please try again.');
+      Alert.alert('Could not send bid', toUserMessage(err, 'Please try again.'));
     } finally {
       setBusyRideId(null);
     }

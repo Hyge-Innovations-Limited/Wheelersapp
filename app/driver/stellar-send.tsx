@@ -13,6 +13,7 @@ import { invalidateCached, useCachedQuery } from '@/lib/cached-query';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
+import { toUserMessage } from '@/lib/error-messages';
 
 type Step = 'address' | 'amount' | 'confirm' | 'done';
 const STEPS: Step[] = ['address', 'amount', 'confirm'];
@@ -78,7 +79,7 @@ export default function DriverStellarSendScreen() {
       invalidateCached('stellar');
       setStep('done');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Not sent. Please try again.');
+      setError(toUserMessage(err, 'Not sent. Please try again.'));
     } finally {
       setSending(false);
     }
