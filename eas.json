@@ -21,6 +21,7 @@
       "env": {
         "APP_VARIANT": "driver",
         "EXPO_PUBLIC_APP_VARIANT": "driver",
+        "EXPO_PUBLIC_ANDROID_PASSKEYS": "on",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCN4yX8dKFLrZbVpk4TB-IGFO4LxTO8k3E",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com"
@@ -36,6 +37,7 @@
       "env": {
         "APP_VARIANT": "driver",
         "EXPO_PUBLIC_APP_VARIANT": "driver",
+        "EXPO_PUBLIC_ANDROID_PASSKEYS": "on",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCN4yX8dKFLrZbVpk4TB-IGFO4LxTO8k3E",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com",
@@ -63,6 +65,7 @@
       "env": {
         "APP_VARIANT": "driver",
         "EXPO_PUBLIC_APP_VARIANT": "driver",
+        "EXPO_PUBLIC_ANDROID_PASSKEYS": "on",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCN4yX8dKFLrZbVpk4TB-IGFO4LxTO8k3E",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com",
@@ -92,6 +95,7 @@
       "env": {
         "APP_VARIANT": "driver",
         "EXPO_PUBLIC_APP_VARIANT": "driver",
+        "EXPO_PUBLIC_ANDROID_PASSKEYS": "on",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCN4yX8dKFLrZbVpk4TB-IGFO4LxTO8k3E",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com",
@@ -114,6 +118,7 @@
       "env": {
         "APP_VARIANT": "driver",
         "EXPO_PUBLIC_APP_VARIANT": "driver",
+        "EXPO_PUBLIC_ANDROID_PASSKEYS": "on",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCN4yX8dKFLrZbVpk4TB-IGFO4LxTO8k3E",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "915689509871-jceck5bg2mk6imvq46d6so2i8c26lnsb.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "915689509871-6sfdaphckt4r0ku30j3d2pg6nbef199a.apps.googleusercontent.com",
