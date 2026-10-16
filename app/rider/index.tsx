@@ -25,6 +25,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { LiveMap } from "@/components/live-map";
 import { naira, rider, RText } from "@/components/rider/kit";
 import type { ScheduledRide } from "@/lib/api";
+import { useEmailGate } from "@/lib/email-gate";
 import { useAppLocation } from "@/lib/location";
 import { useAppNotifications } from "@/lib/notifications";
 import { useRiderTrips } from "@/lib/rider-trips";
@@ -117,6 +118,8 @@ export default function RiderHomeScreen() {
   const { rawItems: scheduledRides, refresh: refreshScheduledRides } = useScheduledRides();
   const { places: savedPlaces } = useSavedPlaces();
   const { currentRide } = useRideSession();
+  // Signed up before the app asked for an email: asked once now.
+  useEmailGate();
 
   /* ── permissions: one ask at a time ─────────────────────────────────── */
 

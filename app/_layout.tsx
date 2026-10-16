@@ -122,8 +122,10 @@ function ThemedLayout() {
               : theme.colors.offWhite,
           },
           animation: "slide_from_right",
-        }}
-      />
+        }}>
+        {/* The email is compulsory: no swipe back past it. */}
+        <Stack.Screen name="rider-email" options={{ gestureEnabled: false }} />
+      </Stack>
     </>
   );
 }

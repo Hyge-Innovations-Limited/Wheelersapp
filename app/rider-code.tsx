@@ -104,9 +104,13 @@ export default function RiderCodeScreen() {
       // walk into them again.
       if (router.canDismiss()) router.dismissAll();
 
-      const next = needsName
+      const after = needsName
         ? { pathname: "/rider-new", params: {} }
         : { pathname: "/rider-welcome-back", params: { name: firstNameOf(name), email: result.user.email ?? "" } };
+      // Right after the privacy policy: their email, unless the account has one.
+      const next = result.user.email?.trim()
+        ? after
+        : { pathname: "/rider-email", params: { next: JSON.stringify(after) } };
       if (agreed) {
         router.replace(next as never);
       } else {
