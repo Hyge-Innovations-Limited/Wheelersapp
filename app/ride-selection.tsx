@@ -144,6 +144,8 @@ export default function RideSelectionScreen() {
   );
   /** The price could not be fetched: said, with a way to try again, instead of a guess. */
   const [estimateFailed, setEstimateFailed] = useState(false);
+  /** Why there is no price, when it is not worth trying again: "only in Lagos". */
+  const [estimateRefusal, setEstimateRefusal] = useState<string | null>(null);
   const [estimateAttempt, setEstimateAttempt] = useState(0);
   /**
    * What the rider is willing to pay. Wheelers is a bidding market: the fare
@@ -183,6 +185,7 @@ export default function RideSelectionScreen() {
 
     let cancelled = false;
     setEstimateFailed(false);
+    setEstimateRefusal(null);
 
     // At once: the trip screen has usually started this same request already,
     // and addresses and prices are kept, so this joins it rather than repeating it.
@@ -212,8 +215,13 @@ export default function RideSelectionScreen() {
         if (!cancelled) {
           setLiveEstimate(response);
         }
-      } catch {
-        if (!cancelled) setEstimateFailed(true);
+      } catch (error) {
+        if (!cancelled) {
+          setEstimateFailed(true);
+          // Outside Lagos is an answer, not a hiccup: say it, and offer to change the trip instead.
+          const message = error instanceof Error ? error.message : "";
+          setEstimateRefusal(/only in Lagos/i.test(message) ? message : null);
+        }
       }
     }, 0);
 
@@ -457,16 +465,29 @@ export default function RideSelectionScreen() {
         </View>
 
         {estimateFailed && !hasLiveFare ? (
-          <RCard style={styles.infoCard}>
-            <Ionicons color={colors.danger} name="cloud-offline-outline" size={24} />
-            <View style={styles.infoText}>
-              <RText variant="bodyBold">We couldn&apos;t get the price</RText>
-              <RText variant="small" color={colors.muted}>
-                Check your connection, then try again.
-              </RText>
-            </View>
-            <RLink color={colors.orangeText} onPress={() => setEstimateAttempt((count) => count + 1)} title="Try again" />
-          </RCard>
+          estimateRefusal ? (
+            <RCard style={styles.infoCard}>
+              <Ionicons color={colors.orangeText} name="location-outline" size={24} />
+              <View style={styles.infoText}>
+                <RText variant="bodyBold">Not available there yet</RText>
+                <RText variant="small" color={colors.muted}>
+                  {estimateRefusal}
+                </RText>
+              </View>
+              <RLink color={colors.orangeText} onPress={() => handleEditRoute()} title="Change trip" />
+            </RCard>
+          ) : (
+            <RCard style={styles.infoCard}>
+              <Ionicons color={colors.danger} name="cloud-offline-outline" size={24} />
+              <View style={styles.infoText}>
+                <RText variant="bodyBold">We couldn&apos;t get the price</RText>
+                <RText variant="small" color={colors.muted}>
+                  Check your connection, then try again.
+                </RText>
+              </View>
+              <RLink color={colors.orangeText} onPress={() => setEstimateAttempt((count) => count + 1)} title="Try again" />
+            </RCard>
+          )
         ) : null}
 
         {scheduledAt ? (

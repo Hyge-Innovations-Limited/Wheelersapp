@@ -113,3 +113,15 @@ test('a place found by its words is never named by a Plus Code', async () => {
   const place = await resolvePlaceQuery('faculty of science unilag');
   assert.equal(place.address, 'Akoka, Lagos Mainland');
 });
+
+test('a spot outside Lagos is refused in words, wherever it came from', async () => {
+  const { rememberExactPlace: remember, resolvePlaceQuery: resolve } = require(outFile);
+  remember('Sango Ota bus stop', { lat: 6.6979, lng: 3.2339 });
+  await assert.rejects(resolve('Sango Ota bus stop'), /outside Lagos\. Wheelers is only in Lagos for now/);
+  globalThis.fetch = async () => new Response(JSON.stringify({ status: 'OK', results: [{
+    formatted_address: 'Mowe, Ogun State, Nigeria', types: ['locality'],
+    geometry: { location: { lat: 6.8017, lng: 3.4339 } },
+    address_components: [{ long_name: 'Nigeria', short_name: 'NG', types: ['country'] }],
+  }] }), { status: 200 });
+  await assert.rejects(resolve('mowe'), /"mowe" is outside Lagos/);
+});

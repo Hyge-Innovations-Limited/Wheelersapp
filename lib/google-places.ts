@@ -1,5 +1,7 @@
 import Constants from "expo-constants";
 
+import { isInLagos, LAGOS_BOX, OUTSIDE_LAGOS_LINE } from "@/lib/service-area";
+
 export const googleMapsApiKeyEnvVar = "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY";
 
 export type PlaceSuggestion = {
@@ -71,6 +73,12 @@ async function fetchPlaceSpot(placeId: string): Promise<{ lat: number; lng: numb
   const lat = data.location?.latitude;
   const lng = data.location?.longitude;
   return typeof lat === "number" && typeof lng === "number" ? { lat, lng } : null;
+}
+
+/** A place to ride from or to, or the "only in Lagos" refusal in words. */
+function inLagosOrSay(place: ResolvedPlace, input: string): ResolvedPlace {
+  if (!isInLagos(place.lat, place.lng)) throw new Error(`"${input}" is outside Lagos. ${OUTSIDE_LAGOS_LINE}`);
+  return place;
 }
 
 export function rememberExactPlace(label: string, point: { lat: number; lng: number }): void {
@@ -417,14 +425,14 @@ async function fetchGoogleAutocompletePredictions(
     includedRegionCodes: ["ng"],
   };
 
-  if (searchBias) {
-    body.locationBias = {
-      circle: {
-        center: { latitude: searchBias.lat, longitude: searchBias.lng },
-        radius: 50000,
-      },
-    };
-  }
+  // Rides are taken in Lagos only: suggestions stay inside it. (A restriction
+  // and a bias cannot both be sent; within Lagos, Google's own order is kept.)
+  body.locationRestriction = {
+    rectangle: {
+      low: { latitude: LAGOS_BOX.south, longitude: LAGOS_BOX.west },
+      high: { latitude: LAGOS_BOX.north, longitude: LAGOS_BOX.east },
+    },
+  };
 
   placesLog("autocomplete (new) →", {
     query,
@@ -669,11 +677,11 @@ export async function resolvePlaceQuery(input: string): Promise<ResolvedPlace> {
 
   const cacheKey = normalizedInput.toLowerCase();
   const exact = exactPlaces.get(cacheKey);
-  if (exact) return exact;
+  if (exact) return inLagosOrSay(exact, normalizedInput);
   const picked = pickedPlaces.get(cacheKey);
   if (picked) {
     const spot = await picked;
-    if (spot) return spot;
+    if (spot) return inLagosOrSay(spot, normalizedInput);
   }
 
   const cached = resolvedPlaceCache.get(cacheKey);
@@ -689,10 +697,16 @@ export async function resolvePlaceQuery(input: string): Promise<ResolvedPlace> {
   const request = (async () => {
     const queries = joinUnique([buildContextualQuery(normalizedInput), normalizedInput]);
 
+    let outsideLagos = false;
     for (const query of queries) {
       const results = await fetchGoogleGeocodeResults(query);
-      const resolved = results
-        .filter(isGoogleResultInNigeria)
+      const inNigeria = results.filter(isGoogleResultInNigeria);
+      const inLagos = inNigeria.filter((result) => {
+        const at = result.geometry?.location;
+        return typeof at?.lat === "number" && typeof at?.lng === "number" && isInLagos(at.lat, at.lng);
+      });
+      if (inNigeria.length > inLagos.length) outsideLagos = true;
+      const resolved = inLagos
         .sort((left, right) => scoreGeocodeResult(right) - scoreGeocodeResult(left))
         .map(mapGeocodeResultToResolvedPlace)
         .find((item): item is ResolvedPlace => item != null);
@@ -706,6 +720,7 @@ export async function resolvePlaceQuery(input: string): Promise<ResolvedPlace> {
       }
     }
 
+    if (outsideLagos) throw new Error(`"${input}" is outside Lagos. ${OUTSIDE_LAGOS_LINE}`);
     placesLog("resolve failed — no usable result in Nigeria", { input, tried: queries });
     throw new Error(
       `We could not find "${input}". Try adding the city, or pick a suggestion from the list.`,

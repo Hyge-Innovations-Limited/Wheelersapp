@@ -32,6 +32,7 @@ import { serializeRideItinerary, type RideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { useSavedPlaces, type SavedPlace } from "@/lib/saved-places";
 import { useScheduledRides } from "@/lib/scheduled-rides";
+import { isInLagos } from "@/lib/service-area";
 import { useWalletOverview } from "@/lib/wallet-overview";
 
 const { colors, fonts, radius, gutter } = rider;
@@ -351,6 +352,21 @@ export default function RiderHomeScreen() {
                   Turn on
                 </RText>
               </Pressable>
+            ) : null}
+
+            {/* Outside Lagos (Ogun, say): told at once, before they try to book. */}
+            {permissionState !== "denied" && currentLocation && !isInLagos(currentLocation.lat, currentLocation.lng) ? (
+              <View accessibilityLiveRegion="polite" accessible style={styles.locationOff}>
+                <Ionicons color={rider.colors.orange} name="map-outline" size={22} />
+                <View style={styles.locationOffWords}>
+                  <RText color={rider.colors.cream} variant="bodyBold">
+                    Not in your area yet
+                  </RText>
+                  <RText color={rider.colors.onInkMuted} variant="small">
+                    Wheelers is only in Lagos for now. We will let you know when we come to your area.
+                  </RText>
+                </View>
+              </View>
             ) : null}
 
             <RText accessibilityRole="header" variant="title">
