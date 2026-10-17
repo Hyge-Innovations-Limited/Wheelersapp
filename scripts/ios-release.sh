@@ -30,7 +30,13 @@ fi
 
 TEAM=N3F7PRGY83
 PROFILE='*[expo] com.timmy133.wheelers.driver AppStore 2026-08-18T19:18:32.891Z'
+# The Live Activity (lock screen / Dynamic Island) is its own small app inside
+# the app, with its own id and App Store profile: create the App ID
+# com.timmy133.wheelers.driver.LiveActivity and an App Store profile for it
+# with this name at developer.apple.com, download it and double-click it.
+LIVE_PROFILE="${LIVE_PROFILE:-Wheelers LiveActivity AppStore}"
 build="$(node -p 'require("./app.json").expo.ios.buildNumber')"
+version="$(node -p 'require("./app.json").expo.version')"
 
 # The driver variant's public env — the same values EAS would bake in.
 eval "$(node -p '
@@ -42,11 +48,27 @@ python3 - <<PY
 import re
 p = "ios/WheelersDriver.xcodeproj/project.pbxproj"
 s = open(p).read()
-s = re.sub(r"CURRENT_PROJECT_VERSION = \d+;", f'''CURRENT_PROJECT_VERSION = ${build};
+profiles = {
+  "com.timmy133.wheelers.driver": "${PROFILE}",
+  "com.timmy133.wheelers.driver.LiveActivity": "${LIVE_PROFILE}",
+}
+SIGNING = re.compile(r'\n\s*(DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]"|CURRENT_PROJECT_VERSION|MARKETING_VERSION) = [^;]*;')
+def sign(m):
+  block = m.group(0)
+  found = re.search(r'PRODUCT_BUNDLE_IDENTIFIER = "?([^";]+)"?;', block)
+  profile = profiles.get(found.group(1)) if found else None
+  if not profile:
+    return block
+  # Each part with its own profile, and the same version and build number (App Store insists).
+  block = SIGNING.sub("", block)
+  return block.replace("buildSettings = {", f"""buildSettings = {{
+\t\t\t\tCURRENT_PROJECT_VERSION = ${build};
+\t\t\t\tMARKETING_VERSION = ${version};
 \t\t\t\tDEVELOPMENT_TEAM = ${TEAM};
 \t\t\t\tCODE_SIGN_STYLE = Manual;
 \t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
-\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "${PROFILE}";''', s)
+\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile}";""", 1)
+s = re.sub(r"buildSettings = \{.*?\n\t\t\t\};", sign, s, flags=re.S)
 open(p, "w").write(s)
 PY
 (cd ios && pod install)

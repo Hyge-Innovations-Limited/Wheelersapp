@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DriverTripRouter } from '@/components/driver-trip-router';
 import { DriverSessionProvider } from '@/lib/driver-session';
+import { DriverTripLiveActivity } from '@/components/trip-live-activity';
 import { DriverLiveCallHost } from '@/lib/live-call/hosts';
 import { useDriverKycLock } from '@/lib/use-driver-kyc-lock';
 import { theme } from '@/theme';
@@ -42,6 +43,8 @@ export default function DriverLayout() {
         <Stack.Screen name="verify-phone" />
       </Stack>
       <DriverKycLock />
+      {/* The driver's trip on the lock screen and in the Dynamic Island (iPhone). */}
+      <DriverTripLiveActivity />
       </DriverLiveCallHost>
     </DriverSessionProvider>
   );

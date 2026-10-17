@@ -38,6 +38,7 @@ import { AppNotificationsProvider } from "@/lib/notifications";
 import { InterstateRequestsProvider } from "@/lib/interstate-requests-context";
 import { QuestBadgeProvider } from "@/lib/quest-badge-context";
 import { RideSessionProvider } from "@/lib/ride-session";
+import { RiderTripLiveActivity } from "@/components/trip-live-activity";
 import { isDriverApp } from "@/lib/app-variant";
 import { RiderLiveCallHost } from "@/lib/live-call/hosts";
 import { ThemeProvider, useAppTheme } from "@/lib/theme-context";
@@ -82,6 +83,8 @@ export default function RootLayout() {
                     {isDriverApp ? <ThemedLayout /> : <RiderLiveCallHost><ThemedLayout /></RiderLiveCallHost>}
                     <AuthAppLockOverlay />
                     <SessionKeeper />
+                    {/* The rider's trip on the lock screen and in the Dynamic Island (iPhone). */}
+                    <RiderTripLiveActivity />
                   </AppLockProvider>
                   </InterstateRequestsProvider>
                 </QuestBadgeProvider>

@@ -14,6 +14,8 @@
 	<dict>
 		<key>com.timmy133.wheelers.driver</key>
 		<string>*[expo] com.timmy133.wheelers.driver AppStore 2026-08-18T19:18:32.891Z</string>
+		<key>com.timmy133.wheelers.driver.LiveActivity</key>
+		<string>Wheelers LiveActivity AppStore</string>
 	</dict>
 	<key>signingCertificate</key>
 	<string>iPhone Distribution</string>

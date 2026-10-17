@@ -110,6 +110,7 @@
           }
         }
       ],
+      "expo-live-activity",
       [
         "expo-local-authentication",
         {
