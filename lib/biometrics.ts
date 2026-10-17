@@ -6,12 +6,21 @@
  * module is missing, so everything here answers "not available" and the app
  * goes on with the PIN, never crashing for want of it.
  */
+import { requireOptionalNativeModule } from "expo";
+
 type LocalAuthentication = typeof import("expo-local-authentication");
 
 let native: LocalAuthentication | null | undefined;
 
 function module(): LocalAuthentication | null {
   if (native === undefined) {
+    // Asked first, never loaded blind: loading it on a build without it is
+    // not an error this code could catch. The bundler reports it as a crash
+    // (the 1.0.4 update that closed the app on every phone, 17 Oct).
+    if (!requireOptionalNativeModule("ExpoLocalAuthentication")) {
+      native = null;
+      return native;
+    }
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       native = require("expo-local-authentication") as LocalAuthentication;

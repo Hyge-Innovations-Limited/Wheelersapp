@@ -7,6 +7,7 @@
  * older builds too. There everything here says "not available" and sign-in
  * stays SMS only, never crashing for want of it.
  */
+import { requireOptionalNativeModule } from "expo";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
@@ -16,6 +17,11 @@ let native: Passkeys | null | undefined;
 
 function module(): Passkeys | null {
   if (native === undefined) {
+    // Asked first, never loaded blind: see lib/biometrics.ts.
+    if (!requireOptionalNativeModule("ReactNativePasskeys")) {
+      native = null;
+      return native;
+    }
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       native = require("react-native-passkeys") as Passkeys;
