@@ -79,7 +79,7 @@ object RideOverlay {
       PixelFormat.TRANSLUCENT,
     ).apply {
       gravity = Gravity.TOP
-      y = dp(context, 36)
+      y = dp(context, 28)
       windowAnimations = android.R.style.Animation_Toast
     }
     try {
@@ -129,11 +129,11 @@ object RideOverlay {
   private fun build(context: Context, card: RideRequestCard): View {
     val box = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
-      val pad = dp(context, 16)
-      setPadding(pad, pad, pad, pad)
+      val pad = dp(context, 12)
+      setPadding(pad, dp(context, 10), pad, pad)
       background = GradientDrawable().apply {
         setColor(CARD)
-        cornerRadius = dp(context, 22).toFloat()
+        cornerRadius = dp(context, 18).toFloat()
         setStroke(dp(context, 2), INK)
       }
       elevation = dp(context, 8).toFloat()
@@ -146,13 +146,13 @@ object RideOverlay {
       gravity = Gravity.CENTER_VERTICAL
     }
     top.addView(
-      words(context, card.heading.ifEmpty { "New ride request" }, 13f, ORANGE, bold = true),
+      words(context, card.heading.ifEmpty { "New ride request" }, 12f, ORANGE, bold = true),
       LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
     )
     top.addView(
-      words(context, "✕", 18f, MUTED, bold = true).apply {
-        val pad = dp(context, 6)
-        setPadding(pad * 2, pad, 0, pad)
+      words(context, "✕", 16f, MUTED, bold = true).apply {
+        val pad = dp(context, 4)
+        setPadding(pad * 3, pad, 0, pad)
         contentDescription = "Close"
         isClickable = true
         setOnClickListener { act(context, "ignore", card.rideId) }
@@ -160,26 +160,41 @@ object RideOverlay {
     )
     box.addView(top)
 
-    box.addView(words(context, card.fare, 28f, INK, bold = true))
-    if (card.detail.isNotEmpty()) box.addView(words(context, card.detail, 13f, MUTED))
+    // Fare and distances on one line: the card stays short.
+    val fareRow = LinearLayout(context).apply {
+      orientation = LinearLayout.HORIZONTAL
+      gravity = Gravity.BOTTOM
+    }
+    fareRow.addView(words(context, card.fare, 22f, INK, bold = true))
+    if (card.detail.isNotEmpty()) {
+      fareRow.addView(
+        words(context, card.detail, 12f, MUTED).apply {
+          maxLines = 1
+          ellipsize = TextUtils.TruncateAt.END
+          setPadding(dp(context, 8), 0, 0, dp(context, 3))
+        },
+        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+      )
+    }
+    box.addView(fareRow, spaced(context, 2))
 
-    box.addView(place(context, "From", card.pickup), spaced(context, 10))
-    box.addView(place(context, "To", card.dropoff), spaced(context, 4))
+    box.addView(place(context, "From", card.pickup), spaced(context, 6))
+    box.addView(place(context, "To", card.dropoff), spaced(context, 2))
 
     val buttons = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
     buttons.addView(
       button(context, "Ignore", filled = false) { act(context, "ignore", card.rideId) },
-      LinearLayout.LayoutParams(0, dp(context, 48), 1f).apply { marginEnd = dp(context, 8) },
+      LinearLayout.LayoutParams(0, dp(context, 40), 1f).apply { marginEnd = dp(context, 8) },
     )
     buttons.addView(
       button(context, card.acceptLabel.ifEmpty { "Accept" }, filled = true) { act(context, "accept", card.rideId) },
-      LinearLayout.LayoutParams(0, dp(context, 48), 1.6f),
+      LinearLayout.LayoutParams(0, dp(context, 40), 1.6f),
     )
-    box.addView(buttons, spaced(context, 14))
+    box.addView(buttons, spaced(context, 10))
 
     // Room around the card for its shadow.
     return FrameLayout(context).apply {
-      setPadding(dp(context, 12), dp(context, 4), dp(context, 12), dp(context, 12))
+      setPadding(dp(context, 10), dp(context, 2), dp(context, 10), dp(context, 10))
       addView(box, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
   }
@@ -187,9 +202,9 @@ object RideOverlay {
   private fun place(context: Context, label: String, value: String): View =
     LinearLayout(context).apply {
       orientation = LinearLayout.HORIZONTAL
-      addView(words(context, label, 13f, MUTED, bold = true), LinearLayout.LayoutParams(dp(context, 44), ViewGroup.LayoutParams.WRAP_CONTENT))
+      addView(words(context, label, 12f, MUTED, bold = true), LinearLayout.LayoutParams(dp(context, 38), ViewGroup.LayoutParams.WRAP_CONTENT))
       addView(
-        words(context, value, 15f, INK).apply {
+        words(context, value, 14f, INK).apply {
           maxLines = 1
           ellipsize = TextUtils.TruncateAt.END
         },
@@ -198,13 +213,13 @@ object RideOverlay {
     }
 
   private fun button(context: Context, label: String, filled: Boolean, onTap: () -> Unit): TextView =
-    words(context, label, 15f, INK, bold = true).apply {
+    words(context, label, 14f, INK, bold = true).apply {
       gravity = Gravity.CENTER
       maxLines = 1
       ellipsize = TextUtils.TruncateAt.END
       contentDescription = label
       background = GradientDrawable().apply {
-        cornerRadius = dp(context, 14).toFloat()
+        cornerRadius = dp(context, 12).toFloat()
         if (filled) {
           setColor(ORANGE)
         } else {
