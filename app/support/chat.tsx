@@ -4,8 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  type LayoutChangeEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { useKeyboardHeight } from "@/hooks/use-keyboard";
 import { RBack, RButton, RText, rider } from "@/components/rider/kit";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
@@ -84,10 +84,28 @@ export default function SupportChatScreen() {
     }, [load]),
   );
 
+  // Room for the keyboard, as on the trip chat: KeyboardAvoidingView does
+  // nothing on Android with edge-to-edge, so the box ended up under the keys.
+  // Some phones shrink the screen themselves when it opens; only the
+  // shortfall is added.
+  const keyboardHeight = useKeyboardHeight();
+  const [viewHeight, setViewHeight] = useState(0);
+  const baselineRef = useRef(0);
+  useEffect(() => {
+    if (keyboardHeight === 0 && viewHeight > 0) baselineRef.current = viewHeight;
+  }, [keyboardHeight, viewHeight]);
+  const onLayout = (event: LayoutChangeEvent) => {
+    const { height } = event.nativeEvent.layout;
+    setViewHeight((current) => (Math.abs(current - height) > 1 ? height : current));
+  };
+  const alreadyShrunk = baselineRef.current > 0 ? Math.max(0, baselineRef.current - viewHeight) : 0;
+  const bottomRoom = keyboardHeight > 0 ? Math.max(0, keyboardHeight - alreadyShrunk) : Math.max(insets.bottom, 12);
+
+  // The newest message stays in sight: when one arrives, and when the keyboard opens.
   useEffect(() => {
     const timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(timer);
-  }, [messages.length]);
+  }, [messages.length, keyboardHeight]);
 
   async function send(text?: string) {
     const content = (text ?? draft).trim();
@@ -112,9 +130,7 @@ export default function SupportChatScreen() {
   const agent = conversation?.agentName;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+    <View onLayout={onLayout} style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
@@ -206,7 +222,7 @@ export default function SupportChatScreen() {
         </ScrollView>
       ) : null}
 
-      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.composer, { paddingBottom: keyboardHeight > 0 ? 10 + bottomRoom : bottomRoom }]}>
         <TextInput
           accessibilityLabel="Message"
           maxLength={SUPPORT_MESSAGE_MAX}
@@ -235,7 +251,7 @@ export default function SupportChatScreen() {
           )}
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
