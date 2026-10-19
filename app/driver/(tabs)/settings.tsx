@@ -53,6 +53,17 @@ function PapersIcon({ size = 20, color = theme.colors.black }: { size?: number; 
   );
 }
 
+function PaletteIcon({ size = 20, color = theme.colors.black }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="12" cy="12" r="10" />
+      <Circle cx="12" cy="8" r="1.5" fill={color} />
+      <Circle cx="8.5" cy="13" r="1.5" fill={color} />
+      <Circle cx="15.5" cy="13" r="1.5" fill={color} />
+    </Svg>
+  );
+}
+
 function HeadphonesIcon({ size = 20, color = theme.colors.black }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -114,7 +125,7 @@ export default function DriverSettingsScreen() {
     return subscribeDriverFilters(setFilters);
   }, []);
   const { getAccessToken, logout } = useAuth();
-  const { isDark } = useAppTheme();
+  const { isDark, toggleTheme } = useAppTheme();
   const { session } = useDriverSession();
   const nearbyAlerts = useNearbyAlerts(getAccessToken, session.status !== 'offline');
   const overlaySetting = useRideOverlaySetting();
@@ -280,6 +291,36 @@ export default function DriverSettingsScreen() {
             </View>
             <ChevronRightIcon size={responsive.scale(18)} />
           </Pressable>
+        </View>
+      </View>
+
+      {/* ── Appearance section ── */}
+      <View style={styles.section}>
+        <AppText
+          variant="label"
+          color={theme.colors.muted}
+          style={[styles.sectionLabel, { fontSize: responsive.font(10) }]}
+          numberOfLines={1}>
+          APPEARANCE
+        </AppText>
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <View style={[styles.menuItem, menuItemStyle]}>
+            <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: subtleBg }]}>
+              <PaletteIcon color={theme.colors.muted} size={glyphSize} />
+            </View>
+            <View style={styles.menuInfo}>
+              <AppText variant="bodyMedium">Dark mode</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>
+                {isDark ? 'On' : 'Off'}
+              </AppText>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: theme.colors.borderLight, true: theme.colors.orange }}
+              thumbColor={theme.colors.white}
+            />
+          </View>
         </View>
       </View>
 
