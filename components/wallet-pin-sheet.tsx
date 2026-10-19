@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import {
   ApiError,
   completeWalletPinReset,
@@ -234,6 +234,7 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
     <Modal visible={visible} transparent animationType="slide" onRequestClose={mode === 'working' ? undefined : done} statusBarTranslucent>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.sm }]}>
+          <OnLight>
           <View style={styles.headerRow}>
             <AppText variant="label" color={theme.colors.orange}>WALLET PIN</AppText>
             {mode !== 'working' && (
@@ -257,10 +258,12 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
           {mode === 'reset-warn' && (
             <>
               <View style={styles.warn}>
+                <OnLight>
                 <AppText variant="bodyMedium">Withdrawals pause for 24 hours</AppText>
                 <AppText variant="bodySmall" color={theme.colors.muted} style={styles.warnBody}>
                   There’s no email on your account, so to keep your money safe we pause withdrawals for a day after a reset. Deposits and rides keep working, and we’ll tell you on WhatsApp.
                 </AppText>
+                </OnLight>
               </View>
               <Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} onPress={() => { setCode(''); startCreate('reset'); }}>
                 <AppText variant="bodyMedium" color={theme.colors.white}>I understand — reset my PIN</AppText>
@@ -321,9 +324,11 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
                       accessibilityLabel={key === 'del' ? 'Delete' : key}
                       style={({ pressed }) => [styles.key, key === 'del' && styles.keyPlain, pressed && (key === 'del' ? styles.keyPlainPressed : styles.keyPressed)]}
                     >
+                      <OnLight>
                       <AppText variant={key === 'del' ? 'bodyMedium' : 'h2'} color={key === 'del' ? theme.colors.muted : theme.colors.black}>
                         {key === 'del' ? 'Delete' : key}
                       </AppText>
+                      </OnLight>
                     </Pressable>
                   ),
                 )}
@@ -337,6 +342,7 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
               {busy && <ActivityIndicator color={theme.colors.black} style={styles.busy} />}
             </>
           )}
+          </OnLight>
         </View>
       </View>
     </Modal>

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { driverRatePerKmNgn, formatPerKmNgn, rideFees, type PricingVersion } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
@@ -41,6 +41,7 @@ export function PerKmChip({ priceNgn, distanceKm, pricingVersion = 1, compact = 
         accessibilityRole="button"
         accessibilityLabel={`${formatPerKmNgn(perKm)} per kilometre. Tap to see how it is worked out.`}
         style={({ pressed }) => [styles.chip, compact && styles.chipCompact, pressed && styles.pressed]}>
+        <OnLight>
         <View style={[styles.car, compact && styles.carCompact]}>
           <Ionicons name="car-sport" size={compact ? 11 : 13} color={theme.colors.white} />
         </View>
@@ -48,10 +49,12 @@ export function PerKmChip({ priceNgn, distanceKm, pricingVersion = 1, compact = 
           {formatPerKmNgn(perKm)}
           <AppText variant={compact ? 'caption' : 'label'} color={theme.colors.muted}>/km</AppText>
         </AppText>
+        </OnLight>
       </Pressable>
 
       {open ? (
         <View style={styles.explain}>
+          <OnLight>
           <View style={styles.explainTop}>
             <AppText variant="label">{pricingVersion === 2 ? 'Your rate per km' : 'Your share per km'}</AppText>
             <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
@@ -71,6 +74,7 @@ export function PerKmChip({ priceNgn, distanceKm, pricingVersion = 1, compact = 
               ? 'Commission (10%) and the ₦30 levy come out of the trip fare when the trip is paid. The rider pays the VAT and the booking fee.'
               : 'Commission (4%), VAT (7.5%) and the ₦30 levy come out of your share when the trip is paid.'}
           </AppText>
+          </OnLight>
         </View>
       ) : null}
     </View>

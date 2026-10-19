@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import {
   ArrowUpIcon, BackIcon, ChevronRightIcon, CopyIcon, EyeIcon,
   ngnText, shortKey, transferLabel, transferStatus, useCopy, xlmText,
@@ -47,12 +47,16 @@ export default function DriverStellarScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backBtn, surface]} accessibilityLabel="Back">
+          <OnLight>
           <BackIcon />
+          </OnLight>
         </Pressable>
         <AppText variant="h1" numberOfLines={1} style={styles.flex}>Stellar</AppText>
         <View style={styles.tag}>
+          <OnLight>
           <View style={styles.tagDot} />
           <AppText variant="bodySmall" color={theme.colors.green}>Testnet</AppText>
+          </OnLight>
         </View>
       </View>
 
@@ -60,7 +64,9 @@ export default function DriverStellarScreen() {
 
       {data && !data.enabled ? (
         <View style={[styles.card, { padding: responsive.scale(18) }, surface]}>
+          <OnLight>
           <AppText variant="bodyMedium">Stellar Testnet is not switched on right now.</AppText>
+          </OnLight>
         </View>
       ) : null}
 
@@ -89,6 +95,7 @@ export default function DriverStellarScreen() {
           {/* ── Address card ── */}
           {account ? (
             <View style={[styles.card, { padding: responsive.scale(18) }, surface]}>
+              <OnLight>
               <AppText variant="label" color={theme.colors.muted} style={styles.overline} numberOfLines={1}>
                 Your Stellar address
               </AppText>
@@ -103,17 +110,20 @@ export default function DriverStellarScreen() {
                   style={[styles.copyBtn, { minWidth: responsive.scale(40), height: responsive.scale(40) }, copied && styles.copyBtnWide]}
                   hitSlop={8}
                   accessibilityLabel={copied ? 'Copied' : 'Copy address'}>
+                  <OnLight>
                   {copied ? (
                     <AppText variant="bodySmall" color={theme.colors.orange} numberOfLines={1}>Copied</AppText>
                   ) : (
                     <CopyIcon size={responsive.scale(16)} />
                   )}
+                  </OnLight>
                 </Pressable>
               </View>
               <Pressable onPress={() => void Linking.openURL(account.explorerUrl)} hitSlop={6} style={styles.linkRow}>
                 <AppText variant="bodySmall" color={theme.colors.muted}>Stellar Testnet ·</AppText>
                 <AppText variant="bodySmall" color={theme.colors.orange}>View on stellar.expert</AppText>
               </Pressable>
+              </OnLight>
             </View>
           ) : null}
 
@@ -128,6 +138,7 @@ export default function DriverStellarScreen() {
 
           {/* ── Activity ── */}
           <View style={[styles.card, { padding: responsive.scale(18) }, surface]}>
+            <OnLight>
             <AppText variant="h3">Activity</AppText>
             {transfers.length === 0 ? (
               <AppText variant="bodySmall" color={theme.colors.muted}>Nothing yet. Your trip payments show here.</AppText>
@@ -165,6 +176,7 @@ export default function DriverStellarScreen() {
                 </Pressable>
               );
             })}
+            </OnLight>
           </View>
         </>
       ) : null}

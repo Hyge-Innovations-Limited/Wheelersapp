@@ -6,7 +6,7 @@ import { Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-nati
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { useNearbyAlerts } from '@/components/nearby-alerts';
 import { useRideOverlaySetting } from '@/lib/ride-overlay';
 import { useAuth } from '@/lib/auth';
@@ -225,7 +225,9 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <UserIcon color={theme.colors.orange} size={glyphSize} />
+              </OnLight>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Profile</AppText>
@@ -239,7 +241,9 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <PapersIcon color={theme.colors.orange} size={glyphSize} />
+              </OnLight>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Your papers</AppText>
@@ -253,7 +257,9 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <MaterialIcons color={theme.colors.orange} name="qr-code-2" size={glyphSize} />
+              </OnLight>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Refer drivers and riders</AppText>
@@ -268,7 +274,9 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <MaterialIcons color={theme.colors.orange} name="description" size={glyphSize} />
+              </OnLight>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Terms of Service</AppText>
@@ -283,7 +291,9 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <MaterialIcons color={theme.colors.orange} name="lock-outline" size={glyphSize} />
+              </OnLight>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Privacy Policy</AppText>
@@ -339,7 +349,9 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <HeadphonesIcon color={theme.colors.orange} size={glyphSize} />
+              </OnLight>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium">Customer support</AppText>
@@ -544,7 +556,9 @@ export default function DriverSettingsScreen() {
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
             <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.dangerLight }]}>
+              <OnLight>
               <TrashIcon size={glyphSize} />
+              </OnLight>
             </View>
             <View style={styles.menuInfo}>
               <AppText variant="bodyMedium" color={theme.colors.danger}>Delete account</AppText>

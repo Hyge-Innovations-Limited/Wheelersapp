@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { DriverDocument } from '@/data/mock';
 import { theme } from '@/theme';
 
@@ -12,6 +12,7 @@ type DocumentUploadCardProps = {
 export function DocumentUploadCard({ item, onPress }: DocumentUploadCardProps) {
   return (
     <Pressable onPress={onPress} style={styles.card}>
+      <OnLight>
       <AppText variant="metric" color={theme.colors.orange} style={styles.icon}>
         {item.icon}
       </AppText>
@@ -21,6 +22,7 @@ export function DocumentUploadCard({ item, onPress }: DocumentUploadCardProps) {
       <AppText variant="bodySmall" color={theme.colors.muted} style={styles.subtitle}>
         {item.subtitle}
       </AppText>
+      </OnLight>
     </Pressable>
   );
 }

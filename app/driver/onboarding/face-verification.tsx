@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
@@ -192,9 +192,11 @@ export default function FaceVerificationScreen() {
               pressed && styles.capturePressed,
             ]}
           >
+            <OnLight>
             <View style={styles.captureInner}>
               <Ionicons name="camera" size={28} color={theme.colors.white} />
             </View>
+            </OnLight>
           </Pressable>
         )}
 

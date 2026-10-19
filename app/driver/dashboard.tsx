@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppButton } from '@/components/app-button';
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { MapMock } from '@/components/MapMock';
 import { MetricCard } from '@/components/MetricCard';
 import { SectionHeader } from '@/components/SectionHeader';
@@ -146,12 +146,16 @@ export default function DriverDashboardScreen() {
       ) : null}
 
       <Pressable style={styles.mapPressable}>
+        <OnLight>
         {/* A quarter of the viewport instead of a flat 220pt: the map stays a
             map on a short phone and does not swallow a tablet. */}
         <MapMock height={responsive.vh(26, 150, 300)} showPulse variant="driverDashboard" />
         <AppText variant="bodySmall" color={theme.colors.muted} style={styles.nearbyLabel} numberOfLines={2}>
+          <OnLight>
           {isOnline ? 'Waiting for ride requests nearby...' : 'Go online to see ride requests'}
+          </OnLight>
         </AppText>
+        </OnLight>
       </Pressable>
 
       <Pressable onPress={() => router.push('/driver/wallet' as Href)}>

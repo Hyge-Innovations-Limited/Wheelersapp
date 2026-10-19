@@ -13,6 +13,7 @@ import { Edge, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-co
 
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useResponsive } from '@/lib/responsive';
+import { isLightColor, OnLight } from '@/components/app-text';
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
 
@@ -49,6 +50,8 @@ export function AppScreen({
   const keyboardHeight = useKeyboardHeight();
 
   const resolvedBg = backgroundColor ?? (isDark ? theme.colors.black : theme.colors.offWhite);
+  // A screen given a light background keeps dark text on it in dark mode too.
+  const content = isDark && isLightColor(resolvedBg) ? <OnLight>{children}</OnLight> : children;
 
   // Some platforms (Android adjustResize, iPadOS) shrink the view themselves
   // when the keyboard opens. Compare the live height against the height we
@@ -110,10 +113,10 @@ export function AppScreen({
           keyboardShouldPersistTaps="handled"
           refreshControl={refreshControl}
           showsVerticalScrollIndicator={false}>
-          {children}
+          {content}
         </ScrollView>
       ) : (
-        <View style={containerStyle}>{children}</View>
+        <View style={containerStyle}>{content}</View>
       )}
     </SafeAreaView>
   );

@@ -9,7 +9,7 @@ import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, View } from 're
 import { AppButton } from '@/components/app-button';
 import { AppInput } from '@/components/app-input';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { FlowHeader } from '@/components/flow-header';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getDriverPapers, sendDriverPaper, type DriverPaper } from '@/lib/api';
@@ -148,23 +148,29 @@ export default function DriverPaperUploadScreen() {
         <>
           {doc?.state === 'rejected' ? (
             <View style={[styles.note, styles.noteBad]}>
+              <OnLight>
               <Ionicons name="alert-circle" size={20} color={theme.colors.danger} />
               <AppText variant="bodySmall" style={styles.flex}>
                 Sent back{doc.rejectionReason ? `: ${doc.rejectionReason}` : '.'} Send a new one below.
               </AppText>
+              </OnLight>
             </View>
           ) : doc?.state === 'expired' ? (
             <View style={[styles.note, styles.noteBad]}>
+              <OnLight>
               <Ionicons name="calendar-outline" size={20} color={theme.colors.danger} />
               <AppText variant="bodySmall" style={styles.flex}>The one we have expired {isoToWords(doc.expiresOn)}. Send the renewed one.</AppText>
+              </OnLight>
             </View>
           ) : doc ? (
             <View style={styles.note}>
+              <OnLight>
               <Ionicons name={doc.state === 'approved' ? 'checkmark-circle' : 'time-outline'} size={20} color={doc.state === 'approved' ? theme.colors.green : theme.colors.orange} />
               <AppText variant="bodySmall" style={styles.flex}>
                 {doc.state === 'approved' ? 'We have this one and it is approved.' : 'We have this one and are checking it.'}
                 {doc.expiresOn ? ` Valid to ${isoToWords(doc.expiresOn)}.` : ''} Sending another replaces it.
               </AppText>
+              </OnLight>
             </View>
           ) : null}
 
@@ -175,8 +181,10 @@ export default function DriverPaperUploadScreen() {
                   <Image source={{ uri: fileUri }} style={[styles.preview, { height: previewHeight }]} resizeMode="cover" />
                 ) : (
                   <View style={[styles.pdfPreview, { height: previewHeight }]}>
+                    <OnLight>
                     <Ionicons name="document-text" size={responsive.scale(48)} color={theme.colors.orange} />
                     <AppText variant="bodyMedium" numberOfLines={1}>PDF chosen</AppText>
+                    </OnLight>
                   </View>
                 )}
                 <View style={styles.changeOverlay}>
@@ -185,6 +193,7 @@ export default function DriverPaperUploadScreen() {
               </Pressable>
             ) : (
               <View style={[styles.placeholderArea, { paddingVertical: responsive.vh(3, 16, 28) }]}>
+                <OnLight>
                 <Pressable onPress={() => void takePhoto()} style={[styles.captureButton, { minHeight: responsive.scale(44) }]} hitSlop={8}>
                   <Ionicons name="camera" size={responsive.scale(28)} color={theme.colors.orange} />
                   <AppText variant="label" color={theme.colors.orange} numberOfLines={1}>Take Photo</AppText>
@@ -199,6 +208,7 @@ export default function DriverPaperUploadScreen() {
                   <Ionicons name="document-text-outline" size={responsive.scale(20)} color={theme.colors.muted} />
                   <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Upload PDF</AppText>
                 </Pressable>
+                </OnLight>
               </View>
             )}
           </View>

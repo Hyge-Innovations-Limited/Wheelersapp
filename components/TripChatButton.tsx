@@ -45,7 +45,7 @@ export function TripChatButton({ rideId, role, messages, onSend, otherName, vari
         {variant === 'fab' ? (
           <AppText style={styles.fabIcon}>💬</AppText>
         ) : (
-          <AppText variant="label">Chat</AppText>
+          <AppText variant="label" color={theme.colors.black}>Chat</AppText>
         )}
         {unread > 0 ? (
           <View style={[styles.badge, variant === 'fab' && styles.badgeFab]}>

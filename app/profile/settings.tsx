@@ -8,7 +8,7 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { AppCard } from "@/components/app-card";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { SettingsRow } from "@/components/SettingsRow";
 import { SettingOption, settingsOptions } from "@/data/mock";
 import { getAccessTokenWithRetry, getStoredLocalAccessToken } from "@/lib/access-token";
@@ -371,12 +371,15 @@ function ReferralSettingsCard({ onPress }: { onPress: () => void }) {
         pressed ? styles.referralCardPressed : null,
       ]}
     >
+      <OnLight>
       <View style={styles.referralIcon}>
+        <OnLight>
         <MaterialIcons
           color={theme.colors.black}
           name="card-giftcard"
           size={19}
         />
+        </OnLight>
       </View>
       <View style={styles.referralCopy}>
         <AppText variant="bodyMedium">Referral rewards</AppText>
@@ -389,6 +392,7 @@ function ReferralSettingsCard({ onPress }: { onPress: () => void }) {
           ›
         </AppText>
       </View>
+      </OnLight>
     </Pressable>
   );
 }

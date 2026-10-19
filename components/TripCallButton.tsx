@@ -37,7 +37,7 @@ export function TripCallButton({ rideId, otherRole, otherName, variant = 'pill',
       disabled={Boolean(call)}
       onPress={() => void startCall({ rideId, otherName, otherRole })}
       style={({ pressed }) => [variant === 'fab' ? styles.fab : styles.pill, pressed && styles.pressed, call && styles.busy, style]}>
-      {variant === 'fab' ? <AppText style={styles.fabIcon}>📞</AppText> : <AppText variant="label">Live call</AppText>}
+      {variant === 'fab' ? <AppText style={styles.fabIcon}>📞</AppText> : <AppText variant="label" color={theme.colors.black}>Live call</AppText>}
     </Pressable>
   );
 }

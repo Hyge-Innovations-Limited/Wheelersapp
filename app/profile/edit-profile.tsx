@@ -9,7 +9,7 @@ import { Alert, StyleSheet, TextInput, View } from "react-native";
 import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getCurrentProfile, isBackendConfigured, updateCurrentProfile } from "@/lib/api";
@@ -202,10 +202,12 @@ function DriverEditProfileScreen() {
         </View>
 
         <View style={styles.readOnlyCard}>
+          <OnLight>
           <AppText variant="bodySmall" color={theme.colors.muted}>
             Full name
           </AppText>
           <AppText variant="bodyMedium">{fullName}</AppText>
+          </OnLight>
         </View>
 
         <AppButton

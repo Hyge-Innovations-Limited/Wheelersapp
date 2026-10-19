@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
 
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { AppButton } from "@/components/app-button";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
@@ -74,7 +74,9 @@ export default function PendingScreen() {
       <AppScreen scroll contentStyle={styles.container}>
         <View style={[styles.center, centerStyle]}>
           <Animated.View entering={ZoomIn.duration(400)} style={[styles.iconWrap, iconStyle, styles.approvedIcon]}>
+            <OnLight>
             <Ionicons name="checkmark-circle" size={glyphSize} color={theme.colors.green} />
+            </OnLight>
           </Animated.View>
           <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.textWrap}>
             <AppText variant="h1" style={styles.title} numberOfLines={2}>You're Approved!</AppText>
@@ -106,7 +108,9 @@ export default function PendingScreen() {
       <AppScreen scroll contentStyle={styles.container}>
         <View style={[styles.center, centerStyle]}>
           <Animated.View entering={ZoomIn.duration(400)} style={[styles.iconWrap, iconStyle, styles.rejectedIcon]}>
+            <OnLight>
             <Ionicons name="alert-circle" size={glyphSize} color={theme.colors.danger} />
+            </OnLight>
           </Animated.View>
           <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.textWrap}>
             <AppText variant="h1" style={styles.title} numberOfLines={2}>
@@ -123,6 +127,7 @@ export default function PendingScreen() {
             <Animated.View
               entering={FadeInDown.delay(250).duration(400)}
               style={[styles.rejectedList, { padding: responsive.scale(16) }]}>
+              <OnLight>
               {toFix.map((field) => (
                 <View key={field} style={styles.rejectedItem}>
                   <Ionicons name="alert-circle" size={responsive.scale(16)} color={theme.colors.danger} />
@@ -138,6 +143,7 @@ export default function PendingScreen() {
                   </View>
                 </View>
               ))}
+              </OnLight>
             </Animated.View>
           )}
         </View>
@@ -155,7 +161,9 @@ export default function PendingScreen() {
     <AppScreen scroll contentStyle={styles.container}>
       <View style={[styles.center, centerStyle]}>
         <Animated.View entering={ZoomIn.duration(400)} style={[styles.iconWrap, iconStyle]}>
+          <OnLight>
           <Ionicons name="time-outline" size={glyphSize} color={theme.colors.orange} />
+          </OnLight>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.textWrap}>
@@ -177,6 +185,7 @@ export default function PendingScreen() {
             padding: responsive.scale(16),
           },
         ]}>
+        <OnLight>
         <View style={styles.infoRow}>
           <Ionicons name="notifications-outline" size={responsive.scale(18)} color={theme.colors.orange} />
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.infoText}>
@@ -195,6 +204,7 @@ export default function PendingScreen() {
             Your documents are stored securely
           </AppText>
         </View>
+        </OnLight>
       </Animated.View>
       <AppButton
         title="Add your papers"

@@ -17,6 +17,15 @@ export function OnLight({ children }: { children: ReactNode }) {
   return <OnLightCard.Provider value>{children}</OnLightCard.Provider>;
 }
 
+/** A light colour (white, cream, a pale tint): text on it must stay dark, dark mode or not. */
+export function isLightColor(color: string | undefined | null): boolean {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(color ?? '').trim())?.[1];
+  if (!hex) return /^(white|#fff)$/i.test(String(color ?? '').trim());
+  const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b > 186;
+}
+
 type AppTextProps = TextProps & {
   variant?: Exclude<Variant, 'base'>;
   color?: string;

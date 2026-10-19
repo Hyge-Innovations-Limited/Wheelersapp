@@ -8,7 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useEffect } from "react";
 
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { theme } from "@/theme";
 
 type RideMovementBarProps = {
@@ -70,6 +70,7 @@ export function RideMovementBar({
 
   return (
     <View style={styles.card}>
+      <OnLight>
       <View style={styles.row}>
         <Animated.View style={[styles.pulseDot, pulseStyle]} />
         <View style={styles.copy}>
@@ -84,6 +85,7 @@ export function RideMovementBar({
       <View style={styles.track}>
         <Animated.View style={[styles.fill, fillStyle]} />
       </View>
+      </OnLight>
     </View>
   );
 }

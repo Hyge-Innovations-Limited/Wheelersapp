@@ -4,7 +4,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { BackIcon, CheckIcon, looksLikeAddress, ngnText, shortKey, xlmText } from '@/components/stellar-bits';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getStellarMe, requestStellarWithdrawal, type StellarMeResponse } from '@/lib/api';
@@ -100,7 +100,9 @@ export default function DriverStellarSendScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={back} hitSlop={12} style={[styles.backBtn, surface]} accessibilityLabel="Back">
+          <OnLight>
           <BackIcon />
+          </OnLight>
         </Pressable>
         <AppText variant="h1" numberOfLines={1} style={styles.flex}>Send XLM</AppText>
       </View>
@@ -123,6 +125,7 @@ export default function DriverStellarSendScreen() {
       {step === 'address' ? (
         <View style={styles.stepContent}>
           <View style={[styles.inputWrap, surface]}>
+            <OnLight>
             <View style={styles.rowBetween}>
               <AppText variant="bodySmall" color={theme.colors.muted} style={styles.inputLabel}>Stellar address</AppText>
               <Pressable hitSlop={10} onPress={async () => setDestination((await Clipboard.getStringAsync()).trim())}>
@@ -140,6 +143,7 @@ export default function DriverStellarSendScreen() {
               multiline
               autoFocus
             />
+            </OnLight>
           </View>
           {addressProblem ? <AppText variant="bodySmall" color={theme.colors.danger}>{addressProblem}</AppText> : (
             <AppText variant="bodySmall" color={theme.colors.muted}>A Stellar Testnet address. Test XLM only.</AppText>
@@ -156,13 +160,16 @@ export default function DriverStellarSendScreen() {
       {step === 'amount' ? (
         <View style={styles.stepContent}>
           <View style={styles.chip}>
+            <OnLight>
             <AppText variant="bodySmall" color={theme.colors.muted} style={styles.flexShrink} numberOfLines={1}>To {shortKey(address, 8)}</AppText>
             <Pressable onPress={() => setStep('address')} hitSlop={10}>
               <AppText variant="bodySmall" color={theme.colors.orange}>Change</AppText>
             </Pressable>
+            </OnLight>
           </View>
 
           <View style={[styles.inputWrap, surface]}>
+            <OnLight>
             <AppText variant="bodySmall" color={theme.colors.muted} style={styles.inputLabel}>Amount (XLM)</AppText>
             <TextInput
               ref={amountRef}
@@ -173,6 +180,7 @@ export default function DriverStellarSendScreen() {
               placeholderTextColor={theme.colors.mutedLight}
               keyboardType="decimal-pad"
             />
+            </OnLight>
           </View>
 
           <View style={styles.rowBetween}>
@@ -209,6 +217,7 @@ export default function DriverStellarSendScreen() {
       {step === 'confirm' ? (
         <View style={styles.stepContent}>
           <View style={[styles.confirmCard, surface]}>
+            <OnLight>
             <Row label="To"><AppText variant="mono" style={styles.confirmValue} numberOfLines={1}>{shortKey(address, 8)}</AppText></Row>
             <View style={styles.confirmDivider} />
             <Row label="Network"><AppText variant="bodyMedium" style={styles.confirmValue}>Stellar Testnet</AppText></Row>
@@ -226,6 +235,7 @@ export default function DriverStellarSendScreen() {
                 {xlmText(value, 7)} XLM
               </AppText>
             </Row>
+            </OnLight>
           </View>
 
           {error ? <AppText variant="bodySmall" color={theme.colors.danger}>{error}</AppText> : null}
@@ -243,11 +253,16 @@ export default function DriverStellarSendScreen() {
       {step === 'done' ? (
         <View style={styles.stepContent}>
           <View style={[styles.confirmCard, styles.doneCard, surface]}>
-            <View style={styles.doneIcon}><CheckIcon size={28} color={theme.colors.green} /></View>
+            <OnLight>
+            <View style={styles.doneIcon}>
+              <OnLight><CheckIcon size={28} color={theme.colors.green} />
+              </OnLight>
+            </View>
             <AppText variant="h2" style={styles.center}>{xlmText(value, 7)} XLM is on its way</AppText>
             <AppText variant="bodySmall" color={theme.colors.muted} style={styles.center}>
               To {shortKey(address, 8)}. It shows in your activity once the network confirms it, usually within a minute.
             </AppText>
+            </OnLight>
           </View>
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.nextBtn, pressed && styles.btnPressed]}>
             <AppText variant="label" color={theme.colors.white}>Done</AppText>

@@ -16,7 +16,7 @@ import {
 
 import { AppCard } from "@/components/app-card";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { InterstateTravelForm } from "@/components/interstate-travel-form";
 import { getAccessTokenWithRetry, type AccessTokenGetter } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
@@ -66,11 +66,13 @@ export default function RiderInterstateScreen() {
           <AppText variant="h1">Where are you going?</AppText>
         </View>
         <View style={styles.headerIcon}>
+          <OnLight>
           <MaterialIcons
             name="directions-bus"
             size={24}
             color={theme.colors.black}
           />
+          </OnLight>
         </View>
       </View>
 
@@ -118,12 +120,14 @@ function TabButton({
       }}
       style={[styles.tabButton, active ? styles.tabButtonActive : null]}
     >
+      <OnLight>
       <AppText
         variant="bodyMedium"
         color={active ? theme.colors.black : theme.colors.muted}
       >
         {label}
       </AppText>
+      </OnLight>
     </Pressable>
   );
 }
@@ -231,10 +235,12 @@ function TripsTab({
     >
       {error ? (
         <View style={styles.errorCard}>
+          <OnLight>
           <MaterialIcons name="error-outline" size={18} color={theme.colors.danger} />
           <AppText variant="bodySmall" color={theme.colors.danger} style={styles.flex}>
             {error}
           </AppText>
+          </OnLight>
         </View>
       ) : null}
 
@@ -264,6 +270,7 @@ function TripsTab({
             </View>
 
             <View style={styles.referenceRow}>
+              <OnLight>
               <View>
                 <AppText variant="monoSmall" color={theme.colors.muted}>
                   REFERENCE
@@ -279,6 +286,7 @@ function TripsTab({
                 </AppText>
                 <AppText variant="monoLarge">{formatNaira(booking.amountNgn)}</AppText>
               </View>
+              </OnLight>
             </View>
 
             <View style={styles.metaRow}>

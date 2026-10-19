@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react
 
 import { AppButton } from "@/components/app-button";
 import { AppInput } from "@/components/app-input";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { ApiError, WaitError, getDriverPhone, sendDriverPhoneCode, verifyDriverPhoneCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -143,8 +143,10 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
     return (
       <View style={styles.block}>
         <View style={[styles.note, styles.noteGood]}>
+          <OnLight>
           <Ionicons name="checkmark-circle" size={22} color={theme.colors.green} />
           <AppText variant="bodyMedium" style={styles.flex}>{localNumber(verifiedPhone)} is verified.</AppText>
+          </OnLight>
         </View>
         <View style={styles.spacer} />
         <AppButton title={doneTitle} onPress={onDone} loading={doneLoading} />
@@ -161,6 +163,7 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
 
   const lockNote = locked ? (
     <View style={[styles.note, styles.noteBad]} accessibilityLiveRegion="polite">
+      <OnLight>
       <Ionicons name="time-outline" size={22} color={theme.colors.danger} />
       <View style={styles.flex}>
         <AppText variant="bodyMedium">Too many codes asked for</AppText>
@@ -168,6 +171,7 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
           For your security you can ask for a new code in {clock(lockedFor)} ({waitWords(lockedFor)}). Nothing else is wrong with your account.
         </AppText>
       </View>
+      </OnLight>
     </View>
   ) : null;
 
@@ -204,10 +208,12 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
     <View style={styles.block}>
       {lockNote}
       <View style={styles.note}>
+        <OnLight>
         <Ionicons name={sentBy === "whatsapp" ? "logo-whatsapp" : "chatbubble-ellipses-outline"} size={22} color={theme.colors.orange} />
         <AppText variant="bodySmall" style={styles.flex}>
           We sent a 6-digit code {sentBy === "whatsapp" ? "on WhatsApp" : "by SMS"} to {sentTo ?? "your number"}. It lasts 30 minutes.
         </AppText>
+        </OnLight>
       </View>
       <AppInput
         ref={codeRef}

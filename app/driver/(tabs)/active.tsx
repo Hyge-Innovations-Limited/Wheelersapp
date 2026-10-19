@@ -58,6 +58,7 @@ export default function DriverActiveScreen() {
         <Pressable
           onPress={() => router.push(tripScreen)}
           style={({ pressed }) => [styles.tripCard, pressed && styles.pressed]}>
+          <OnLight>
           <View style={styles.tripCopy}>
             <AppText variant="label" color={theme.colors.green}>
               Trip in progress · {formatNgn(currentRide.fareNgn)}
@@ -70,6 +71,7 @@ export default function DriverActiveScreen() {
             </AppText>
           </View>
           <AppText variant="h3" color={theme.colors.orange}>›</AppText>
+          </OnLight>
         </Pressable>
         </OnLight>
       ) : null}

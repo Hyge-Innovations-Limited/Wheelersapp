@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
@@ -203,6 +203,7 @@ export function EmergencyButton({
         <Pressable style={styles.backdrop} onPress={() => setIsSheetOpen(false)} />
 
         <Animated.View entering={FadeIn.duration(180)} style={styles.sheet}>
+          <OnLight>
           <View style={styles.sheetHandle} />
 
           <AppText variant="h2">
@@ -220,6 +221,7 @@ export function EmergencyButton({
             onPress={() => void dial()}
             style={styles.callRow}
           >
+            <OnLight>
             <View style={styles.callIcon}>
               <MaterialIcons name="call" size={20} color={theme.colors.white} />
             </View>
@@ -230,11 +232,13 @@ export function EmergencyButton({
               </AppText>
             </View>
             <MaterialIcons name="chevron-right" size={22} color={theme.colors.muted} />
+            </OnLight>
           </Pressable>
 
           {isLive ? (
             <View style={styles.liveBlock}>
               <View style={styles.liveRow}>
+                <OnLight>
                 <MaterialIcons
                   name="check-circle"
                   size={18}
@@ -244,6 +248,7 @@ export function EmergencyButton({
                   {describeAlertKind(activeAlert.kind)} — sent{" "}
                   {timeAgo(activeAlert.createdAt)}
                 </AppText>
+                </OnLight>
               </View>
 
               <Pressable
@@ -270,6 +275,7 @@ export function EmergencyButton({
                     isSending ? styles.disabled : null,
                   ]}
                 >
+                  <OnLight>
                   <AppText
                     variant="bodyMedium"
                     color={kind === "SOS" ? theme.colors.white : theme.colors.black}
@@ -281,6 +287,7 @@ export function EmergencyButton({
                     size={18}
                     color={kind === "SOS" ? theme.colors.white : theme.colors.muted}
                   />
+                  </OnLight>
                 </Pressable>
               ))}
             </View>
@@ -291,8 +298,11 @@ export function EmergencyButton({
             onPress={() => setIsSheetOpen(false)}
             style={styles.closeButton}
           >
+            <OnLight>
             <AppText variant="bodyMedium">Close</AppText>
+            </OnLight>
           </Pressable>
+          </OnLight>
         </Animated.View>
       </Modal>
     </>

@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { theme } from "@/theme";
 
 type SettingsRowProps = {
@@ -38,11 +38,13 @@ export function SettingsRow({
           destructive ? styles.destructiveIconBox : null,
         ]}
       >
+        <OnLight>
         <MaterialIcons
           color={destructive ? theme.colors.danger : theme.colors.black}
           name={icon}
           size={20}
         />
+        </OnLight>
       </View>
       <View style={styles.copy}>
         <AppText
@@ -65,12 +67,14 @@ export function SettingsRow({
             toggleValue ? styles.switchTrackOn : null,
           ]}
         >
+          <OnLight>
           <View
             style={[
               styles.switchThumb,
               toggleValue ? styles.switchThumbOn : null,
             ]}
           />
+          </OnLight>
         </Pressable>
       ) : value ? (
         <AppText

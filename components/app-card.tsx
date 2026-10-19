@@ -1,6 +1,7 @@
 import { PropsWithChildren } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
+import { isLightColor, OnLight } from '@/components/app-text';
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
 
@@ -21,7 +22,8 @@ export function AppCard({
   const border = borderColor ?? (isDark ? theme.colors.darkBorder : theme.colors.borderLight);
   return (
     <View style={[styles.card, { backgroundColor: bg, borderColor: border }, style]}>
-      {children}
+      {/* A card given a light background keeps dark text on it in dark mode too. */}
+      {isDark && isLightColor(bg) ? <OnLight>{children}</OnLight> : children}
     </View>
   );
 }

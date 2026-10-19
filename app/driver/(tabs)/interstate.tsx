@@ -17,7 +17,7 @@ import Animated, { FadeIn, FadeInDown, Layout } from "react-native-reanimated";
 import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { EmergencyButton } from "@/components/emergency-button";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
@@ -360,6 +360,7 @@ export default function DriverInterstateScreen() {
         >
           {error ? (
             <Animated.View entering={FadeIn} style={styles.errorCard}>
+              <OnLight>
               <MaterialIcons
                 name="error-outline"
                 size={18}
@@ -377,6 +378,7 @@ export default function DriverInterstateScreen() {
                   Retry
                 </AppText>
               </Pressable>
+              </OnLight>
             </Animated.View>
           ) : null}
 
@@ -470,7 +472,9 @@ export default function DriverInterstateScreen() {
                         onPress={() => respondToOffer(offer, false)}
                         style={[styles.declineButton, busyId !== null && styles.disabled]}
                       >
+                        <OnLight>
                         <AppText variant="bodySmall">Turn down</AppText>
+                        </OnLight>
                       </Pressable>
 
                       <Pressable
@@ -576,6 +580,7 @@ export default function DriverInterstateScreen() {
                       onPress={() => void toggleManifest(departure)}
                       style={styles.manifestToggle}
                     >
+                      <OnLight>
                       <MaterialIcons
                         name="people"
                         size={18}
@@ -594,6 +599,7 @@ export default function DriverInterstateScreen() {
                         size={22}
                         color={theme.colors.muted}
                       />
+                      </OnLight>
                     </Pressable>
 
                     {expandedId === departure.id ? (
@@ -649,6 +655,7 @@ function Manifest({ passengers }: { passengers?: InterstatePassenger[] }) {
     <View style={styles.manifest}>
       {passengers.map((passenger) => (
         <View key={passenger.bookingId} style={styles.passengerRow}>
+          <OnLight>
           <View style={styles.flex}>
             <AppText variant="bodyMedium">{passenger.name}</AppText>
             <AppText variant="bodySmall" color={theme.colors.muted}>
@@ -672,9 +679,12 @@ function Manifest({ passengers }: { passengers?: InterstatePassenger[] }) {
               }}
               style={styles.callButton}
             >
+              <OnLight>
               <MaterialIcons name="call" size={18} color={theme.colors.black} />
+              </OnLight>
             </Pressable>
           ) : null}
+          </OnLight>
         </View>
       ))}
     </View>
@@ -700,12 +710,14 @@ function TabButton({
       }}
       style={[styles.tabButton, active ? styles.tabButtonActive : null]}
     >
+      <OnLight>
       <AppText
         variant="bodyMedium"
         color={active ? theme.colors.black : theme.colors.muted}
       >
         {label}
       </AppText>
+      </OnLight>
     </Pressable>
   );
 }

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { HelpTopic } from '@/data/mock';
 import { StatusPill } from '@/components/StatusPill';
 import { theme } from '@/theme';
@@ -14,7 +14,9 @@ export function HelpTopicRow({ topic, onPress }: HelpTopicRowProps) {
   return (
     <Pressable onPress={onPress} style={styles.row}>
       <View style={styles.iconBox}>
+        <OnLight>
         <AppText variant="body">{topic.icon}</AppText>
+        </OnLight>
       </View>
       <AppText variant="bodyMedium" style={styles.title}>
         {topic.title}

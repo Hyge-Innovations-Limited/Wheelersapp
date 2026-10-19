@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from '
 
 import { AppButton } from '@/components/app-button';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { BackArrow } from '@/components/back-arrow';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getDriverPapers, getDriverPhone, type DriverPaper, type DriverPaperNeed, type DriverPapersResponse, type DriverPhoneStatus } from '@/lib/api';
@@ -75,9 +75,11 @@ export default function DriverPapersScreen() {
       {!papers && !error ? <ActivityIndicator color={theme.colors.orange} style={styles.loading} /> : null}
       {error && !papers ? (
         <View style={styles.card}>
+          <OnLight>
           <AppText variant="bodyMedium">We could not show your papers</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>{error}</AppText>
           <AppButton title="Try again" variant="ghost" onPress={() => void load()} />
+          </OnLight>
         </View>
       ) : null}
 
@@ -86,11 +88,14 @@ export default function DriverPapersScreen() {
           {/* A refresh that failed keeps what was on screen and says so, instead of blanking the list. */}
           {error ? (
             <View style={[styles.summary, styles.summarySoon]}>
+              <OnLight>
               <Ionicons name="cloud-offline-outline" size={22} color={theme.colors.danger} />
               <AppText variant="bodySmall" style={styles.flex}>{error} This may be out of date.</AppText>
+              </OnLight>
             </View>
           ) : null}
           <View style={[styles.summary, papers.toDo === 0 ? styles.summaryDone : null]}>
+            <OnLight>
             <Ionicons
               name={papers.toDo === 0 ? 'checkmark-circle' : 'document-text-outline'}
               size={22}
@@ -101,28 +106,35 @@ export default function DriverPapersScreen() {
                 ? 'Everything we ask for is in.'
                 : papers.toDo === 1 ? '1 thing still to send' : `${papers.toDo} things still to send`}
             </AppText>
+            </OnLight>
           </View>
           {papers.blocked ? (
             <View style={[styles.summary, styles.summarySoon]}>
+              <OnLight>
               <Ionicons name="lock-closed-outline" size={22} color={theme.colors.danger} />
               <AppText variant="bodySmall" style={styles.flex}>
                 You cannot go online until what is marked Required below has been sent.
               </AppText>
+              </OnLight>
             </View>
           ) : papers.requiredFrom && papers.toDo > 0 ? (
             <View style={styles.summary}>
+              <OnLight>
               <Ionicons name="calendar-outline" size={22} color={theme.colors.orange} />
               <AppText variant="bodySmall" style={styles.flex}>
                 From {isoToWords(papers.requiredFrom)} you will need these in to go online. Send them before then.
               </AppText>
+              </OnLight>
             </View>
           ) : null}
           {papers.expiringSoon.length > 0 ? (
             <View style={[styles.summary, styles.summarySoon]}>
+              <OnLight>
               <Ionicons name="calendar-outline" size={22} color={theme.colors.danger} />
               <AppText variant="bodySmall" style={styles.flex}>
                 Expiring soon: {papers.expiringSoon.join(', ')}. Send the new one when you have it.
               </AppText>
+              </OnLight>
             </View>
           ) : null}
 
@@ -133,6 +145,7 @@ export default function DriverPapersScreen() {
             style={({ pressed }) => [styles.card, styles.row, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel="Your name and licence details">
+            <OnLight>
             <Ionicons
               name={papers.details.complete ? 'checkmark-circle' : 'person-circle-outline'}
               size={26}
@@ -149,6 +162,7 @@ export default function DriverPapersScreen() {
               </AppText>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.colors.mutedLight} />
+            </OnLight>
           </Pressable>
 
           {phone ? (
@@ -157,6 +171,7 @@ export default function DriverPapersScreen() {
               style={({ pressed }) => [styles.card, styles.row, pressed && styles.pressed]}
               accessibilityRole="button"
               accessibilityLabel={phone.verified ? 'Your phone number, verified' : 'Verify your phone number'}>
+              <OnLight>
               <Ionicons name={phone.verified ? 'checkmark-circle' : 'call-outline'} size={26} color={phone.verified ? theme.colors.green : theme.colors.muted} />
               <View style={styles.flex}>
                 <AppText variant="bodyMedium" numberOfLines={1}>{phone.verified ? localNumber(phone.phone) : 'Verify your phone number'}</AppText>
@@ -165,6 +180,7 @@ export default function DriverPapersScreen() {
                 </AppText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={theme.colors.mutedLight} />
+              </OnLight>
             </Pressable>
           ) : null}
 
@@ -191,6 +207,7 @@ function NeedCard({ need, onOpen }: { need: DriverPaperNeed; onOpen: (paper: Dri
 
   return (
     <View style={styles.card}>
+      <OnLight>
       {several ? (
         <View style={styles.needHead}>
           <AppText variant="bodyMedium" style={styles.flex} numberOfLines={2}>{need.label}</AppText>
@@ -231,15 +248,22 @@ function NeedCard({ need, onOpen }: { need: DriverPaperNeed; onOpen: (paper: Dri
           </AppText>
         </Pressable>
       ) : null}
+      </OnLight>
     </View>
   );
 }
 
 /** "Required" until something good is in for it; optional papers say so. */
 function Tag({ need }: { need: DriverPaperNeed }) {
-  if (!need.required) return <View style={[styles.tag, styles.tagQuiet]}><AppText variant="caption" color={theme.colors.muted}>Optional</AppText></View>;
+  if (!need.required) return <View style={[styles.tag, styles.tagQuiet]}>
+    <OnLight><AppText variant="caption" color={theme.colors.muted}>Optional</AppText>
+    </OnLight>
+  </View>;
   if (!needsAction(need)) return null;
-  return <View style={styles.tag}><AppText variant="caption" color={theme.colors.orange}>Required</AppText></View>;
+  return <View style={styles.tag}>
+    <OnLight><AppText variant="caption" color={theme.colors.orange}>Required</AppText>
+    </OnLight>
+  </View>;
 }
 
 const styles = StyleSheet.create({

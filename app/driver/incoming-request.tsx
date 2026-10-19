@@ -424,6 +424,7 @@ export default function IncomingRequestScreen() {
           },
         ]}
       >
+        <OnLight>
         {/* Swipe handle — the drag target, kept outside the scroll area so
             swipe-to-dismiss and scrolling never fight each other. */}
         <GestureDetector gesture={panGesture}>
@@ -458,6 +459,7 @@ export default function IncomingRequestScreen() {
                       selectOffer(queued.rideId);
                     }}
                     style={[styles.switcherChip, active && styles.switcherChipActive]}>
+                    <OnLight>
                     <AppText
                       variant="monoSmall"
                       color={active ? theme.colors.white : theme.colors.muted}>
@@ -468,6 +470,7 @@ export default function IncomingRequestScreen() {
                       color={active ? theme.colors.white : theme.colors.black}>
                       {formatNgn(queued.riderOfferNgn ?? queued.fareEstimateNgn)}
                     </AppText>
+                    </OnLight>
                   </Pressable>
                 );
               })}
@@ -479,6 +482,7 @@ export default function IncomingRequestScreen() {
             <View style={styles.headerLeft}>
               {isGroupRide ? (
                 <View style={styles.groupBadge}>
+                  <OnLight>
                   <View style={styles.groupBadgeDots}>
                     {Array.from({ length: Math.min(riderCount, 4) }).map((_, i) => (
                       <View key={i} style={[styles.groupBadgeDot, i > 0 && styles.groupBadgeDotOverlap]} />
@@ -487,6 +491,7 @@ export default function IncomingRequestScreen() {
                   <AppText variant="monoSmall" color={theme.colors.orange}>
                     GROUP · {riderCount} RIDERS
                   </AppText>
+                  </OnLight>
                 </View>
               ) : (
                 <AppText variant="monoSmall" color={theme.colors.muted}>
@@ -497,9 +502,11 @@ export default function IncomingRequestScreen() {
             </View>
             <OnLight>
             <View style={styles.timerBadge}>
+              <OnLight>
               <AppText variant="monoSmall" color={theme.colors.muted}>
                 OPEN
               </AppText>
+              </OnLight>
             </View>
             </OnLight>
           </View>
@@ -508,6 +515,7 @@ export default function IncomingRequestScreen() {
           {isGroupRide && offer.groupMembers && offer.groupMembers.length > 0 && (
             <OnLight>
             <View style={styles.seatsCard}>
+              <OnLight>
               <AppText variant="monoSmall" color={theme.colors.muted}>
                 {offer.groupMembers.length} RIDERS · NEGOTIATE EACH SEAT
               </AppText>
@@ -572,6 +580,7 @@ export default function IncomingRequestScreen() {
                   </View>
                 );
               })}
+              </OnLight>
             </View>
             </OnLight>
           )}
@@ -579,9 +588,11 @@ export default function IncomingRequestScreen() {
           {/* Group rides are a different job at the same distance — say so up front. */}
           {isGroupRide && (
             <View style={styles.groupNotice}>
+              <OnLight>
               <AppText variant="bodySmall" color={theme.colors.black}>
                 {stopCount} stops · pick up and drop {riderCount} riders along one route
               </AppText>
+              </OnLight>
             </View>
           )}
 
@@ -589,6 +600,7 @@ export default function IncomingRequestScreen() {
               so the driver can see the real shape of the job before bidding. */}
           <OnLight>
           <View style={styles.routeCard}>
+            <OnLight>
             {routeStops.map((stop, index) => {
               const isLast = index === routeStops.length - 1;
               return (
@@ -620,6 +632,7 @@ export default function IncomingRequestScreen() {
                 </View>
               );
             })}
+            </OnLight>
           </View>
           </OnLight>
 
@@ -627,12 +640,14 @@ export default function IncomingRequestScreen() {
           {toPickupLabel ? (
             <OnLight>
             <View style={styles.toPickupCard}>
+              <OnLight>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
                 To pickup
               </AppText>
               <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
                 {toPickupLabel}
               </AppText>
+              </OnLight>
             </View>
             </OnLight>
           ) : null}
@@ -641,28 +656,34 @@ export default function IncomingRequestScreen() {
           <View style={styles.metricsRow}>
             <OnLight>
             <View style={styles.metricCard}>
+              <OnLight>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Distance</AppText>
               <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
                 {distanceKm}
               </AppText>
+              </OnLight>
             </View>
             </OnLight>
             <OnLight>
             <View style={styles.metricCard}>
+              <OnLight>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Duration</AppText>
               <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
                 {durationMin}
               </AppText>
+              </OnLight>
             </View>
             </OnLight>
             <OnLight>
             <View style={styles.metricCard}>
+              <OnLight>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
                 {lastBidNgn ? 'Your bid' : "Rider's offer"}
               </AppText>
               <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
                 {formatNgn(activeFare)}
               </AppText>
+              </OnLight>
             </View>
             </OnLight>
           </View>
@@ -675,6 +696,7 @@ export default function IncomingRequestScreen() {
           {hasSeats ? (
             <OnLight>
             <View style={styles.bidSentWrap}>
+              <OnLight>
               {answeredSeatCount > 0 ? (
                 <>
                   <AppText variant="label" color={theme.colors.green}>
@@ -691,23 +713,27 @@ export default function IncomingRequestScreen() {
                   style={styles.acceptBtn}
                 />
               )}
+              </OnLight>
             </View>
             </OnLight>
           ) : bidSent ? (
             <OnLight>
             <View style={styles.bidSentWrap}>
+              <OnLight>
               <AppText variant="label" color={theme.colors.green}>
                 {lastBidNgn ? `Bid of ${formatNgn(lastBidNgn)} sent` : 'Offer accepted'}
               </AppText>
               <AppText variant="bodySmall" color={theme.colors.muted}>
                 Waiting for rider to confirm...
               </AppText>
+              </OnLight>
             </View>
             </OnLight>
           ) : bidMode ? (
             <View style={styles.bidInputWrap}>
               <OnLight>
               <View style={styles.bidInputRow}>
+                <OnLight>
                 <AppText variant="h3" color={theme.colors.muted}>₦</AppText>
                 <TextInput
                   ref={bidInputRef}
@@ -721,6 +747,7 @@ export default function IncomingRequestScreen() {
                   onSubmitEditing={handleSubmitBid}
                 />
                 {perKm ? <AppText variant="h3" color={theme.colors.muted}>/km</AppText> : null}
+                </OnLight>
               </View>
               </OnLight>
               {typedFare !== null && perKm ? (
@@ -763,6 +790,7 @@ export default function IncomingRequestScreen() {
                     key={fareNgn}
                     onPress={() => { setBidAmount(''); void handleSubmitBidAt(fareNgn); }}
                     style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}>
+                    <OnLight>
                     <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
                       {perKm && ratePerKmNgn !== null ? `${formatPerKmNgn(ratePerKmNgn)}/km` : formatNgn(fareNgn)}
                     </AppText>
@@ -771,13 +799,16 @@ export default function IncomingRequestScreen() {
                         {perKm ? formatNgn(fareNgn) : `${formatPerKmNgn(ratePerKmNgn)}/km`}
                       </AppText>
                     ) : null}
+                    </OnLight>
                   </Pressable>
                   </OnLight>
                 ))}
               </View>
               <OnLight>
               <Pressable onPress={handleBidPress} style={({ pressed }) => [styles.otherAmountBtn, pressed && { opacity: 0.7 }]}>
+                <OnLight>
                 <AppText variant="label" color={theme.colors.muted}>{perKm ? 'Other rate' : 'Other amount'}</AppText>
+                </OnLight>
               </Pressable>
               </OnLight>
             </View>
@@ -800,6 +831,7 @@ export default function IncomingRequestScreen() {
             or swipe down to leave it open
           </AppText>
         </ScrollView>
+        </OnLight>
       </Animated.View>
     </View>
   );

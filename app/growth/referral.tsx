@@ -9,7 +9,7 @@ import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
 import { AppInput } from "@/components/app-input";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import { DecorativeBackground } from "@/components/DecorativeBackground";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
@@ -164,12 +164,15 @@ export default function ReferralScreen() {
       </View>
 
       <AppCard style={styles.heroCard}>
+        <OnLight>
         <View style={styles.heroIcon}>
+          <OnLight>
           <MaterialIcons
             color={theme.colors.black}
             name="card-giftcard"
             size={30}
           />
+          </OnLight>
         </View>
         <View style={styles.heroCopy}>
           <AppText variant="monoSmall" color={theme.colors.orange}>
@@ -184,6 +187,7 @@ export default function ReferralScreen() {
               : "Drivers and riders enter this code when they sign up, or scan your QR code."}
           </AppText>
         </View>
+        </OnLight>
       </AppCard>
 
       {creating ? (
@@ -223,6 +227,7 @@ export default function ReferralScreen() {
             accessibilityRole="image"
             style={styles.qrFrame}
           >
+            <OnLight>
             <QRCodeStyled
               color={theme.colors.black}
               data={shareLink}
@@ -230,6 +235,7 @@ export default function ReferralScreen() {
               pieceSize={5}
               style={styles.qr}
             />
+            </OnLight>
           </View>
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.qrHint}>
             Let a driver or rider scan this with their phone camera. It opens a chat with
@@ -248,9 +254,11 @@ export default function ReferralScreen() {
 
       {errorMessage ? (
         <AppCard borderColor={theme.colors.danger} style={styles.noticeCard}>
+          <OnLight>
           <AppText variant="bodyMedium" color={theme.colors.danger}>
             {errorMessage}
           </AppText>
+          </OnLight>
         </AppCard>
       ) : null}
 
@@ -309,7 +317,9 @@ function StatCard({
   return (
     <AppCard style={styles.statCard}>
       <View style={styles.statIcon}>
+        <OnLight>
         <MaterialIcons color={theme.colors.black} name={icon} size={18} />
+        </OnLight>
       </View>
       <AppText variant="monoSmall" color={theme.colors.muted}>
         {label}

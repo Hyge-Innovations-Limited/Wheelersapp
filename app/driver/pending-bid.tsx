@@ -181,6 +181,7 @@ export default function PendingBidScreen() {
         styles.statusCard,
         accepted ? styles.statusAccepted : stage === 'paying' ? styles.statusPaying : stage === 'declined' && !repriced ? styles.statusDeclined : styles.statusWaiting,
       ]}>
+        <OnLight>
         <AppText variant="h3" color={accepted ? theme.colors.green : stage === 'paying' ? theme.colors.warning : stage === 'declined' ? (repriced ? theme.colors.orange : theme.colors.danger) : theme.colors.black}>
           {accepted
             ? bid.riderPaid
@@ -230,12 +231,14 @@ export default function PendingBidScreen() {
             </AppText>
           );
         })() : null}
+        </OnLight>
       </View>
       </OnLight>
 
       {/* The trip */}
       <OnLight>
       <View style={styles.card}>
+        <OnLight>
         <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
           Trip
         </AppText>
@@ -269,12 +272,14 @@ export default function PendingBidScreen() {
             : ''}
           {offer.isGroupRide ? ` · group · ${offer.riderCount ?? 2} riders` : ''}
         </AppText>
+        </OnLight>
       </View>
       </OnLight>
 
       {/* The money */}
       <OnLight>
       <View style={styles.card}>
+        <OnLight>
         <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
           Fare
         </AppText>
@@ -287,6 +292,7 @@ export default function PendingBidScreen() {
           <AppText variant="h3" color={theme.colors.orange}>{formatNgn(fare)}</AppText>
         </View>
         <PerKmChip priceNgn={fare} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />
+        </OnLight>
       </View>
       </OnLight>
 
@@ -295,6 +301,7 @@ export default function PendingBidScreen() {
       {stage === 'waiting' || stage === 'countered' || stage === 'declined' ? tookRidersPrice(bid) && stage === 'waiting' ? null : (
         <OnLight>
         <View style={styles.card}>
+          <OnLight>
           <AppText variant="label" color={theme.colors.muted} style={styles.cardTitle}>
             {stage === 'declined' ? 'Send a new bid' : 'Change your bid'}
           </AppText>
@@ -309,6 +316,7 @@ export default function PendingBidScreen() {
             <>
               <OnLight>
               <View style={styles.editRow}>
+                <OnLight>
                 <AppText variant="h3">₦</AppText>
                 <TextInput
                   style={styles.editInput}
@@ -320,6 +328,7 @@ export default function PendingBidScreen() {
                   placeholderTextColor={theme.colors.mutedLight}
                 />
                 {perKm ? <AppText variant="h3" color={theme.colors.muted}>/km</AppText> : null}
+                </OnLight>
               </View>
               </OnLight>
               {perKm && typedFare !== null ? (
@@ -335,7 +344,9 @@ export default function PendingBidScreen() {
                     key={step}
                     onPress={() => setEditAmount(String(Math.max(0, (Number(editAmount) || editStart) + step)))}
                     style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}>
+                    <OnLight>
                     <AppText variant="label">{step > 0 ? `+${step.toLocaleString()}` : `-${Math.abs(step).toLocaleString()}`}</AppText>
+                    </OnLight>
                   </Pressable>
                   </OnLight>
                 ))}
@@ -356,6 +367,7 @@ export default function PendingBidScreen() {
               }}
             />
           )}
+          </OnLight>
         </View>
         </OnLight>
       ) : null}

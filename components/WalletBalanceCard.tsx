@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { theme } from '@/theme';
 
 type WalletBalanceCardProps = {
@@ -24,6 +24,7 @@ export function WalletBalanceCard({
 
   return (
     <View style={styles.card}>
+      <OnLight>
       <Svg width={72} height={72} viewBox="0 0 84 84" style={styles.blob}>
         <Circle cx="42" cy="42" r="34" fill="rgba(240,145,63,0.32)" />
       </Svg>
@@ -86,6 +87,7 @@ export function WalletBalanceCard({
           </AppText>
         </Pressable>
       </View>
+      </OnLight>
     </View>
   );
 }

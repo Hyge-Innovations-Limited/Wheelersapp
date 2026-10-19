@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import Animated, { FadeInDown, FadeOutLeft, Layout } from "react-native-reanimated";
 
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import type { RideOffer } from "@/lib/ride-session";
 import { theme } from "@/theme";
 
@@ -77,19 +77,24 @@ export function BidCard({
       layout={Layout.springify().damping(20)}
       style={[styles.card, isCheapest && styles.cardBest]}
     >
+      <OnLight>
       {isCheapest ? (
         <View style={styles.bestTag}>
+          <OnLight>
           <AppText variant="monoSmall" color={theme.colors.black}>
             BEST PRICE
           </AppText>
+          </OnLight>
         </View>
       ) : null}
 
       <View style={styles.headRow}>
         <View style={styles.avatar}>
+          <OnLight>
           <AppText variant="bodyMedium" color={theme.colors.black}>
             {initialsOf(offer.driverName)}
           </AppText>
+          </OnLight>
         </View>
 
         <View style={styles.identity}>
@@ -130,10 +135,13 @@ export function BidCard({
             onPress={() => step(-500)}
             style={styles.stepButton}
           >
+            <OnLight>
             <MaterialIcons name="remove" size={18} color={theme.colors.black} />
+            </OnLight>
           </Pressable>
 
           <View style={styles.counterField}>
+            <OnLight>
             <AppText variant="bodyMedium" color={theme.colors.muted}>
               ₦
             </AppText>
@@ -145,6 +153,7 @@ export function BidCard({
               selectionColor={theme.colors.orange}
               autoFocus
             />
+            </OnLight>
           </View>
 
           <Pressable
@@ -153,7 +162,9 @@ export function BidCard({
             onPress={() => step(500)}
             style={styles.stepButton}
           >
+            <OnLight>
             <MaterialIcons name="add" size={18} color={theme.colors.black} />
+            </OnLight>
           </Pressable>
 
           <Pressable
@@ -183,7 +194,9 @@ export function BidCard({
             }}
             style={[styles.action, styles.decline]}
           >
+            <OnLight>
             <MaterialIcons name="close" size={18} color={theme.colors.black} />
+            </OnLight>
           </Pressable>
 
           <Pressable
@@ -196,9 +209,11 @@ export function BidCard({
             }}
             style={[styles.action, styles.haggle]}
           >
+            <OnLight>
             <AppText variant="bodySmall" color={theme.colors.black}>
               Offer less
             </AppText>
+            </OnLight>
           </Pressable>
 
           <Pressable
@@ -217,6 +232,7 @@ export function BidCard({
           </Pressable>
         </View>
       )}
+      </OnLight>
     </Animated.View>
   );
 }

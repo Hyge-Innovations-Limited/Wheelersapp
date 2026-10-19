@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import {
   DiamondPair,
@@ -313,9 +313,11 @@ function GroupRideScreen() {
       <View style={styles.navRow}>
         <BackArrow />
         <View style={styles.tagPill}>
+          <OnLight>
           <AppText variant="monoSmall" color={theme.colors.orange}>
             GROUP RIDE
           </AppText>
+          </OnLight>
         </View>
       </View>
 
@@ -345,7 +347,9 @@ function GroupRideScreen() {
           >
             <View style={[styles.stepCard, { backgroundColor: step.bg }]}>
               <View style={[styles.stepIconWrap, { borderColor: step.iconBorder }]}>
+                <OnLight>
                 <MaterialIcons name={step.icon} size={18} color={theme.colors.black} />
+                </OnLight>
               </View>
               <View style={styles.stepCardBody}>
                 <AppText variant="label" color={theme.colors.black}>
@@ -356,9 +360,11 @@ function GroupRideScreen() {
                 </AppText>
               </View>
               <View style={styles.stepNumBox}>
+                <OnLight>
                 <AppText variant="monoSmall" color={theme.colors.muted} style={styles.stepNum}>
                   {step.number}
                 </AppText>
+                </OnLight>
               </View>
             </View>
           </Animated.View>
@@ -368,10 +374,12 @@ function GroupRideScreen() {
       {/* Teaser note */}
       <Animated.View entering={FadeInDown.delay(420).duration(380)}>
         <View style={styles.teaserCard}>
+          <OnLight>
           <MaterialIcons name="info-outline" size={15} color={theme.colors.muted} />
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.teaserText}>
             Tap below to read the group ride guidelines before getting started.
           </AppText>
+          </OnLight>
         </View>
       </Animated.View>
 

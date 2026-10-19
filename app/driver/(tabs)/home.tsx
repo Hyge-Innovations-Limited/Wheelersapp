@@ -6,7 +6,7 @@ import { Alert, AppState, Platform, Pressable, StyleSheet, View } from 'react-na
 import MapView, { Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { useNearbyAlerts } from '@/components/nearby-alerts';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
@@ -308,6 +308,7 @@ export default function DriverHomeScreen() {
 
   return (
     <View style={styles.screen}>
+      <OnLight>
       <StatusBar style="dark" />
       {nearbyAlerts.sheet}
 
@@ -374,6 +375,7 @@ export default function DriverHomeScreen() {
               if (target) router.push(target);
             }}
             style={({ pressed }) => [styles.pendingBidCard, pressed && styles.pendingBidPressed]}>
+            <OnLight>
             <View style={styles.pendingBidRow}>
               <AppText variant="label" color={theme.colors.green}>
                 Trip in progress · {formatNgn(currentRide.fareNgn)}
@@ -386,6 +388,7 @@ export default function DriverHomeScreen() {
                 {' — tap to open'}
               </AppText>
             </View>
+            </OnLight>
           </Pressable>
         </View>
       ) : null}
@@ -430,6 +433,7 @@ export default function DriverHomeScreen() {
         ]}>
         {/* Metrics row */}
         <View style={[styles.metricsCard, { paddingVertical: responsive.scale(14) }]}>
+          <OnLight>
           <View style={styles.metricItem}>
             <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Today</AppText>
             <AppText
@@ -455,6 +459,7 @@ export default function DriverHomeScreen() {
               {stats ? String(stats.totalRides) : '--'}
             </AppText>
           </View>
+          </OnLight>
         </View>
 
         {/* Go online/offline button */}
@@ -493,6 +498,7 @@ export default function DriverHomeScreen() {
           </AppText>
         )}
       </View>
+      </OnLight>
     </View>
   );
 }

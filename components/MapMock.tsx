@@ -4,7 +4,7 @@ import { Circle, Marker, Polyline } from 'react-native-maps';
 
 import { GoogleMapView } from '@/components/GoogleMapView';
 import { InstructionCard } from '@/components/InstructionCard';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { mapScenes, MapScene, RouteInstruction } from '@/data/mock';
 import { theme } from '@/theme';
 
@@ -45,6 +45,7 @@ export function MapMock({
 
   return (
     <View style={[styles.container, { height }]}>
+      <OnLight>
       <GoogleMapView
         initialRegion={scene.region}
         pitchEnabled={false}
@@ -71,7 +72,9 @@ export function MapMock({
         {showCar && scene.primaryMarker ? (
           <Marker coordinate={scene.primaryMarker}>
             <View style={[styles.marker, styles.carMarker]}>
+              <OnLight>
               <AppText style={styles.emoji}>🚗</AppText>
+              </OnLight>
             </View>
           </Marker>
         ) : null}
@@ -101,6 +104,7 @@ export function MapMock({
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         {children}
       </View>
+      </OnLight>
     </View>
   );
 }

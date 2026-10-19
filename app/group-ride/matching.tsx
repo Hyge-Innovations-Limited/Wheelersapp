@@ -17,7 +17,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import {
   cancelGroupRideMatchRequest,
   completeGroupRideFaceUpload,
@@ -444,9 +444,11 @@ export default function GroupRideMatchingScreen() {
             onPress={() => router.replace("/group-ride/face-verify")}
             style={styles.failureAction}
           >
+            <OnLight>
             <AppText variant="bodySmall" color={theme.colors.black}>
               Retake photo
             </AppText>
+            </OnLight>
           </Pressable>
         </Animated.View>
       ) : null}

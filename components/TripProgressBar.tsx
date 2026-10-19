@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { theme } from '@/theme';
 
 type TripProgressBarProps = {
@@ -44,7 +44,9 @@ export function TripProgressBar({
         </AppText>
       ) : null}
       <View onLayout={onLayout} style={styles.track}>
+        <OnLight>
         <Animated.View style={[styles.fill, { backgroundColor: fillColor }, fillStyle]} />
+        </OnLight>
       </View>
     </View>
   );

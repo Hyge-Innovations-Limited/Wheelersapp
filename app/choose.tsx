@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import { DriveScene } from "@/components/rider/drive-scene";
 import { EarningCoins, PickupPin } from "@/components/rider/scene-extras";
@@ -101,6 +101,7 @@ function Door({
         disabled={disabled}
         onPress={onPress}
         style={({ pressed }) => [styles.door, dark ? styles.doorDark : null, pressed && styles.pressed, disabled && styles.disabled]}>
+        <OnLight>
         <View style={styles.doorTop}>
           <View style={styles.doorWords}>
             <AppText color={dark ? theme.colors.orange : brand.ink} variant="h2">
@@ -111,7 +112,9 @@ function Door({
             </AppText>
           </View>
           <View style={[styles.arrow, dark ? styles.arrowDark : null]}>
+            <OnLight>
             <Ionicons color={brand.ink} name="arrow-forward" size={22} />
+            </OnLight>
           </View>
         </View>
         <DriveScene
@@ -123,6 +126,7 @@ function Door({
           showSkyline={false}>
           {dark ? <PickupPin bottom={30} right={14} /> : <EarningCoins bottom={106} />}
         </DriveScene>
+        </OnLight>
       </Pressable>
     </Animated.View>
   );

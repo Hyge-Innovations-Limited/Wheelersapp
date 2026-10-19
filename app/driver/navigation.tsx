@@ -9,7 +9,7 @@ import { AppButton } from '@/components/app-button';
 import { CourseArrowMarker } from '@/components/course-arrow-marker';
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { GoogleMapView } from '@/components/GoogleMapView';
 import { StatusPill } from '@/components/StatusPill';
 import { TripCallButton } from '@/components/TripCallButton';
@@ -159,6 +159,7 @@ export default function DriverNavigationScreen() {
         {/* Map takes a share of the screen rather than a fixed 280pt, so the
             stats, pickup card and CTA still fit on a 4.7" phone. */}
         <View style={[styles.mapContainer, { height: responsive.vh(32, 170, 340) }]}>
+          <OnLight>
           <GoogleMapView
             ref={mapRef}
             initialRegion={initialRegion}
@@ -194,6 +195,7 @@ export default function DriverNavigationScreen() {
               </View>
             </Marker>
           </GoogleMapView>
+          </OnLight>
         </View>
       </View>
 
@@ -211,6 +213,7 @@ export default function DriverNavigationScreen() {
 
         {/* Stats */}
         <View style={styles.statsRow}>
+          <OnLight>
           <View style={styles.stat}>
             <AppText variant="monoLarge" color={theme.colors.orange} adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
               {etaMinutes}
@@ -231,6 +234,7 @@ export default function DriverNavigationScreen() {
             </AppText>
             <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>fare</AppText>
           </View>
+          </OnLight>
         </View>
 
         {/* Pickup card */}
@@ -264,7 +268,9 @@ export default function DriverNavigationScreen() {
                 style={[styles.callButton, styles.contactButton]}
                 onPress={() => Linking.openURL(`tel:${ride.riderPhone}`)}
               >
+                <OnLight>
                 <AppText variant="label">Phone</AppText>
+                </OnLight>
               </Pressable>
             ) : null}
           </View>

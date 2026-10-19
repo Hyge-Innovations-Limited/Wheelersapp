@@ -1,6 +1,6 @@
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { theme } from '@/theme';
 
 type SearchFieldProps = {
@@ -18,6 +18,7 @@ export function SearchField({
 }: SearchFieldProps) {
   return (
     <View style={styles.wrap}>
+      <OnLight>
       <AppText variant="body">🔍</AppText>
       <TextInput
         editable={!readOnly}
@@ -27,6 +28,7 @@ export function SearchField({
         style={styles.input}
         value={value}
       />
+      </OnLight>
     </View>
   );
 }

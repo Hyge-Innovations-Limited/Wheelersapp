@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { FlowHeader } from "@/components/flow-header";
 import { OnboardingSignOut } from "@/components/onboarding-sign-out";
 import { useResponsive } from "@/lib/responsive";
@@ -55,7 +55,9 @@ export default function OnboardingWelcomeScreen() {
         {STEPS.map((step) => (
           <View key={step.label} style={styles.stepRow}>
             <View style={[styles.stepIcon, { width: iconSize, height: iconSize }]}>
+              <OnLight>
               <Ionicons name={step.icon} size={responsive.scale(22)} color={theme.colors.orange} />
+              </OnLight>
             </View>
             <AppText variant="bodyMedium" numberOfLines={2}>{step.label}</AppText>
           </View>

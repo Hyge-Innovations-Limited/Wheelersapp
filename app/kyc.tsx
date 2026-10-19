@@ -15,7 +15,7 @@ import { AppBadge } from "@/components/app-badge";
 import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { GearOutline } from "@/components/decorative-shapes";
 import { FlowHeader } from "@/components/flow-header";
 import { kycSteps } from "@/data/mock";
@@ -133,6 +133,7 @@ export default function KycScreen() {
         </View>
 
         <View style={styles.scanner}>
+          <OnLight>
           <Animated.View style={[styles.scanLine, scanStyle]} />
           <View style={styles.cornerTopLeft} />
           <View style={styles.cornerTopRight} />
@@ -145,6 +146,7 @@ export default function KycScreen() {
           >
             PLACE ID CARD HERE
           </AppText>
+          </OnLight>
         </View>
 
         <AppButton

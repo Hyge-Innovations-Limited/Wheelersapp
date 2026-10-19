@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, Pressable, RefreshControl, StyleSheet, Vie
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getCurrentProfile, getDriverStats } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -197,7 +197,9 @@ export default function DriverProfileScreen() {
         <View style={[styles.card, { backgroundColor: cardBg }]}>
           <View style={[styles.infoRow, infoRowStyle]}>
             <View style={[styles.infoIcon, infoIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <UserIcon />
+              </OnLight>
             </View>
             <View style={styles.infoContent}>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Full name</AppText>
@@ -209,7 +211,9 @@ export default function DriverProfileScreen() {
 
           <View style={[styles.infoRow, infoRowStyle]}>
             <View style={[styles.infoIcon, infoIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
               <MailIcon />
+              </OnLight>
             </View>
             <View style={styles.infoContent}>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Email</AppText>
@@ -235,7 +239,9 @@ export default function DriverProfileScreen() {
           <View style={[styles.card, { backgroundColor: cardBg }]}>
             <View style={[styles.infoRow, infoRowStyle]}>
               <View style={[styles.infoIcon, infoIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+                <OnLight>
                 <CarIcon />
+                </OnLight>
               </View>
               <View style={styles.infoContent}>
                 <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Vehicle</AppText>
@@ -250,7 +256,9 @@ export default function DriverProfileScreen() {
                 <View style={[styles.divider, dividerInset, isDark && { backgroundColor: theme.colors.darkBorder }]} />
                 <View style={[styles.infoRow, infoRowStyle]}>
                   <View style={[styles.infoIcon, infoIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+                    <OnLight>
                     <PlateIcon />
+                    </OnLight>
                   </View>
                   <View style={styles.infoContent}>
                     <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Plate number</AppText>

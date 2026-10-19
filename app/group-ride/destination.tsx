@@ -13,7 +13,7 @@ import {
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import type { GroupRideGenderPreference } from "@/lib/api";
 import {
@@ -343,10 +343,12 @@ export default function GroupRideDestinationScreen() {
                 </AppText>
               </View>
               <View style={styles.ridersChip}>
+                <OnLight>
                 <MaterialIcons name="group" size={14} color={theme.colors.orange} />
                 <AppText variant="monoSmall" color={theme.colors.orange}>
                   SHARED
                 </AppText>
+                </OnLight>
               </View>
             </View>
 
@@ -364,8 +366,11 @@ export default function GroupRideDestinationScreen() {
               />
 
               <View style={styles.groupRideCard}>
+                <OnLight>
                 <View style={styles.groupRideIcon}>
+                  <OnLight>
                   <MaterialIcons name="groups" size={18} color={theme.colors.black} />
+                  </OnLight>
                 </View>
                 <View style={styles.groupRideCopy}>
                   <AppText variant="bodyMedium">Group ride matching</AppText>
@@ -373,6 +378,7 @@ export default function GroupRideDestinationScreen() {
                     We will find riders on a similar route so you can split the ride cost.
                   </AppText>
                 </View>
+                </OnLight>
               </View>
 
               {recentPlacesPreview.length > 0 ? (
@@ -403,11 +409,13 @@ export default function GroupRideDestinationScreen() {
             </ScrollView>
 
             <View style={styles.footerActionBar}>
+              <OnLight>
               <AppButton
                 disabled={false}
                 title={hasCompleteRoute ? "Find Group Ride" : "Continue"}
                 onPress={handleConfirm}
               />
+              </OnLight>
             </View>
           </View>
         ) : (
@@ -415,6 +423,7 @@ export default function GroupRideDestinationScreen() {
             <View style={styles.searchHeader}>
               <BackArrow onPress={handleBack} />
               <View style={styles.searchBar}>
+                <OnLight>
                 <MaterialIcons color={theme.colors.muted} name="search" size={18} />
                 <TextInput
                   autoFocus
@@ -430,9 +439,12 @@ export default function GroupRideDestinationScreen() {
                     onPress={() => handleSearchChange("")}
                     style={styles.inlineClearButton}
                   >
+                    <OnLight>
                     <MaterialIcons color={theme.colors.black} name="close" size={15} />
+                    </OnLight>
                   </Pressable>
                 ) : null}
+                </OnLight>
               </View>
             </View>
 
@@ -444,6 +456,7 @@ export default function GroupRideDestinationScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.formSheet}>
+                <OnLight>
                 <View style={styles.formConnector} />
 
                 <RouteSelectRow
@@ -467,6 +480,7 @@ export default function GroupRideDestinationScreen() {
                   placeholder="Where to?"
                   value={destinationValue}
                 />
+                </OnLight>
               </View>
 
               <View style={styles.resultsSection}>
@@ -550,11 +564,13 @@ export default function GroupRideDestinationScreen() {
             </ScrollView>
 
             <View style={styles.footerActionBar}>
+              <OnLight>
               <AppButton
                 disabled={false}
                 title="Done"
                 onPress={handleDoneEditingRoute}
               />
+              </OnLight>
             </View>
           </View>
         )}
@@ -576,8 +592,11 @@ function MainRouteCard({
 }) {
   return (
     <Pressable onPress={onPress} style={styles.mainRouteCard}>
+      <OnLight>
       <View style={styles.mainRouteIcon}>
+        <OnLight>
         <MaterialIcons name="search" size={18} color={theme.colors.black} />
+        </OnLight>
       </View>
       <View style={styles.mainRouteCopy}>
         <AppText variant="monoSmall" color={theme.colors.muted}>
@@ -611,6 +630,7 @@ function MainRouteCard({
         )}
       </View>
       <MaterialIcons name="chevron-right" size={20} color={theme.colors.muted} />
+      </OnLight>
     </Pressable>
   );
 }
@@ -647,6 +667,7 @@ function RouteSelectRow({
         onPress={onPress}
         style={[styles.triggerField, active ? styles.routeInputActive : null]}
       >
+        <OnLight>
         <View
           style={[
             marker === "circle" ? styles.markerCircle : styles.markerSquare,
@@ -662,9 +683,12 @@ function RouteSelectRow({
         </AppText>
         {hasValue ? (
           <Pressable onPress={onClear} style={styles.inlineClearButton}>
+            <OnLight>
             <MaterialIcons color={theme.colors.black} name="close" size={15} />
+            </OnLight>
           </Pressable>
         ) : null}
+        </OnLight>
       </Pressable>
     </View>
   );
@@ -681,8 +705,11 @@ function PlaceResultRow({
 }) {
   return (
     <Pressable onPress={onPress} style={styles.resultRow}>
+      <OnLight>
       <View style={styles.resultIcon}>
+        <OnLight>
         <MaterialIcons color={theme.colors.black} name={icon ?? item.icon} size={18} />
+        </OnLight>
       </View>
       <View style={styles.resultCopy}>
         <AppText variant="bodyMedium">{item.title}</AppText>
@@ -690,6 +717,7 @@ function PlaceResultRow({
           {item.subtitle}
         </AppText>
       </View>
+      </OnLight>
     </Pressable>
   );
 }

@@ -6,7 +6,7 @@ import { ActivityIndicator, Platform, Pressable, RefreshControl, StyleSheet, Vie
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import {
   getDriverEarnings,
   provisionVirtualAccount,
@@ -186,11 +186,13 @@ export default function DriverWalletTabScreen() {
                   copied && styles.copyBtnWide,
                 ]}
                 hitSlop={8}>
+                <OnLight>
                 {copied ? (
                   <AppText variant="bodySmall" color={theme.colors.orange} numberOfLines={1}>Copied</AppText>
                 ) : (
                   <CopyIcon size={responsive.scale(16)} />
                 )}
+                </OnLight>
               </Pressable>
             </View>
             <AppText variant="bodySmall" color={theme.colors.muted}>
@@ -268,9 +270,11 @@ export default function DriverWalletTabScreen() {
             styles.earningsArrow,
             { width: responsive.scale(36), height: responsive.scale(36) },
           ]}>
+          <OnLight>
           <Svg width={responsive.scale(20)} height={responsive.scale(20)} viewBox="0 0 24 24" fill="none" stroke={theme.colors.muted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <Polyline points="9 18 15 12 9 6" />
           </Svg>
+          </OnLight>
         </View>
       </Pressable>
     </AppScreen>

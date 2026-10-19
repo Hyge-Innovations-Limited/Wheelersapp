@@ -5,7 +5,7 @@ import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { useCachedQuery } from '@/lib/cached-query';
 import { getDriverStats, getDriverEarnings, type DriverEarningsResponse, type DriverStatsResponse } from '@/lib/api';
 import { useQuestBadge } from '@/lib/quest-badge-context';
@@ -207,7 +207,9 @@ export default function DriverQuestsScreen() {
               styles.trophyWrap,
               { width: responsive.scale(52), height: responsive.scale(52) },
             ]}>
+            <OnLight>
             <TrophyIcon size={responsive.scale(28)} />
+            </OnLight>
           </View>
           <View style={styles.summaryText}>
             <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
@@ -255,7 +257,9 @@ export default function DriverQuestsScreen() {
                     { width: responsive.scale(42), height: responsive.scale(42) },
                     isComplete && { backgroundColor: theme.colors.successLight, borderColor: theme.colors.green },
                   ]}>
+                    <OnLight>
                     {getQuestIcon(quest.icon, responsive.scale(18))}
+                    </OnLight>
                   </View>
                   <View style={styles.questInfo}>
                     <AppText variant="h3" numberOfLines={1}>{quest.title}</AppText>
@@ -272,6 +276,7 @@ export default function DriverQuestsScreen() {
 
                 {/* Progress bar */}
                 <View style={styles.progressTrack}>
+                  <OnLight>
                   <View
                     style={[
                       styles.progressFill,
@@ -281,6 +286,7 @@ export default function DriverQuestsScreen() {
                       },
                     ]}
                   />
+                  </OnLight>
                 </View>
 
                 <View style={styles.questBottom}>
@@ -293,9 +299,11 @@ export default function DriverQuestsScreen() {
                     }
                   </AppText>
                   <View style={styles.rewardChip}>
+                    <OnLight>
                     <AppText variant="monoSmall" color={theme.colors.orange} numberOfLines={1}>
                       {quest.rewardLabel}
                     </AppText>
+                    </OnLight>
                   </View>
                 </View>
               </AppCard>

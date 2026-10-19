@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { useWalletPin } from '@/components/wallet-pin-sheet';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useResponsive } from '@/lib/responsive';
@@ -396,8 +396,10 @@ export default function DriverWithdrawScreen() {
         {step === 'account' && (
           <View style={styles.stepContent}>
             <View style={styles.bankChip}>
+              <OnLight>
               <BankIcon size={16} />
               <AppText variant="bodySmall" color={theme.colors.muted}>{selectedBank?.name}</AppText>
+              </OnLight>
             </View>
 
             <View style={[styles.inputWrap, isDark && { backgroundColor: theme.colors.darkSurface, borderColor: theme.colors.darkBorder }]}>
@@ -441,6 +443,7 @@ export default function DriverWithdrawScreen() {
         {step === 'amount' && (
           <View style={styles.stepContent}>
             <View style={styles.bankChip}>
+              <OnLight>
               <AppText variant="bodySmall" color={theme.colors.muted} style={styles.flex} numberOfLines={1}>
                 {selectedBank?.name} — {usingSaved ? `•••• ${accountNumber.slice(-4)}` : accountNumber}
               </AppText>
@@ -449,6 +452,7 @@ export default function DriverWithdrawScreen() {
                   <AppText variant="bodySmall" color={theme.colors.orange}>Change</AppText>
                 </Pressable>
               ) : null}
+              </OnLight>
             </View>
             <View style={styles.resolvedName}>
               <CheckIcon />
@@ -637,7 +641,9 @@ export default function DriverWithdrawScreen() {
                     ]}
                   >
                     <View style={styles.bankIconWrap}>
+                      <OnLight>
                       <BankIcon size={18} />
+                      </OnLight>
                     </View>
                     <AppText variant="body" style={styles.bankName} numberOfLines={2}>{item.name}</AppText>
                     {selectedBank && getBankId(selectedBank) === getBankId(item) && <CheckIcon />}

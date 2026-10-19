@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Modal, Platform, ScrollView, StyleSheet, View } from "react-native";
 
 import { AppButton } from "@/components/app-button";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { isDriverApp } from "@/lib/app-variant";
 import { useAppTheme } from "@/lib/theme-context";
 import { theme } from "@/theme";
@@ -168,7 +168,9 @@ export function BackgroundLocationDisclosure({
                       { borderColor: border, backgroundColor: theme.colors.orangeLight },
                     ]}
                   >
+                    <OnLight>
                     <Ionicons name={item.icon} size={16} color={theme.colors.orange} />
+                    </OnLight>
                   </View>
                   <AppText variant="bodySmall" style={styles.bulletText}>
                     {item.text}

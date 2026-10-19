@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { getAccessTokenWithRetry, type AccessTokenGetter } from '@/lib/access-token';
 import { getDriverStandby, setDriverStandby } from '@/lib/api';
 import { useAppLocation } from '@/lib/location';
@@ -202,6 +202,7 @@ export function useNearbyAlerts(
             <Pressable style={StyleSheet.absoluteFill} onPress={() => settle(false)} accessibilityLabel="Close" />
           )}
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.md }]}>
+            <OnLight>
             <AppText variant="h2" style={styles.title}>Hear about riders near you</AppText>
             <AppText variant="body" color={theme.colors.muted}>
               {"When a rider nearby can't find a driver, we can let you know — even if you're offline."}
@@ -238,6 +239,7 @@ export function useNearbyAlerts(
                 <AppText variant="bodyMedium" color={theme.colors.muted}>Not now</AppText>
               </Pressable>
             )}
+            </OnLight>
           </View>
         </View>
       </Modal>

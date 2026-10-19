@@ -8,7 +8,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
@@ -181,6 +181,7 @@ export default function InterstateBookingScreen() {
 
       {/* The trip itself, stated once so nothing below is ambiguous */}
       <View style={styles.tripCard}>
+        <OnLight>
         <Row
           icon="schedule"
           label="Leaves"
@@ -206,6 +207,7 @@ export default function InterstateBookingScreen() {
             departure.route.durationMinutes,
           )}`}
         />
+        </OnLight>
       </View>
 
       <Section title="How do you want to travel?">
@@ -275,6 +277,7 @@ export default function InterstateBookingScreen() {
       {/* The bid — the same control as a city ride, against a posted fare */}
       <Section title="Name your price">
         <View style={styles.offerCard}>
+          <OnLight>
           <View style={styles.offerHead}>
             <View style={styles.flex}>
               <AppText variant="monoSmall" color={theme.colors.orange}>
@@ -326,6 +329,7 @@ export default function InterstateBookingScreen() {
               trip.
             </AppText>
           ) : null}
+          </OnLight>
         </View>
 
         <Animated.View
@@ -417,6 +421,7 @@ function ModeCard({
       onPress={onPress}
       style={[styles.modeCard, active ? styles.modeCardActive : null]}
     >
+      <OnLight>
       <MaterialIcons
         name={icon}
         size={22}
@@ -426,6 +431,7 @@ function ModeCard({
       <AppText variant="bodySmall" color={theme.colors.muted}>
         {body}
       </AppText>
+      </OnLight>
     </Pressable>
   );
 }
@@ -453,7 +459,9 @@ function StepButton({
         disabled ? styles.disabled : null,
       ]}
     >
+      <OnLight>
       <MaterialIcons name={icon} size={20} color={theme.colors.black} />
+      </OnLight>
     </Pressable>
   );
 }

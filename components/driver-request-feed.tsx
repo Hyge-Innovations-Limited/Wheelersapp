@@ -147,6 +147,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         disabled={entry.reason === 'taken'}
         onPress={() => openDetails(offer.rideId)}
         style={({ pressed }) => [styles.card, styles.cardResolved, pressed && styles.pressed]}>
+        <OnLight>
         <View style={styles.topRow}>
           <AppText variant="label" color={theme.colors.muted}>
             {entry.reason === 'taken' ? 'Taken by another driver' : 'Expired — not answered'}
@@ -163,6 +164,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             ? 'Another driver has this one'
             : 'Tap to view — you can still try a bid'}
         </AppText>
+        </OnLight>
       </Pressable>
       </OnLight>
     );
@@ -197,6 +199,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
       return (
         <OnLight key={offer.rideId}>
         <View key={offer.rideId} style={[styles.card, styles.cardResolved]}>
+          <OnLight>
           <View style={styles.topRow}>
             <AppText variant="label" color={theme.colors.muted}>
               {outcomeLabel(bid.outcome)}
@@ -208,6 +211,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           <AppText variant="bodySmall" color={theme.colors.mutedLight} numberOfLines={1}>
             {offer.pickup.address} → {offer.destination.address} · your bid {formatNgn(bid.amountNgn)}
           </AppText>
+          </OnLight>
         </View>
         </OnLight>
       );
@@ -223,6 +227,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           accepted ? styles.cardAccepted : countered ? styles.cardCountered : paying ? styles.cardPaying : styles.cardBid,
           pressed && styles.pressed,
         ]}>
+        <OnLight>
         <View style={styles.topRow}>
           <AppText variant="h3" color={accepted ? theme.colors.green : paying ? theme.colors.warning : theme.colors.black}>
             {accepted
@@ -269,12 +274,14 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                   disabled={busyRideId === offer.rideId}
                   onPress={() => void sendBid(offer, fareNgn)}
                   style={({ pressed }) => [styles.priceChip, pressed && styles.pressed]}>
+                  <OnLight>
                   <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
                     {bidsPerKm(offer) && ratePerKmNgn !== null ? `${formatPerKmNgn(ratePerKmNgn)}/km` : formatNgn(fareNgn)}
                   </AppText>
                   {bidsPerKm(offer) ? (
                     <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>{formatNgn(fareNgn)}</AppText>
                   ) : null}
+                  </OnLight>
                 </Pressable>
                 </OnLight>
               ))}
@@ -302,12 +309,15 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               <Pressable
                 onPress={() => router.push(`/driver/pending-bid?rideId=${encodeURIComponent(offer.rideId)}` as Href)}
                 style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                <OnLight>
                 <AppText variant="label">Change bid</AppText>
+                </OnLight>
               </Pressable>
               </OnLight>
             )}
           </View>
         )}
+        </OnLight>
       </Pressable>
       </OnLight>
     );
@@ -338,6 +348,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
       <View
         key={offer.rideId}
         style={[styles.card, red ? styles.cardDeclined : stale ? styles.cardStale : styles.cardRequest]}>
+        <OnLight>
         <Pressable onPress={otherAmount}>
           {declinedBid ? (
             <View style={styles.declinedBadgeRow}>
@@ -428,12 +439,14 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                   disabled={busyRideId === offer.rideId}
                   onPress={() => void sendBid(offer, fareNgn)}
                   style={({ pressed }) => [styles.priceChip, pressed && styles.pressed]}>
+                  <OnLight>
                   <AppText variant="h3" adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1}>
                     {bidsPerKm(offer) && ratePerKmNgn !== null ? `${formatPerKmNgn(ratePerKmNgn)}/km` : formatNgn(fareNgn)}
                   </AppText>
                   {bidsPerKm(offer) ? (
                     <AppText variant="caption" color={theme.colors.muted} numberOfLines={1}>{formatNgn(fareNgn)}</AppText>
                   ) : null}
+                  </OnLight>
                 </Pressable>
                 </OnLight>
               ))}
@@ -455,6 +468,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             </View>
           </View>
         )}
+        </OnLight>
       </View>
       </OnLight>
     );

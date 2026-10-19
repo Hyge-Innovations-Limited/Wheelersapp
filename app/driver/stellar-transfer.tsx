@@ -4,7 +4,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, View, type ViewStyle
 import type { ReactNode } from 'react';
 
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { BackIcon, CopyIcon, ngnText, shortKey, transferLabel, transferStatus, useCopy, whenText, xlmText } from '@/components/stellar-bits';
 import { getStellarMe, type StellarMeResponse } from '@/lib/api';
 import { useCachedQuery } from '@/lib/cached-query';
@@ -35,7 +35,9 @@ export default function DriverStellarTransferScreen() {
       <AppText variant="bodySmall" color={theme.colors.muted} style={styles.rowLabel}>{label}</AppText>
       <AppText variant="mono" style={styles.rowValue} numberOfLines={1}>{shown}</AppText>
       <View style={[styles.copyBtn, copied === label && styles.copyBtnWide]}>
+        <OnLight>
         {copied === label ? <AppText variant="bodySmall" color={theme.colors.orange}>Copied</AppText> : <CopyIcon size={14} />}
+        </OnLight>
       </View>
     </Pressable>
   );
@@ -43,7 +45,9 @@ export default function DriverStellarTransferScreen() {
   const header = (
     <View style={styles.header}>
       <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backBtn, surface]} accessibilityLabel="Back">
+        <OnLight>
         <BackIcon />
+        </OnLight>
       </Pressable>
       <AppText variant="h1" numberOfLines={1} style={styles.flex}>{t ? transferLabel(t).title : 'Transfer'}</AppText>
     </View>
@@ -95,7 +99,7 @@ export default function DriverStellarTransferScreen() {
       {/* ── Why it did not go ── */}
       {t.note && t.status !== 'CONFIRMED' ? (
         <View style={[styles.noteCard, t.status === 'SKIPPED' || t.status === 'FAILED' ? styles.noteBad : styles.noteWait]}>
-          <AppText variant="bodyMedium">{t.status === 'SKIPPED' ? 'Why it was skipped' : t.status === 'FAILED' ? 'Why it failed' : 'Waiting'}</AppText>
+          <AppText variant="bodyMedium" color={theme.colors.black}>{t.status === 'SKIPPED' ? 'Why it was skipped' : t.status === 'FAILED' ? 'Why it failed' : 'Waiting'}</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>{t.note}</AppText>
           {t.status === 'SKIPPED' ? (
             <AppText variant="bodySmall" color={theme.colors.muted}>The trip itself was paid as normal; only its Stellar copy was skipped.</AppText>
@@ -105,6 +109,7 @@ export default function DriverStellarTransferScreen() {
 
       {/* ── Details ── */}
       <View style={[styles.card, surface]}>
+        <OnLight>
         {t.memo && (t.kind === 'FARE' || t.kind === 'COMMISSION') ? (
           <>{copyRow('Trip ID', t.memo, t.memo)}<Divider /></>
         ) : null}
@@ -114,6 +119,7 @@ export default function DriverStellarTransferScreen() {
         <Divider />
         <Row label="Network fee"><AppText variant="bodyMedium" style={styles.rowValue}>Paid by Wheelers</AppText></Row>
         {t.txHash ? <><Divider />{copyRow('Transaction', t.txHash, shortKey(t.txHash, 7))}</> : null}
+        </OnLight>
       </View>
 
       {t.explorerUrl ? (

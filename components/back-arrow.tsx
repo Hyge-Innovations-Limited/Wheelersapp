@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { theme } from '@/theme';
 
 type BackArrowProps = {
@@ -29,9 +29,11 @@ export function BackArrow({ style, onPress, light }: BackArrowProps) {
         },
         style,
       ]}>
+      <OnLight>
       <AppText variant="h3" color={light ? theme.colors.white : theme.colors.black}>
         ←
       </AppText>
+      </OnLight>
     </Pressable>
   );
 }

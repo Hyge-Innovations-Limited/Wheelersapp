@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
@@ -120,6 +120,7 @@ export default function VehiclePhotosScreen() {
               padding: responsive.scale(16),
             },
           ]}>
+          <OnLight>
           <AppText variant="label" color={theme.colors.black} numberOfLines={1}>
             Suggested angles:
           </AppText>
@@ -130,6 +131,7 @@ export default function VehiclePhotosScreen() {
               </AppText>
             </View>
           ))}
+          </OnLight>
         </View>
       )}
 
@@ -143,7 +145,9 @@ export default function VehiclePhotosScreen() {
                 onPress={() => handleRemove(index)}
                 hitSlop={8}
               >
+                <OnLight>
                 <Ionicons name="close-circle" size={responsive.scale(24)} color={theme.colors.danger} />
+                </OnLight>
               </Pressable>
             </View>
           ))}
@@ -159,19 +163,23 @@ export default function VehiclePhotosScreen() {
           <Pressable
             onPress={takePhoto}
             style={[styles.addButton, { paddingVertical: responsive.scale(16) }]}>
+            <OnLight>
             <Ionicons name="camera" size={responsive.scale(24)} color={theme.colors.orange} />
             <AppText variant="label" color={theme.colors.orange} numberOfLines={1}>
               Take Photo
             </AppText>
+            </OnLight>
           </Pressable>
 
           <Pressable
             onPress={pickFromGallery}
             style={[styles.addButton, { paddingVertical: responsive.scale(16) }]}>
+            <OnLight>
             <Ionicons name="images-outline" size={responsive.scale(24)} color={theme.colors.orange} />
             <AppText variant="label" color={theme.colors.orange} numberOfLines={1}>
               Gallery
             </AppText>
+            </OnLight>
           </Pressable>
         </View>
       )}

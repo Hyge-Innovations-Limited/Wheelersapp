@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { AppButton } from "@/components/app-button";
 import { AppCard } from "@/components/app-card";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { RingStack, StarBurst } from "@/components/decorative-shapes";
 import { FlowHeader } from "@/components/flow-header";
 import { FloatingView, RevealView } from "@/components/motion";
@@ -163,8 +163,11 @@ export default function AccountAuthScreen() {
           <RingStack color="rgba(240,145,63,0.12)" />
         </FloatingView>
         <RevealView delay={40} style={styles.loadingCard}>
+          <OnLight>
           <View style={styles.spinnerWrap}>
+            <OnLight>
             <ActivityIndicator color={theme.colors.orange} size="large" />
+            </OnLight>
           </View>
           <View style={styles.loadingCopy}>
             <AppText variant="h3" style={styles.loadingTitle}>
@@ -174,6 +177,7 @@ export default function AccountAuthScreen() {
               {isDriverApp ? "Taking you to your driver dashboard..." : "Taking you into the app..."}
             </AppText>
           </View>
+          </OnLight>
         </RevealView>
       </AppScreen>
     );

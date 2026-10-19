@@ -7,7 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { AppButton } from '@/components/app-button';
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { StatusPill } from '@/components/StatusPill';
 import { TripCallButton } from '@/components/TripCallButton';
 import { TripCodeSheet } from '@/components/TripCodeSheet';
@@ -145,7 +145,9 @@ export default function DriverArrivedScreen() {
       <AppCard style={styles.riderCard}>
         <View style={styles.riderInfo}>
           <View style={[styles.avatar, { width: avatarSize, height: avatarSize }]}>
+            <OnLight>
             <AppText variant="h3" color={theme.colors.orange}>R</AppText>
+            </OnLight>
           </View>
           <View style={styles.riderCopy}>
             <AppText variant="h3" numberOfLines={1}>Rider</AppText>
@@ -154,9 +156,11 @@ export default function DriverArrivedScreen() {
             </AppText>
           </View>
           <View style={styles.fareTag}>
+            <OnLight>
             <AppText variant="mono" color={theme.colors.green} numberOfLines={1}>
               {formatNgn(ride.fareNgn)}
             </AppText>
+            </OnLight>
           </View>
         </View>
 
@@ -174,12 +178,16 @@ export default function DriverArrivedScreen() {
         {ride.riderPhone ? (
           <View style={styles.phoneRow}>
             <Pressable style={[styles.callButton, { minHeight: actionHeight }]} onPress={handleCallRider}>
+              <OnLight>
               <AppText variant="label">Phone</AppText>
+              </OnLight>
             </Pressable>
             <Pressable style={[styles.copyButton, { minHeight: actionHeight }]} onPress={handleCopyPhone}>
+              <OnLight>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
                 {copied ? 'Copied!' : ride.riderPhone}
               </AppText>
+              </OnLight>
             </Pressable>
           </View>
         ) : null}

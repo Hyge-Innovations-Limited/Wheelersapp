@@ -15,7 +15,7 @@ import {
 import Animated, { FadeIn, FadeInDown, Layout } from "react-native-reanimated";
 
 import { AppButton } from "@/components/app-button";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { getAccessTokenWithRetry, type AccessTokenGetter } from "@/lib/access-token";
 import { toUserMessage } from "@/lib/error-messages";
 import { createIdempotencyKey } from "@/lib/idempotency";
@@ -265,6 +265,7 @@ export function InterstateTravelForm({
     >
       {error ? (
         <Animated.View entering={FadeIn} style={styles.errorCard}>
+          <OnLight>
           <MaterialIcons name="error-outline" size={18} color={theme.colors.danger} />
           <AppText variant="bodySmall" color={theme.colors.danger} style={styles.flex}>
             {error}
@@ -274,11 +275,13 @@ export function InterstateTravelForm({
               Retry
             </AppText>
           </Pressable>
+          </OnLight>
         </Animated.View>
       ) : null}
 
       {/* From → To, the way a journey is actually described */}
       <View style={styles.routeCard}>
+        <OnLight>
         <View style={styles.railColumn}>
           <View style={styles.railDot} />
           <View style={styles.railLine} />
@@ -329,17 +332,20 @@ export function InterstateTravelForm({
             </AppText>
           </Pressable>
         </View>
+        </OnLight>
       </View>
 
       {/* The rate, shown the moment there is a route to apply it to */}
       {route && ratePerKmNgn ? (
         <Animated.View entering={FadeIn.duration(220)} style={styles.rateCard}>
+          <OnLight>
           <MaterialIcons name="straighten" size={16} color={theme.colors.orange} />
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.flex}>
             {Math.round(route.distanceKm)} km ·{" "}
             {formatTravelDuration(route.durationMinutes)} · priced at{" "}
             {formatNaira(ratePerKmNgn)} per km
           </AppText>
+          </OnLight>
         </Animated.View>
       ) : null}
 
@@ -432,7 +438,9 @@ export function InterstateTravelForm({
                       vehicleType === vehicle.type ? styles.vehicleCardActive : null,
                     ]}
                   >
+                    <OnLight>
                     <View style={styles.vehicleIcon}>
+                      <OnLight>
                       <MaterialIcons
                         name={
                           vehicle.type === "BUS"
@@ -446,6 +454,7 @@ export function InterstateTravelForm({
                         size={24}
                         color={theme.colors.black}
                       />
+                      </OnLight>
                     </View>
 
                     <View style={styles.vehicleCopy}>
@@ -474,6 +483,7 @@ export function InterstateTravelForm({
                             : `${seats} seats`}
                       </AppText>
                     </View>
+                    </OnLight>
                   </Pressable>
                 </Animated.View>
               ))
@@ -483,6 +493,7 @@ export function InterstateTravelForm({
           {selectedVehicle ? (
             <Section title="Name your price">
               <View style={styles.bidCard}>
+                <OnLight>
                 <View style={styles.bidHead}>
                   <View style={styles.flex}>
                     <AppText variant="monoSmall" color={theme.colors.orange}>
@@ -533,6 +544,7 @@ export function InterstateTravelForm({
                     trip.
                   </AppText>
                 ) : null}
+                </OnLight>
               </View>
 
               <View
@@ -654,6 +666,7 @@ function DepartureField({
               }}
               style={[styles.dayChip, active ? styles.chipActive : null]}
             >
+              <OnLight>
               <AppText variant="bodyMedium">
                 {index === 0
                   ? "Today"
@@ -664,6 +677,7 @@ function DepartureField({
               <AppText variant="bodySmall" color={theme.colors.muted}>
                 {day.toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
               </AppText>
+              </OnLight>
             </Pressable>
           );
         })}
@@ -692,7 +706,9 @@ function DepartureField({
               }}
               style={[styles.timeChip, active ? styles.chipActive : null]}
             >
+              <OnLight>
               <AppText variant="bodySmall">{label}</AppText>
+              </OnLight>
             </Pressable>
           );
         })}
@@ -731,16 +747,20 @@ function CityPicker({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.pickerSheet}>
+        <OnLight>
         <View style={styles.pickerHead}>
           <AppText variant="h2" style={styles.flex}>
             {title}
           </AppText>
           <Pressable accessibilityRole="button" onPress={onClose} style={styles.closeButton}>
+            <OnLight>
             <MaterialIcons name="close" size={22} color={theme.colors.black} />
+            </OnLight>
           </Pressable>
         </View>
 
         <View style={styles.searchField}>
+          <OnLight>
           <MaterialIcons name="search" size={20} color={theme.colors.muted} />
           <TextInput
             value={query}
@@ -751,6 +771,7 @@ function CityPicker({
             selectionColor={theme.colors.orange}
             autoFocus={Platform.OS === "ios"}
           />
+          </OnLight>
         </View>
 
         {loading ? (
@@ -795,6 +816,7 @@ function CityPicker({
             ))}
           </ScrollView>
         )}
+        </OnLight>
       </View>
     </Modal>
   );
@@ -829,6 +851,7 @@ function ModeCard({
       onPress={onPress}
       style={[styles.modeCard, active ? styles.modeCardActive : null]}
     >
+      <OnLight>
       <MaterialIcons
         name={icon}
         size={22}
@@ -838,6 +861,7 @@ function ModeCard({
       <AppText variant="bodySmall" color={theme.colors.muted}>
         {body}
       </AppText>
+      </OnLight>
     </Pressable>
   );
 }
@@ -865,7 +889,9 @@ function StepButton({
         disabled ? styles.disabled : null,
       ]}
     >
+      <OnLight>
       <MaterialIcons name={icon} size={20} color={theme.colors.black} />
+      </OnLight>
     </Pressable>
   );
 }

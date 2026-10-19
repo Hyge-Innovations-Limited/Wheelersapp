@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
@@ -81,6 +81,7 @@ export default function NinUploadScreen() {
               styles.placeholderArea,
               { paddingVertical: responsive.vh(6, 24, 44) },
             ]}>
+            <OnLight>
             <Pressable
               onPress={takePhoto}
               style={[styles.captureButton, { minHeight: responsive.scale(44) }]}
@@ -104,6 +105,7 @@ export default function NinUploadScreen() {
                 Choose from gallery
               </AppText>
             </Pressable>
+            </OnLight>
           </View>
         )}
       </View>

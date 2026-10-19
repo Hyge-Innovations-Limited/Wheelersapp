@@ -20,7 +20,7 @@ import Animated, {
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { BackArrow } from "@/components/back-arrow";
 import { LiveMap } from "@/components/live-map";
 import { FloatingView } from "@/components/motion";
@@ -222,9 +222,11 @@ export default function GroupRideSelectionScreen() {
             <BackArrow onPress={() => router.back()} />
             <FloatingView distance={5}>
               <View style={styles.mapChip}>
+                <OnLight>
                 <AppText variant="monoSmall">
                   Group • {formatMinutes(displayRequest.plannedDurationSeconds)} min trip
                 </AppText>
+                </OnLight>
               </View>
             </FloatingView>
           </View>
@@ -239,6 +241,7 @@ export default function GroupRideSelectionScreen() {
                   key={rider.userId}
                   style={[styles.avatar, index > 0 ? styles.avatarOverlap : null]}
                 >
+                  <OnLight>
                   <AppText
                     variant="monoSmall"
                     color={theme.colors.black}
@@ -246,9 +249,11 @@ export default function GroupRideSelectionScreen() {
                   >
                     {getInitials(getDisplayName(rider))}
                   </AppText>
+                  </OnLight>
                 </View>
               ))}
               <View style={[styles.avatar, styles.avatarYou]}>
+                <OnLight>
                 <AppText
                   variant="monoSmall"
                   color={theme.colors.offWhite}
@@ -256,6 +261,7 @@ export default function GroupRideSelectionScreen() {
                 >
                   YOU
                 </AppText>
+                </OnLight>
               </View>
             </View>
             <AppText variant="bodySmall" color={theme.colors.black}>
@@ -274,6 +280,7 @@ export default function GroupRideSelectionScreen() {
         ]}
         {...sheetPanResponder.panHandlers}
       >
+        <OnLight>
         <Pressable onPress={expandSheet} style={styles.handleArea}>
           <View style={styles.handle} />
         </Pressable>
@@ -294,7 +301,9 @@ export default function GroupRideSelectionScreen() {
               </AppText>
             </View>
             <View style={styles.rideIcon}>
+              <OnLight>
               <AppText style={styles.rideEmoji}>🛵</AppText>
+              </OnLight>
             </View>
           </View>
 
@@ -306,15 +315,19 @@ export default function GroupRideSelectionScreen() {
                     key={rider.userId}
                     style={[styles.avatar, index > 0 ? styles.avatarOverlap : null]}
                   >
+                    <OnLight>
                     <AppText variant="monoSmall" color={theme.colors.black} style={styles.avatarText}>
                       {getInitials(getDisplayName(rider))}
                     </AppText>
+                    </OnLight>
                   </View>
                 ))}
                 <View style={[styles.avatar, styles.avatarYou]}>
+                  <OnLight>
                   <AppText variant="monoSmall" color={theme.colors.offWhite} style={styles.avatarText}>
                     YOU
                   </AppText>
+                  </OnLight>
                 </View>
               </View>
               <View style={styles.priceBlock}>
@@ -331,24 +344,31 @@ export default function GroupRideSelectionScreen() {
 
             <View style={styles.tripMetaRow}>
               <View style={styles.tripMetaPill}>
+                <OnLight>
                 <AppText variant="monoSmall" color={theme.colors.black}>
                   {formatMinutes(displayRequest.plannedDurationSeconds)} MIN
                 </AppText>
+                </OnLight>
               </View>
               <View style={styles.tripMetaPill}>
+                <OnLight>
                 <AppText variant="monoSmall" color={theme.colors.black}>
                   {displayRequest.plannedDistanceKm?.toFixed(1) ?? "--"} KM
                 </AppText>
+                </OnLight>
               </View>
               <View style={styles.tripMetaPill}>
+                <OnLight>
                 <AppText variant="monoSmall" color={theme.colors.black}>
                   SPLIT FARE
                 </AppText>
+                </OnLight>
               </View>
             </View>
           </Pressable>
 
           <View style={styles.pickupCard}>
+            <OnLight>
             <View style={styles.routeLineRow}>
               <View style={styles.pickupDot} />
               <View style={styles.routeLineCopy}>
@@ -372,6 +392,7 @@ export default function GroupRideSelectionScreen() {
                 </AppText>
               </View>
             </View>
+            </OnLight>
           </View>
 
           <AppButton
@@ -379,6 +400,7 @@ export default function GroupRideSelectionScreen() {
             onPress={() => router.replace("/rider")}
           />
         </ScrollView>
+        </OnLight>
       </Animated.View>
     </AppScreen>
   );

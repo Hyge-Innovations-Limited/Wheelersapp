@@ -5,7 +5,7 @@ import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { WheelersWordmark } from "@/components/wheelers-wordmark";
 import { brand } from "@/constants/brand";
 import { theme } from "@/theme";
@@ -114,6 +114,7 @@ export function AuthEntryScreen({
             busy && loadingProvider !== "google" && styles.disabled,
           ]}
         >
+          <OnLight>
           {loadingProvider === "google" ? (
             <ActivityIndicator color={brand.ink} />
           ) : (
@@ -124,6 +125,7 @@ export function AuthEntryScreen({
               </AppText>
             </>
           )}
+          </OnLight>
         </Pressable>
 
         <View style={styles.dividerRow}>

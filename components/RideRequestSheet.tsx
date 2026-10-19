@@ -40,6 +40,7 @@ export function RideRequestSheet({
 
   return (
     <Animated.View entering={FadeInDown.duration(380)} style={styles.sheet}>
+      <OnLight>
       <SectionHeader
         eyebrow="NEW RIDE REQUEST"
         title={request.riderName}
@@ -55,6 +56,7 @@ export function RideRequestSheet({
       {/* Fare breakdown */}
       <OnLight>
       <View style={styles.fareBreakdown}>
+        <OnLight>
         <View style={styles.fareRow}>
           <AppText variant="bodySmall" color={theme.colors.muted}>Gross fare</AppText>
           <AppText variant="mono">{formatNgn(grossFare)}</AppText>
@@ -68,6 +70,7 @@ export function RideRequestSheet({
           <AppText variant="label">You earn</AppText>
           <AppText variant="monoLarge" color={theme.colors.green}>{formatNgn(driverPayout)}</AppText>
         </View>
+        </OnLight>
       </View>
       </OnLight>
 
@@ -85,6 +88,7 @@ export function RideRequestSheet({
         <AppButton title="Decline" variant="ghost" onPress={onDecline} style={styles.actionGhost} />
         <AppButton title="Accept ride" onPress={onAccept} style={styles.actionPrimary} />
       </View>
+      </OnLight>
     </Animated.View>
   );
 }

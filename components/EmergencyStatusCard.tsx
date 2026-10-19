@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppCard } from '@/components/app-card';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { EmergencyStatus } from '@/data/mock';
 import { theme } from '@/theme';
 
@@ -25,9 +25,11 @@ export function EmergencyStatusCard({ status }: EmergencyStatusCardProps) {
       </View>
       {status.label ? (
         <View style={[styles.badge, styles.liveBadge]}>
+          <OnLight>
           <AppText variant="monoSmall" color={theme.colors.green}>
             {status.label}
           </AppText>
+          </OnLight>
         </View>
       ) : (
         <View style={styles.pendingDot} />

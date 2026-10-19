@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { AppButton } from "@/components/app-button";
 import { AppScreen } from "@/components/app-screen";
-import { AppText } from "@/components/app-text";
+import { AppText, OnLight } from "@/components/app-text";
 import { FlowHeader } from "@/components/flow-header";
 import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
@@ -91,10 +91,12 @@ export default function LicenceUploadScreen() {
               />
             ) : (
               <View style={[styles.pdfPreview, { height: previewHeight }]}>
+                <OnLight>
                 <Ionicons name="document-text" size={responsive.scale(48)} color={theme.colors.orange} />
                 <AppText variant="bodyMedium" color={theme.colors.black} numberOfLines={1}>
                   PDF uploaded
                 </AppText>
+                </OnLight>
               </View>
             )}
             <View style={styles.changeOverlay}>
@@ -111,6 +113,7 @@ export default function LicenceUploadScreen() {
               // the two-choice ones on the other upload screens.
               { paddingVertical: responsive.vh(4, 18, 32) },
             ]}>
+            <OnLight>
             <Pressable
               onPress={takePhoto}
               style={[styles.captureButton, { minHeight: responsive.scale(44) }]}
@@ -148,6 +151,7 @@ export default function LicenceUploadScreen() {
                 Upload PDF
               </AppText>
             </Pressable>
+            </OnLight>
           </View>
         )}
       </View>

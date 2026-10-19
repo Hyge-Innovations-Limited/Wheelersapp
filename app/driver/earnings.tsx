@@ -5,7 +5,7 @@ import Svg, { Line, Path, Polyline } from 'react-native-svg';
 
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { useCachedQuery } from '@/lib/cached-query';
 import { getDriverEarnings, type DriverEarningsResponse } from '@/lib/api';
 import { useResponsive } from '@/lib/responsive';
@@ -162,7 +162,9 @@ export default function DriverEarningsScreen() {
                     styles.itemIcon,
                     { width: responsive.scale(36), height: responsive.scale(36) },
                   ]}>
+                  <OnLight>
                   <EarningIcon size={responsive.scale(18)} />
+                  </OnLight>
                 </View>
                 <View style={styles.itemInfo}>
                   <AppText variant="bodyMedium" numberOfLines={1}>Ride payout</AppText>

@@ -8,7 +8,7 @@ import { Marker, Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { CourseArrowMarker } from '@/components/course-arrow-marker';
 import { EmergencyButton } from '@/components/emergency-button';
 import { GoogleMapView } from '@/components/GoogleMapView';
@@ -177,6 +177,7 @@ export default function DriverActiveTripScreen() {
 
   return (
     <View style={styles.screen}>
+      <OnLight>
       <StatusBar style="dark" />
 
       {/* The map IS the screen — mid-trip, the road is what matters. All
@@ -249,6 +250,7 @@ export default function DriverActiveTripScreen() {
             right: responsive.gutter,
           },
         ]}>
+        <OnLight>
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <AppText variant="mono" color={theme.colors.orange} adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>
@@ -292,7 +294,9 @@ export default function DriverActiveTripScreen() {
         </View>
 
         <AppButton title="End ride" onPress={handleEndRide} />
+        </OnLight>
       </View>
+      </OnLight>
     </View>
   );
 }

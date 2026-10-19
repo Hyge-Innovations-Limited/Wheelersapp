@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText, OnLight } from '@/components/app-text';
 import { onStartResult } from '@/lib/trip-code';
 import { theme } from '@/theme';
 
@@ -82,6 +82,7 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
         <Pressable style={styles.flex} onPress={onClose} />
         <View style={[styles.sheet, keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
+          <OnLight>
           <AppText variant="h2">Trip code</AppText>
           <AppText variant="body" color={theme.colors.muted}>
             Ask {who} for their 4-digit trip code. You can start the trip once it is right.
@@ -90,7 +91,9 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
           <Pressable onPress={() => inputRef.current?.focus()} style={styles.boxes}>
             {[0, 1, 2, 3].map((i) => (
               <View key={i} style={[styles.box, code.length === i && styles.boxActive, error ? styles.boxError : null]}>
+                <OnLight>
                 <AppText variant="h1">{code[i] ?? ''}</AppText>
+                </OnLight>
               </View>
             ))}
           </Pressable>
@@ -123,6 +126,7 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.help}>
             Rider can&apos;t find the code? Call Wheelers support: they can unlock the trip.
           </AppText>
+          </OnLight>
         </View>
       </KeyboardAvoidingView>
     </Modal>
