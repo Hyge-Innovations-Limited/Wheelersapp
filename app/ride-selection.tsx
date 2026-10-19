@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, AppState, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import {
   RBack,
@@ -37,6 +37,11 @@ import { submitScheduledRide } from "@/lib/scheduled-rides";
 import { useWalletOverview } from "@/lib/wallet-overview";
 
 const { colors, fonts } = rider;
+
+/** While the rider is on this screen the price is asked for again this often: traffic and pricing move on the server. */
+const PRICE_REFRESH_MS = 60_000;
+/** A price that changed shows the loading bar this long, then the new figure, so the change is seen. */
+const PRICE_CHANGE_LOADING_MS = 900;
 
 function getLiveEstimateFareNgn(estimate: RideEstimateResponse): number | null {
   if (
@@ -147,6 +152,10 @@ export default function RideSelectionScreen() {
   /** Why there is no price, when it is not worth trying again: "only in Lagos". */
   const [estimateRefusal, setEstimateRefusal] = useState<string | null>(null);
   const [estimateAttempt, setEstimateAttempt] = useState(0);
+  /** A re-check found a new price: the loading bar shows for a moment before it. */
+  const [isRepricing, setIsRepricing] = useState(false);
+  const liveEstimateRef = useRef<RideEstimateResponse | null>(null);
+  const hasFocusedRef = useRef(false);
   /**
    * What the rider is willing to pay. Wheelers is a bidding market: the fare
    * shown is a suggestion, and the number that actually goes to drivers is
@@ -173,6 +182,22 @@ export default function RideSelectionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serializedEstimateParam, serializedItinerary]);
 
+  /** The server's price for this trip as it stands now. Null when there is no one signed in to ask for it. */
+  async function requestEstimate(): Promise<RideEstimateResponse | null> {
+    const destinationLabel = itinerary.stops[itinerary.stops.length - 1];
+    if (!destinationLabel) return null;
+    const accessToken = await getAccessTokenWithRetry(getAccessToken);
+    if (!accessToken) return null;
+    const [pickup, destination, ...stops] = await Promise.all([
+      resolvePlaceQuery(itinerary.pickup),
+      resolvePlaceQuery(destinationLabel),
+      ...itinerary.stops.slice(0, -1).map((stop) => resolvePlaceQuery(stop)),
+    ]);
+    return getRideEstimate({ accessToken, pickup, destination, stops });
+  }
+  const requestEstimateRef = useRef(requestEstimate);
+  requestEstimateRef.current = requestEstimate;
+
   useEffect(() => {
     if (!isBackendConfigured() || !isReady || !user) {
       return;
@@ -191,28 +216,8 @@ export default function RideSelectionScreen() {
     // and addresses and prices are kept, so this joins it rather than repeating it.
     const timeout = setTimeout(async () => {
       try {
-        const accessToken = await getAccessTokenWithRetry(getAccessToken);
-        if (!accessToken || cancelled) {
-          return;
-        }
-
-        const [pickup, destination, ...stops] = await Promise.all([
-          resolvePlaceQuery(itinerary.pickup),
-          resolvePlaceQuery(destinationLabel),
-          ...itinerary.stops
-            .slice(0, -1)
-            .map((stop) => resolvePlaceQuery(stop)),
-        ]);
-
-        if (cancelled) return;
-
-        const response = await getRideEstimate({
-          accessToken,
-          pickup,
-          destination,
-          stops,
-        });
-        if (!cancelled) {
+        const response = await requestEstimate();
+        if (response && !cancelled) {
           setLiveEstimate(response);
         }
       } catch (error) {
@@ -233,6 +238,61 @@ export default function RideSelectionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getAccessToken, isReady, serializedItinerary, user, estimateAttempt]);
 
+  liveEstimateRef.current = liveEstimate;
+
+  // The price is asked for again every minute while this screen is in front,
+  // and on coming back to it (from another screen or another app). When it
+  // has changed, the price shows the loading bar for a moment and then the
+  // new figure, as it did when the screen opened. Unchanged, nothing moves.
+  useFocusEffect(
+    useCallback(() => {
+      if (!isBackendConfigured()) return;
+      let cancelled = false;
+      let busy = false;
+      let reveal: ReturnType<typeof setTimeout> | undefined;
+
+      const refresh = async () => {
+        const current = liveEstimateRef.current;
+        // The first price is still on its way, or failed: that request has its own loading and retry.
+        if (cancelled || busy || !hasResolvedLiveEstimate(current)) return;
+        busy = true;
+        try {
+          const next = await requestEstimateRef.current();
+          if (cancelled || !next || !hasResolvedLiveEstimate(next)) return;
+          const changed =
+            getLiveEstimateFareNgn(next) !== getLiveEstimateFareNgn(current) ||
+            next.minOfferNgn !== current.minOfferNgn;
+          if (!changed) return;
+          setIsRepricing(true);
+          reveal = setTimeout(() => {
+            if (cancelled) return;
+            setLiveEstimate(next);
+            setIsRepricing(false);
+          }, PRICE_CHANGE_LOADING_MS);
+        } catch {
+          // A missed check keeps the price on screen; the next one tries again.
+        } finally {
+          busy = false;
+        }
+      };
+
+      // On first opening the screen's own request is already asking.
+      if (hasFocusedRef.current) void refresh();
+      hasFocusedRef.current = true;
+      const timer = setInterval(() => void refresh(), PRICE_REFRESH_MS);
+      const appState = AppState.addEventListener("change", (state) => {
+        if (state === "active") void refresh();
+      });
+      return () => {
+        cancelled = true;
+        clearInterval(timer);
+        if (reveal) clearTimeout(reveal);
+        appState.remove();
+        setIsRepricing(false);
+      };
+    }, []),
+  );
+
   const resolvedEstimate = hasResolvedLiveEstimate(liveEstimate)
     ? liveEstimate
     : null;
@@ -245,6 +305,8 @@ export default function RideSelectionScreen() {
   const hasLiveFare = Boolean(resolvedEstimate && liveEstimateFareNgn !== null);
   /** No real price for this route yet (still coming, or it failed): nothing priced is shown or sent. */
   const isFareResolving = !hasLiveFare;
+  /** The loading bar in place of the price: the first price on its way, or a changed one coming in. */
+  const isPriceLoading = isFareResolving || isRepricing;
 
   // The server's own floor for this trip (the fare at 90% of the recommended
   // rate): an offer under it is refused, so the stepper stops there. Until
@@ -496,7 +558,7 @@ export default function RideSelectionScreen() {
               <RText variant="small" color={colors.muted}>
                 {isFareResolving ? "Getting the price for this route" : "Suggested price"}
               </RText>
-              {isFareResolving ? (
+              {isPriceLoading ? (
                 <PriceShimmer onInk={false} />
               ) : (
                 <RText variant="figure" color={colors.orangeText} style={styles.estimateFigure}>
@@ -520,14 +582,14 @@ export default function RideSelectionScreen() {
             <PriceCard
               amountNgn={effectiveOfferNgn}
               label="Your offer"
-              loading={isFareResolving}
+              loading={isPriceLoading}
               minNgn={minOfferNgn}
               onChange={setOfferNgn}
               sideLabel="Suggested price"
               sideValue={naira(suggestedNgn)}>
-              {comparison && !isFareResolving ? <PriceCardNote strong>{comparison}</PriceCardNote> : null}
+              {comparison && !isPriceLoading ? <PriceCardNote strong>{comparison}</PriceCardNote> : null}
               <PriceCardNote>
-                {isFareResolving
+                {isPriceLoading
                   ? "Getting the price for this route."
                   : effectiveOfferNgn <= minOfferNgn
                     ? "This is the minimum offer for this trip."
@@ -589,11 +651,11 @@ export default function RideSelectionScreen() {
         <RButton
           // Until the server's price for this route is in, the figure is a
           // guess that may be under the minimum: nothing is sent at a guess.
-          disabled={isFareResolving}
+          disabled={isPriceLoading}
           loading={isSubmitting}
           onPress={() => void handleBookRide()}
           title={
-            isFareResolving ? "Getting your price…" : scheduledAt ? "Schedule ride" : `Find drivers at ${naira(effectiveOfferNgn)}`
+            isPriceLoading ? "Getting your price…" : scheduledAt ? "Schedule ride" : `Find drivers at ${naira(effectiveOfferNgn)}`
           }
         />
       </View>
