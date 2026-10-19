@@ -47,8 +47,14 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       .finally(() => setLoaded(true));
   }, []);
 
-  const resolvedScheme: ColorScheme =
-    preference === 'system' ? (systemScheme ?? 'light') : preference;
+  // Light everywhere, whatever the phone or the saved choice says. Dark mode
+  // turned text white across the app while most cards and panels stay white,
+  // so words vanished wherever a screen had not been made dark by hand (more
+  // than a hundred places). Until every surface follows the theme, the app is
+  // the light design it was drawn as.
+  void systemScheme;
+  void preference;
+  const resolvedScheme = 'light' as ColorScheme;
 
   const toggleTheme = useCallback(() => {
     const next: ThemePreference = resolvedScheme === 'light' ? 'dark' : 'light';
