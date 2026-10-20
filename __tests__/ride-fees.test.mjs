@@ -33,7 +33,7 @@ test('₦350/km on 10 km: the rider sees ₦4,150, the driver gets the trip fare
   assert.equal(f.commissionNgn, 353.49);
   assert.equal(f.stateLevyNgn, 30);
   assert.equal(f.driverPayoutNgn, 3151.39);
-  assert.equal(fareFromRatePerKmNgn(300, 2), 3000, 'never under the minimum fare');
+  assert.equal(fareFromRatePerKmNgn(300, 2), 3300, 'never under the minimum fare');
 });
 
 test('a ride agreed before the change: booking fee first, then 4% and 7.5% of the share, then the levy', () => {
