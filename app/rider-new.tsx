@@ -1,5 +1,5 @@
 import { riderProfileChanged } from "@/lib/rider-profile";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect } from "expo-router";
 import { useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -13,10 +13,11 @@ import { toUserMessage } from "@/lib/error-messages";
 import { REFERRAL_CODE_MIN, addReferralAtSignUp, tidyReferralCode } from "@/lib/referral-entry";
 import { looksLikeEmail } from "@/lib/rider-sign-in";
 import { clearNameNeeded } from "@/lib/rider-sign-in-state";
+import { useGoHome } from "@/hooks/use-go-home";
 
 /** A number we have not seen before: a name, an optional email and referral code, and they are in. */
 export default function RiderNewScreen() {
-  const router = useRouter();
+  const goHome = useGoHome();
   const { getAccessToken } = useAuth();
   const lastRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
@@ -63,7 +64,7 @@ export default function RiderNewScreen() {
       });
       await clearNameNeeded();
       riderProfileChanged();
-      router.replace("/rider");
+      goHome();
     } catch (failure) {
       setError(toUserMessage(failure, "We could not save your details. Please try again."));
     } finally {

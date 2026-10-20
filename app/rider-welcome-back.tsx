@@ -1,5 +1,5 @@
 import { riderProfileChanged } from "@/lib/rider-profile";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
@@ -12,10 +12,11 @@ import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
 import { looksLikeEmail } from "@/lib/rider-sign-in";
 import { useWalletOverview } from "@/lib/wallet-overview";
+import { useGoHome } from "@/hooks/use-go-home";
 
 /** A number we already know: say so, show what came with it, offer to add an email. */
 export default function RiderWelcomeBackScreen() {
-  const router = useRouter();
+  const goHome = useGoHome();
   const params = useLocalSearchParams<{ name?: string; email?: string }>();
   const name = typeof params.name === "string" ? params.name : "";
   const emailOnFile = typeof params.email === "string" ? params.email : "";
@@ -36,7 +37,7 @@ export default function RiderWelcomeBackScreen() {
   async function goOn() {
     if (saving) return;
     if (!wantsEmail) {
-      router.replace("/rider");
+      goHome();
       return;
     }
     if (!looksLikeEmail(email)) {
@@ -50,7 +51,7 @@ export default function RiderWelcomeBackScreen() {
       if (!accessToken) throw new Error("Please sign in again.");
       await updateCurrentProfile({ accessToken, email: email.trim() });
       riderProfileChanged();
-      router.replace("/rider");
+      goHome();
     } catch (failure) {
       setError(toUserMessage(failure, "We could not save that email. You can add it later."));
     } finally {
@@ -101,7 +102,7 @@ export default function RiderWelcomeBackScreen() {
 
       <View style={styles.spacer} />
       <RButton loading={saving} onPress={() => void goOn()} title="Continue" />
-      {wantsEmail ? <RLink onPress={() => router.replace("/rider")} title="Skip for now" /> : null}
+      {wantsEmail ? <RLink onPress={() => goHome()} title="Skip for now" /> : null}
     </RScreen>
   );
 }

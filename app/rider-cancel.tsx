@@ -8,6 +8,7 @@ import { RBack, RButton, RInput, RScreen, RText, rider } from "@/components/ride
 import { toUserMessage } from "@/lib/error-messages";
 import { estimateEtaMinutes } from "@/lib/geo";
 import { useRideSession } from "@/lib/ride-session";
+import { useGoHome } from "@/hooks/use-go-home";
 
 const { colors } = rider;
 
@@ -44,6 +45,7 @@ const SEARCHING = ["requesting", "bidding", "matching"];
  */
 export default function RiderCancelScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const { cancelRide, currentRide, clearRide } = useRideSession();
   const [reason, setReason] = useState<string | null>(null);
   const [ownWords, setOwnWords] = useState("");
@@ -61,12 +63,12 @@ export default function RiderCancelScreen() {
     if (leavingRef.current) return;
     if (gone) {
       leavingRef.current = true;
-      router.replace("/rider");
+      goHome();
     } else if (status === "completed") {
       leavingRef.current = true;
       router.replace("/rider/trip-rating");
     }
-  }, [gone, router, status]);
+  }, [gone, router, status, goHome]);
 
   // How far the driver is, only while they are on the way and we know.
   const liveKm = currentRide?.driverLocation?.distanceToNextStopKm;
@@ -81,7 +83,7 @@ export default function RiderCancelScreen() {
 
   function keepRide() {
     if (router.canGoBack()) router.back();
-    else router.replace("/rider");
+    else goHome();
   }
 
   async function confirm() {
@@ -94,7 +96,7 @@ export default function RiderCancelScreen() {
       await cancelRide(reason === OTHER && ownWords.trim() ? ownWords.trim().slice(0, OWN_WORDS_MAX) : reason);
       // Put the cancelled ride away so the next booking starts clean.
       clearRide();
-      router.replace("/rider");
+      goHome();
     } catch (failure) {
       leavingRef.current = false;
       setError(toUserMessage(failure, "We could not cancel the ride. Check your connection and try again."));

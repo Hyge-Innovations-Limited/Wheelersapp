@@ -17,6 +17,7 @@ import {
 } from "@/components/rider/kit";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
+import { useGoHome } from "@/hooks/use-go-home";
 
 const { colors, fonts } = rider;
 
@@ -26,6 +27,7 @@ const { colors, fonts } = rider;
  */
 export default function DriverFoundScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const params = useLocalSearchParams<{
     itinerary?: string | string[];
   }>();
@@ -44,8 +46,8 @@ export default function DriverFoundScreen() {
   // pull the rider off the cancel screen opened on top of it.
   useFocusEffect(
     useCallback(() => {
-      if (!hasRide) router.replace("/rider");
-    }, [hasRide, router]),
+      if (!hasRide) goHome();
+    }, [hasRide, goHome]),
   );
 
   if (!hasRide) {

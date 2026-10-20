@@ -35,6 +35,7 @@ import { resolvePlaceQuery } from "@/lib/google-places";
 import { useAppLocation } from "@/lib/location";
 import { isCurrentLocationLabel } from "@/lib/ride-route";
 import { theme } from "@/theme";
+import { useGoHome } from "@/hooks/use-go-home";
 
 function getStageForStatus(status: GroupRideMatchRequest["status"] | null): number {
   if (!status) return 0;
@@ -62,6 +63,7 @@ const matchStages = [
 
 export default function GroupRideMatchingScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const { getAccessToken } = useAuth();
   const { currentLocation } = useAppLocation();
   const params = useLocalSearchParams<{
@@ -285,12 +287,12 @@ export default function GroupRideMatchingScreen() {
       } else if (status === "EXPIRED" || status === "CANCELLED") {
         if (autoNavigatedRef.current) return;
         autoNavigatedRef.current = true;
-        router.replace("/rider");
+        goHome();
       }
     } catch {
       // Non-blocking — retry on next tick
     }
-  }, [requestId, getAccessToken, params.pickup, params.destination, genderPreference, router]);
+  }, [requestId, getAccessToken, params.pickup, params.destination, genderPreference, router, goHome]);
 
   useEffect(() => {
     if (!requestId) return;
@@ -322,7 +324,7 @@ export default function GroupRideMatchingScreen() {
       }
     }
 
-    router.replace("/rider");
+    goHome();
   };
 
   const ring1Style = useAnimatedStyle(() => ({

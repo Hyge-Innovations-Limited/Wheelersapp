@@ -33,6 +33,7 @@ import {
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
 import { theme } from "@/theme";
+import { useGoHome } from "@/hooks/use-go-home";
 
 function formatMinutes(value: number | null | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -69,6 +70,7 @@ function getInitials(value: string): string {
 
 export default function GroupRideSelectionScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const { getAccessToken } = useAuth();
   const { height } = useWindowDimensions();
   const params = useLocalSearchParams<{
@@ -196,7 +198,7 @@ export default function GroupRideSelectionScreen() {
         <AppText variant="bodySmall" color={theme.colors.muted}>
           The group ride request could not be loaded.
         </AppText>
-        <AppButton title="Back to Home" onPress={() => router.replace("/rider")} />
+        <AppButton title="Back to Home" onPress={() => goHome()} />
       </AppScreen>
     );
   }
@@ -397,7 +399,7 @@ export default function GroupRideSelectionScreen() {
 
           <AppButton
             title="Back to Home"
-            onPress={() => router.replace("/rider")}
+            onPress={() => goHome()}
           />
         </ScrollView>
         </OnLight>

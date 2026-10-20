@@ -9,6 +9,7 @@ import { RAvatar, RButton, RCard, RLink, RPill, RScreen, RText, naira, rider } f
 import { toUserMessage } from "@/lib/error-messages";
 import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
+import { useGoHome } from "@/hooks/use-go-home";
 
 const { colors, fonts } = rider;
 
@@ -26,6 +27,7 @@ function shortPlace(address: string): string {
 /** The trip has ended: what it cost, a rating for the driver, and the same trip again. */
 export default function TripRatingScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const isFocused = useIsFocused();
   const { clearRide, currentRide, submitRating } = useRideSession();
   const [rating, setRating] = useState(5);
@@ -49,8 +51,8 @@ export default function TripRatingScreen() {
       leavingRef.current = false;
       return;
     }
-    if (!hasRide && !leavingRef.current) router.replace("/rider");
-  }, [hasRide, isFocused, router]);
+    if (!hasRide && !leavingRef.current) goHome();
+  }, [hasRide, isFocused, router, goHome]);
 
   // The real driver from the trip that just ended.
   const driver = currentRide?.driver;
@@ -93,7 +95,7 @@ export default function TripRatingScreen() {
       Alert.alert(
         "We could not find that trip",
         "Your rating could not be matched to a driver. You can rate from your ride history instead.",
-        [{ text: "OK", onPress: () => router.replace("/rider") }],
+        [{ text: "OK", onPress: () => goHome() }],
       );
       return;
     }
@@ -101,7 +103,7 @@ export default function TripRatingScreen() {
     setIsSubmitting(true);
     try {
       await submitRating({ rating, comment: tags.length > 0 ? tags.join(", ") : undefined });
-      router.replace("/rider");
+      goHome();
     } catch (error) {
       Alert.alert(
         "Could not send your rating",
@@ -237,7 +239,7 @@ export default function TripRatingScreen() {
         onPress={() => {
           leavingRef.current = true;
           clearRide();
-          router.replace("/rider");
+          goHome();
         }}
         title="Skip for now"
       />

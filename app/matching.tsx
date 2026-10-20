@@ -41,6 +41,7 @@ import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { useWalletOverview } from "@/lib/wallet-overview";
+import { useGoHome } from "@/hooks/use-go-home";
 
 const { colors, fonts } = rider;
 
@@ -64,6 +65,7 @@ function shortPlace(label: string | undefined): string {
  */
 export default function MatchingScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -250,9 +252,9 @@ export default function MatchingScreen() {
     // ride?" is open over it: that screen takes the rider home itself.
     if (status === "cancelled" && currentRide?.rideId !== staleRideIdRef.current && navigation.isFocused()) {
       navigatedRef.current = true;
-      router.replace("/rider");
+      goHome();
     }
-  }, [status, router, serializedItinerary, currentRide?.rideId, navigation]);
+  }, [status, router, serializedItinerary, currentRide?.rideId, navigation, goHome]);
 
   /* ── how long the search stays open ────────────────────────────────── */
 
@@ -345,8 +347,8 @@ export default function MatchingScreen() {
   const handleCloseFinished = useCallback(() => {
     navigatedRef.current = true;
     clearRide();
-    router.replace("/rider");
-  }, [clearRide, router]);
+    goHome();
+  }, [clearRide, goHome]);
 
   const openChangePrice = useCallback(
     (raiseBy = 0) => {

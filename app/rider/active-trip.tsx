@@ -27,6 +27,7 @@ import {
 } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { isTripChatOpen, useTripChatOpenRequests, useTripChatUnread } from "@/lib/trip-chat";
+import { useGoHome } from "@/hooks/use-go-home";
 
 const { colors, fonts } = rider;
 
@@ -42,6 +43,7 @@ function shortPlace(address: string | null | undefined): string {
 /** The trip from the moment a driver is confirmed until it ends: driver on the way, then the ride itself. */
 export default function RiderActiveTripScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const isFocused = useIsFocused();
@@ -102,15 +104,15 @@ export default function RiderActiveTripScreen() {
     }
     if (status === "cancelled") {
       Alert.alert("Ride cancelled", "This ride has been cancelled.");
-      router.replace("/rider");
+      goHome();
       return;
     }
     if (!hasRide) {
       // After a restart the trip is fetched again once the connection is up: give it a moment.
-      const timer = setTimeout(() => router.replace("/rider"), 3000);
+      const timer = setTimeout(() => goHome(), 3000);
       return () => clearTimeout(timer);
     }
-  }, [hasRide, isFocused, router, status]);
+  }, [hasRide, isFocused, router, status, goHome]);
 
   const destination = itinerary.stops[itinerary.stops.length - 1] ?? "";
   const firstName = driver?.driverName?.trim().split(/\s+/)[0];
@@ -182,7 +184,7 @@ export default function RiderActiveTripScreen() {
           <RBack
             onPress={() => {
               if (router.canGoBack()) router.back();
-              else router.replace("/rider");
+              else goHome();
             }}
           />
           {chip ? (

@@ -26,6 +26,7 @@ import { recordPrivacyConsent } from "@/lib/api";
 import { PRIVACY_URL, TERMS_URL } from "@/lib/legal-links";
 import { clearTermsToAnswer } from "@/lib/rider-sign-in-state";
 import { acceptTerms, forgetAfterAccepting, takeAfterAccepting } from "@/lib/terms-acceptance";
+import { useGoHome } from "@/hooks/use-go-home";
 
 type Doc = "terms" | "privacy";
 
@@ -53,6 +54,7 @@ const END_SLACK = 96;
  */
 export default function LegalScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ doc?: string; mode?: string; who?: string; next?: string }>();
   /** The account's own answer, asked after sign-in. */
@@ -133,7 +135,7 @@ export default function LegalScreen() {
     } catch {
       // Nothing usable handed in: Home.
     }
-    router.replace("/rider");
+    goHome();
   }
 
   /** The account's answer, saved on the server (so WhatsApp knows it) and then on. A save that fails is sent again when the app next opens. */

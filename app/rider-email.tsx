@@ -7,6 +7,7 @@ import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { updateCurrentProfile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
+import { useGoHome } from "@/hooks/use-go-home";
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -20,6 +21,7 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  */
 export default function RiderEmailScreen() {
   const router = useRouter();
+  const goHome = useGoHome();
   const { getAccessToken, refreshAuthState } = useAuth();
   const params = useLocalSearchParams<{ next?: string }>();
   const [email, setEmail] = useState("");
@@ -44,7 +46,7 @@ export default function RiderEmailScreen() {
       // Nothing handed in: asked over Home, so back to it.
     }
     if (router.canGoBack()) router.back();
-    else router.replace("/rider");
+    else goHome();
   }
 
   async function save() {
