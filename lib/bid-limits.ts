@@ -5,7 +5,7 @@
  *
  * Mirrors validateDriverOffer in packages/config/src/pricing.ts; keep them in step.
  */
-export const MIN_FARE_NGN = 2500;
+export const MIN_FARE_NGN = 2800;
 export const DRIVER_BID_TYPO_MULTIPLE = 10;
 
 /** The most a driver can send on a trip: a typo guard, not a ceiling. Null when the rider's price is unknown. */

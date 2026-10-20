@@ -24,7 +24,7 @@ export const COMMISSION_RATE = 0.1;
 export const V1_COMMISSION_RATE = 0.04;
 export const VAT_RATE = 0.075;
 export const STATE_LEVY_NGN = 30;
-export const MIN_FARE_NGN = 2500;
+export const MIN_FARE_NGN = 2800;
 export const FARE_ROUNDING_INCREMENT = 50;
 /** Old names, for code not yet moved. */
 export const PLATFORM_FEE_RATE = COMMISSION_RATE;
