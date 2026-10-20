@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -64,6 +64,7 @@ function shortPlace(label: string | undefined): string {
  */
 export default function MatchingScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const params = useLocalSearchParams<{
@@ -112,7 +113,6 @@ export default function MatchingScreen() {
     acceptOffer,
     updateOffer,
     dismissOffer,
-    cancelRide,
     clearRide,
   } = useRideSession();
   const { overview: wallet } = useWalletOverview();
@@ -246,12 +246,13 @@ export default function MatchingScreen() {
     }
 
     // Only a ride cancelled while this screen was searching for it sends the
-    // rider home, not the leftover of an earlier one.
-    if (status === "cancelled" && currentRide?.rideId !== staleRideIdRef.current) {
+    // rider home, not the leftover of an earlier one. Not while "Cancel this
+    // ride?" is open over it: that screen takes the rider home itself.
+    if (status === "cancelled" && currentRide?.rideId !== staleRideIdRef.current && navigation.isFocused()) {
       navigatedRef.current = true;
       router.replace("/rider");
     }
-  }, [status, router, serializedItinerary, currentRide?.rideId]);
+  }, [status, router, serializedItinerary, currentRide?.rideId, navigation]);
 
   /* ── how long the search stays open ────────────────────────────────── */
 
@@ -333,20 +334,12 @@ export default function MatchingScreen() {
     }
   }, [draftNgn, timedOut, currentRide, riderOfferNgn, updateOffer, searchAgain]);
 
-  const handleCancel = useCallback(async () => {
-    try {
-      // Actually cancel. Walking away used to leave the request live on the
-      // server, still being offered to drivers the rider had abandoned.
-      await cancelRide("Cancelled while choosing a driver");
-    } catch {
-      // The rider is leaving either way; the stale-ride sweep expires an orphan.
-    } finally {
-      navigatedRef.current = true;
-      // Put the cancelled search away so the next booking starts clean.
-      clearRide();
-      router.replace("/rider");
-    }
-  }, [cancelRide, router]);
+  // Cancelling asks why first, on the same screen as a cancel once a driver
+  // is coming: it cancels the request on the server and takes the rider home.
+  // "Keep ride" brings them back here, still searching.
+  const handleCancel = useCallback(() => {
+    router.push("/rider-cancel");
+  }, [router]);
 
   /** Leaving a search that has already ended: nothing to cancel, only to put away. */
   const handleCloseFinished = useCallback(() => {

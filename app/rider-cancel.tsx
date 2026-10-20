@@ -4,32 +4,56 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { RBack, RButton, RScreen, RText, rider } from "@/components/rider/kit";
+import { RBack, RButton, RInput, RScreen, RText, rider } from "@/components/rider/kit";
 import { toUserMessage } from "@/lib/error-messages";
 import { estimateEtaMinutes } from "@/lib/geo";
 import { useRideSession } from "@/lib/ride-session";
 
 const { colors } = rider;
 
-const REASONS = [
+/** Once a driver is coming. */
+const REASONS_MATCHED = [
   "Long waiting time",
   "Wrong pickup or destination",
   "Driver is not moving",
   "Driver asked me to cancel",
   "My plans changed",
   "Other reason",
-] as const;
+];
 
-/** "Cancel this ride?": one reason, then cancel. Used while searching and once a driver is confirmed. */
+/** While drivers are still being found. */
+const REASONS_SEARCHING = [
+  "It's taking too long to find a driver",
+  "The prices are too high",
+  "Wrong pickup or destination",
+  "I found another ride",
+  "My plans changed",
+  "Other reason",
+];
+
+const OTHER = "Other reason";
+/** Their own words for "Other reason", at most this long. */
+const OWN_WORDS_MAX = 140;
+const SEARCHING = ["requesting", "bidding", "matching"];
+
+/**
+ * "Cancel this ride?": the rider says why, then cancels. Nothing is chosen
+ * for them, so every reason saved is one they picked; "Other reason" lets
+ * them say it in their own words. Used while searching (from Cancel search)
+ * and once a driver is confirmed, each with reasons that fit.
+ */
 export default function RiderCancelScreen() {
   const router = useRouter();
   const { cancelRide, currentRide, clearRide } = useRideSession();
-  const [reason, setReason] = useState<(typeof REASONS)[number]>(REASONS[0]);
+  const [reason, setReason] = useState<string | null>(null);
+  const [ownWords, setOwnWords] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const leavingRef = useRef(false);
 
   const status = currentRide?.status;
+  const searching = status ? SEARCHING.includes(status) : false;
+  const reasons = searching ? REASONS_SEARCHING : REASONS_MATCHED;
   const gone = !currentRide || status === "cancelled" || status === "idle";
 
   // Nothing left to cancel (it ended, or was cancelled from the other side).
@@ -61,13 +85,13 @@ export default function RiderCancelScreen() {
   }
 
   async function confirm() {
-    if (cancelling) return;
+    if (cancelling || !reason) return;
     setCancelling(true);
     setError(null);
     // This screen does the leaving: the watcher above must not also do it.
     leavingRef.current = true;
     try {
-      await cancelRide(reason);
+      await cancelRide(reason === OTHER && ownWords.trim() ? ownWords.trim().slice(0, OWN_WORDS_MAX) : reason);
       // Put the cancelled ride away so the next booking starts clean.
       clearRide();
       router.replace("/rider");
@@ -85,7 +109,7 @@ export default function RiderCancelScreen() {
 
       <View style={styles.head}>
         <RText accessibilityRole="header" variant="display" style={styles.title}>
-          Cancel this ride?
+          {searching ? "Stop looking for a driver?" : "Cancel this ride?"}
         </RText>
         {etaMinutes ? (
           <RText color={colors.muted}>
@@ -96,7 +120,7 @@ export default function RiderCancelScreen() {
 
       <View accessibilityRole="radiogroup" style={styles.reasons}>
         <RText variant="label">WHY ARE YOU CANCELLING?</RText>
-        {REASONS.map((item) => {
+        {reasons.map((item) => {
           const chosen = item === reason;
           return (
             <Pressable
@@ -118,6 +142,17 @@ export default function RiderCancelScreen() {
         })}
       </View>
 
+      {reason === OTHER ? (
+        <RInput
+          label="Tell us what happened (optional)"
+          maxLength={OWN_WORDS_MAX}
+          multiline
+          onChangeText={setOwnWords}
+          placeholder="A few words help us fix it"
+          value={ownWords}
+        />
+      ) : null}
+
       <View style={styles.note}>
         <RText variant="small">Cancelling is free. You will not be charged.</RText>
       </View>
@@ -132,10 +167,11 @@ export default function RiderCancelScreen() {
 
       <RButton disabled={cancelling} onPress={keepRide} title="Keep ride" />
       <RButton
+        disabled={!reason}
         loading={cancelling}
         onPress={() => void confirm()}
         size="md"
-        title="Cancel ride"
+        title={reason ? (searching ? "Cancel search" : "Cancel ride") : "Choose a reason"}
         variant="danger"
       />
     </RScreen>
