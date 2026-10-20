@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { Marker, Polyline, type EdgePadding, type LatLng } from "react-native-maps";
 
 import { GoogleMapView } from "@/components/GoogleMapView";
+import { useMapRevival } from "@/hooks/use-map-revival";
 import { useAppLocation } from "@/lib/location";
 import type {
   RideEstimateWaypoint,
@@ -53,6 +54,14 @@ export function LiveMap({
   const lastFitSignatureRef = useRef<string | null>(null);
   const hasFittedOnceRef = useRef(false);
   const { currentLocation } = useAppLocation();
+  // Back after a while away: a fresh map, framed again as on opening.
+  const revival = useMapRevival();
+  useEffect(() => {
+    if (revival === 0) return;
+    setMapReady(false);
+    hasFittedOnceRef.current = false;
+    lastFitSignatureRef.current = null;
+  }, [revival]);
   // What the map shows now, to tell a tap on the blue dot from a tap elsewhere.
   const viewRef = useRef<{ latitudeDelta: number; longitudeDelta: number } | null>({
     latitudeDelta: initialDelta.latitudeDelta,
@@ -197,6 +206,7 @@ export function LiveMap({
       ]}
     >
       <GoogleMapView
+        key={`map-${revival}`}
         initialRegion={initialRegion}
         mapPadding={Platform.select({ ios: undefined, default: undefined })}
         onMapReady={() => setMapReady(true)}

@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import {
   isMockLocationAvailable,
   loadMockLocationPreset,
@@ -471,6 +471,30 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       disclosureResolverRef.current?.(false);
       disclosureResolverRef.current = null;
     };
+  }, [refreshLocation, startWatchingLocation]);
+
+  // Back after a while away: the phone may have stopped sending this app its
+  // position in the background, and nothing would start it again, so the
+  // blue dot and "where you are" stayed where they were. Read it afresh and
+  // watch again.
+  useEffect(() => {
+    let leftAt: number | null = null;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active") {
+        leftAt ??= Date.now();
+        return;
+      }
+      const away = leftAt === null ? 0 : Date.now() - leftAt;
+      leftAt = null;
+      if (away < 30_000) return;
+      void (async () => {
+        const foreground = await Location.getForegroundPermissionsAsync().catch(() => null);
+        if (!foreground?.granted) return;
+        await refreshLocation();
+        await startWatchingLocation().catch(() => undefined);
+      })();
+    });
+    return () => subscription.remove();
   }, [refreshLocation, startWatchingLocation]);
 
   const value = useMemo<LocationContextValue>(

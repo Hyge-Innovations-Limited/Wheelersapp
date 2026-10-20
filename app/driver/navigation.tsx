@@ -20,6 +20,7 @@ import { useAppLocation } from '@/lib/location';
 import { useCourseBearing, useLiveRoute } from '@/lib/use-live-route';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
+import { useMapRevival } from '@/hooks/use-map-revival';
 import { toUserMessage } from '@/lib/error-messages';
 
 function formatNgn(amount: number): string {
@@ -34,6 +35,8 @@ export default function DriverNavigationScreen() {
   const responsive = useResponsive();
   const ride = session.currentRide;
   const mapRef = useRef<MapView>(null);
+  // Back after a while away: the map is built afresh, with its blue dot and markers.
+  const mapRevival = useMapRevival();
   const lastGpsSentRef = useRef(0);
 
   // Heading to pickup: the line that matters is driver → pickup. The route
@@ -161,6 +164,7 @@ export default function DriverNavigationScreen() {
         <View style={[styles.mapContainer, { height: responsive.vh(32, 170, 340) }]}>
           <OnLight>
           <GoogleMapView
+            key={`map-${mapRevival}`}
             ref={mapRef}
             initialRegion={initialRegion}
             style={StyleSheet.absoluteFill}

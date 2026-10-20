@@ -21,6 +21,7 @@ import { useAppLocation } from '@/lib/location';
 import { useCourseBearing, useLiveRoute } from '@/lib/use-live-route';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
+import { useMapRevival } from '@/hooks/use-map-revival';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -57,6 +58,8 @@ export default function DriverActiveTripScreen() {
   const courseBearing = useCourseBearing(currentLocation, ride?.destination ?? null);
 
   const mapRef = useRef<MapView>(null);
+  // Back after a while away: the map is built afresh, with its blue dot and markers.
+  const mapRevival = useMapRevival();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const lastGpsSentRef = useRef(0);
 
@@ -183,6 +186,7 @@ export default function DriverActiveTripScreen() {
       {/* The map IS the screen — mid-trip, the road is what matters. All
           chrome floats above it in a compact panel. */}
       <GoogleMapView
+        key={`map-${mapRevival}`}
         ref={mapRef}
         initialRegion={initialRegion}
         style={StyleSheet.absoluteFill}

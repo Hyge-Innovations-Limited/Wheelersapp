@@ -21,6 +21,7 @@ import { useResponsive } from '@/lib/responsive';
 import { offerRideOverlayOnce } from '@/lib/ride-overlay';
 import { playBidAlertChime, playRideRequestSound, stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
+import { useMapRevival } from '@/hooks/use-map-revival';
 import { toUserMessage } from '@/lib/error-messages';
 
 function countCompletedQuests(todayRides: number, todayEarnings: number, totalRides: number, rating: number): number {
@@ -67,6 +68,8 @@ export default function DriverHomeScreen() {
   const responsive = useResponsive();
   const notificationPromptedRef = useRef(false);
   const mapRef = useRef<MapView>(null);
+  // Back after a while away: the map is built afresh, with its blue dot and markers.
+  const mapRevival = useMapRevival();
 
   const [stats, setStats] = useState<DriverStatsResponse | null>(null);
   const [todayEarnings, setTodayEarnings] = useState<number>(0);
@@ -314,6 +317,7 @@ export default function DriverHomeScreen() {
 
       {/* Full-screen map */}
       <MapView
+        key={`map-${mapRevival}`}
         ref={mapRef}
         provider={Platform.OS === 'android' || Platform.OS === 'ios' ? PROVIDER_GOOGLE : undefined}
         style={StyleSheet.absoluteFill}
