@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { RefreshControl, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, Share, StyleSheet, Text, View } from "react-native";
 import QRCodeStyled from "react-native-qrcode-styled";
 
 import { RBack, RButton, RCard, RInput, RLink, RScreen, RText, naira, rider } from "@/components/rider/kit";
@@ -17,16 +17,18 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useCachedQuery } from "@/lib/cached-query";
 import { toUserMessage } from "@/lib/error-messages";
-import { tidyReferralCode } from "@/lib/referral-entry";
+import { referralRefusal, tidyReferralCode } from "@/lib/referral-entry";
 
 const { colors, fonts } = rider;
 const tidyCode = tidyReferralCode;
 
 /**
- * Invite friends: the code the rider creates for themselves, then its link and
- * QR code to share; a box to add a code someone gave them; and what their
- * referrals have earned. Nobody is handed a code: until they create one, the
- * top of the screen asks for it.
+ * Invite friends: a box to add a code someone gave them (first, until one is
+ * on the account: it is what most people open this screen for); the code the
+ * rider creates for themselves, then its link and QR code to share; and what
+ * their referrals have earned. Nobody is handed a code. Creating one asks
+ * first, because it is theirs for good: a friend's code typed into the
+ * wrong box would otherwise become their own.
  */
 export default function RiderReferralScreen() {
   const { getAccessToken } = useAuth();
@@ -100,10 +102,32 @@ export default function RiderReferralScreen() {
       setFriendCode("");
       void refresh();
     } catch (failure) {
-      setAddError(toUserMessage(failure, "That code could not be added. Check it and try again."));
+      const reason = failure instanceof Error ? failure.message : "";
+      if (/already/i.test(reason)) {
+        // One is on the account already: nothing to fix.
+        setAdded(true);
+        setFriendCode("");
+        void refresh();
+        return;
+      }
+      setAddError(referralRefusal(reason, entered) ?? toUserMessage(failure, "That code could not be added. Check it and try again."));
     } finally {
       setAdding(false);
     }
+  }
+
+  /** It cannot be changed afterwards: say so, and point a friend's code to the right box. */
+  function confirmOwnCode() {
+    const chosen = tidyCode(wanted);
+    if (chosen.length < 4 || saving) return;
+    Alert.alert(
+      `Make ${chosen} your own code?`,
+      `${chosen} will be your code for inviting friends. It can't be changed later.\n\nIf a friend gave you ${chosen}, add it under "Got a code from a friend?" instead.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Create my code", onPress: () => void saveOwnCode() },
+      ],
+    );
   }
 
   async function saveOwnCode() {
@@ -143,13 +167,43 @@ export default function RiderReferralScreen() {
         </RText>
       </View>
 
+      {/* A friend's code first, until one is on the account: what most people come here for. */}
+      {!hasFriendCode ? (
+        <RCard style={styles.block}>
+          <RInput
+            autoCapitalize="characters"
+            autoCorrect={false}
+            error={addError}
+            label="Got a code from a friend or a driver?"
+            maxLength={12}
+            onChangeText={(value) => {
+              setFriendCode(tidyCode(value));
+              setAddError(null);
+            }}
+            onSubmitEditing={() => void addFriendCode()}
+            placeholder="Enter their code"
+            returnKeyType="done"
+            valid={tidyCode(friendCode).length >= 4}
+            value={friendCode}
+          />
+          <RButton
+            disabled={tidyCode(friendCode).length < 4}
+            loading={adding}
+            onPress={() => void addFriendCode()}
+            size="md"
+            title="Add code"
+            variant="dark"
+          />
+        </RCard>
+      ) : null}
+
       {creating ? (
         <RCard style={styles.codeCard} tone="ink">
           <RText color={colors.orange} variant="heading">
-            Create your referral code
+            Create your own code
           </RText>
           <RText color={colors.onInkMuted} variant="small">
-            Your name, your nickname, anything friends will remember.
+            For inviting friends: your name, your nickname, anything they will remember. You earn when they ride.
           </RText>
         </RCard>
       ) : (
@@ -181,13 +235,13 @@ export default function RiderReferralScreen() {
             autoCorrect={false}
             error={saveError}
             hint="4 to 12 letters or numbers. It can't be changed later."
-            label="Your code"
+            label="Your own code"
             maxLength={12}
             onChangeText={(value) => {
               setWanted(tidyCode(value));
               setSaveError(null);
             }}
-            onSubmitEditing={() => void saveOwnCode()}
+            onSubmitEditing={confirmOwnCode}
             placeholder="TIMI"
             returnKeyType="done"
             valid={tidyCode(wanted).length >= 4}
@@ -197,10 +251,10 @@ export default function RiderReferralScreen() {
             <RButton
               disabled={tidyCode(wanted).length < 4}
               loading={saving}
-              onPress={() => void saveOwnCode()}
+              onPress={confirmOwnCode}
               size="md"
               style={styles.flex}
-              title="Create code"
+              title="Create my code"
               variant="dark"
             />
           </View>
@@ -226,43 +280,16 @@ export default function RiderReferralScreen() {
         </RCard>
       ) : null}
 
-      <RCard style={styles.block}>
-        {hasFriendCode ? (
+      {hasFriendCode ? (
+        <RCard style={styles.block}>
           <View style={styles.doneRow}>
             <Ionicons color={colors.green} name="checkmark-circle" size={22} />
             <RText style={styles.flex} variant="bodyBold">
               A referral code is on your account.
             </RText>
           </View>
-        ) : (
-          <>
-            <RInput
-              autoCapitalize="characters"
-              autoCorrect={false}
-              error={addError}
-              label="Got a code from a friend or a driver?"
-              maxLength={12}
-              onChangeText={(value) => {
-                setFriendCode(tidyCode(value));
-                setAddError(null);
-              }}
-              onSubmitEditing={() => void addFriendCode()}
-              placeholder="Enter their code"
-              returnKeyType="done"
-              valid={tidyCode(friendCode).length >= 4}
-              value={friendCode}
-            />
-            <RButton
-              disabled={tidyCode(friendCode).length < 4}
-              loading={adding}
-              onPress={() => void addFriendCode()}
-              size="md"
-              title="Add code"
-              variant="dark"
-            />
-          </>
-        )}
-      </RCard>
+        </RCard>
+      ) : null}
 
       <View style={styles.stats}>
         <Stat label="Cashback to use" value={summary ? naira(summary.availableCashbackNgn) : "…"} tone="ink" />

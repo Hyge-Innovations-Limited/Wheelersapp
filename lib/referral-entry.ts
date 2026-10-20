@@ -16,6 +16,20 @@ export function referralRefusalAtSignUp(reason: string): string | null {
 }
 
 /**
+ * The sentence under "Got a code from a friend?" when a code is refused, naming
+ * the code; null when there is nothing to fix (one is on the account already)
+ * or when the reason is not about the code (no connection): the caller says that.
+ */
+export function referralRefusal(reason: string, code: string): string | null {
+  if (/already/i.test(reason)) return null;
+  if (/own referral code/i.test(reason)) return `${code} is your own code. Enter the code a friend gave you.`;
+  if (/not found|invalid|inactive/i.test(reason)) {
+    return `No one has the code ${code}. Check it with the person who gave it to you. They may need to create it in their app first.`;
+  }
+  return null;
+}
+
+/**
  * Adds the code someone typed while signing up. Resolves to null when there is
  * nothing to show (it was added, the box was empty, or one was already on the
  * account), or to the sentence to put under the box.

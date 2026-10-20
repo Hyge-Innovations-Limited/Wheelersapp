@@ -20,7 +20,7 @@ const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-referral-')), 'bundle.
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/referral-entry.ts'), '--bundle', '--platform=node', '--format=cjs',
   `--alias:@/lib/api=${stub}`, `--external:${stub}`, `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
 const require = createRequire(import.meta.url);
-const { addReferralAtSignUp, tidyReferralCode } = require(outFile);
+const { addReferralAtSignUp, referralRefusal, tidyReferralCode } = require(outFile);
 const api = require(stub);
 
 test('what is typed becomes capitals and digits, twelve at most', () => {
@@ -46,4 +46,12 @@ test('a refusal is a sentence they can act on, and one already added does not st
   assert.equal(await addReferralAtSignUp('token', 'TUNDE'), null);
   api.refuseWith('socket hang up');
   assert.match(await addReferralAtSignUp('token', 'TUNDE'), /could not be added just now/);
+});
+
+test('on Invite friends a refused code is named, with what to do about it', () => {
+  assert.equal(referralRefusal('Referral code was not found.', 'DEJI'),
+    'No one has the code DEJI. Check it with the person who gave it to you. They may need to create it in their app first.');
+  assert.equal(referralRefusal('You cannot use your own referral code.', 'DEJI'), 'DEJI is your own code. Enter the code a friend gave you.');
+  assert.equal(referralRefusal('A referral code has already been applied.', 'DEJI'), null, 'already on the account: nothing to fix');
+  assert.equal(referralRefusal('socket hang up', 'DEJI'), null, 'not about the code: the screen says what went wrong');
 });
