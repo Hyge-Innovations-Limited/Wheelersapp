@@ -43,6 +43,7 @@ import { isDriverApp } from "@/lib/app-variant";
 import { RiderLiveCallHost } from "@/lib/live-call/hosts";
 import { ThemeProvider, useAppTheme } from "@/lib/theme-context";
 import { useOtaUpdates } from "@/lib/ota-updates";
+import { useRememberPlace } from "@/hooks/use-remember-place";
 import { theme } from "@/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -100,6 +101,8 @@ export default function RootLayout() {
 function ThemedLayout() {
   const { isDark } = useAppTheme();
   useOtaUpdates();
+  // Where they are, so an app Android closed in the background opens there again.
+  useRememberPlace();
 
   return (
     <>

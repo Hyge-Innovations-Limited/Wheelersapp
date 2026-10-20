@@ -26,6 +26,7 @@ import {
 import { resolvePostAuthRoute, type PostAuthRoute } from "@/lib/post-auth";
 import { prefetchRiderHistory } from "@/lib/rider-history";
 import { prefetchWalletOverview } from "@/lib/wallet-overview";
+import { takePlace, type Place } from "@/lib/resume-place";
 
 type SplashRoute = VariantPublicRoute | AuthenticatedRoute | PostAuthRoute | "/rider-new";
 
@@ -68,9 +69,15 @@ export default function SplashScreen() {
   const checkingDriver = useRef(false);
   const mountedAtRef = useRef(Date.now());
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The screen they were on when Android closed the app, opened over home (lib/resume-place). */
+  const thenRef = useRef<Place | null>(null);
 
   function go(href: SplashRoute) {
     router.replace(href);
+    const then = thenRef.current;
+    thenRef.current = null;
+    // Over home, so Back from it goes home as it would have.
+    if (then) setTimeout(() => router.push({ pathname: then.pathname, params: then.params } as never), 60);
     // The native splash is NOT hidden here. replace() only starts the journey:
     // the destination is still mounting and sliding in for a few hundred ms,
     // and hiding a frame later uncovered this JS screen underneath it — whose
@@ -138,6 +145,9 @@ export default function SplashScreen() {
         }
         const route = await resolvePostAuthRoute(storedAuthState, token);
         if (cancelled || hasNavigated.current) return;
+        // A driver cleared to drive goes back to where they were; one still being verified does not.
+        if (route === "/driver/(tabs)/home") thenRef.current = await takePlace("driver");
+        if (cancelled || hasNavigated.current) return;
         navigate(route);
         return;
       }
@@ -162,6 +172,8 @@ export default function SplashScreen() {
         const route = getAuthenticatedRoute(storedAuthState);
         if (route === "/rider") {
           prefetchHomeData(getAccessToken);
+          thenRef.current = await takePlace("rider");
+          if (cancelled || hasNavigated.current) return;
         }
         navigate(route);
         return;
