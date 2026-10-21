@@ -11,7 +11,7 @@ import { FloatingView } from '@/components/motion';
 import { SectionHeader } from '@/components/SectionHeader';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
-import { rideFees } from '@/lib/ride-fees';
+import { pricingVersionOf, rideFees } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
 
@@ -29,8 +29,9 @@ export default function DriverPayoutScreen() {
   const ride = session.currentRide;
 
   const grossFare = ride?.completedFareNgn ?? ride?.fareNgn ?? 0;
-  const fees = rideFees(grossFare, ride?.pricingVersion ?? 1);
-  const perKmPricing = fees.pricingVersion === 2;
+  const fees = rideFees(grossFare, pricingVersionOf(ride?.pricingVersion));
+  // Version 2 and later: the driver priced per km, and their money starts at the trip fare.
+  const perKmPricing = fees.pricingVersion >= 2;
   const finalPayout = fees.driverPayoutNgn;
 
   const handleNextRide = () => {
@@ -74,9 +75,9 @@ export default function DriverPayoutScreen() {
       <AppCard style={styles.summaryCard}>
         {perKmPricing ? (
           <>
-            {/* New pricing: the driver's own money starts at the trip fare.
-                Commission and the levy come off it; VAT and the booking fee
-                were added to the rider's fare, never taken from the driver. */}
+            {/* The driver's own money starts at the trip fare. Commission, the
+                WhatsApp fee (version 3) and the levy come off it; VAT and the
+                booking fee were added to the rider's fare, never taken from the driver. */}
             <View style={styles.riderPaidRow}>
               <AppText variant="bodySmall" color={theme.colors.muted}>
                 Trip fare
@@ -87,9 +88,16 @@ export default function DriverPayoutScreen() {
             </View>
             <SummaryRow
               color={theme.colors.danger}
-              label="Commission · 10% of the trip fare"
+              label={`Commission · ${fees.pricingVersion === 2 ? '10' : '5'}% of the trip fare`}
               value={`-${formatNgn(fees.commissionNgn)}`}
             />
+            {fees.whatsappFeeNgn > 0 ? (
+              <SummaryRow
+                color={theme.colors.danger}
+                label="WhatsApp fee"
+                value={`-${formatNgn(fees.whatsappFeeNgn)}`}
+              />
+            ) : null}
             <SummaryRow
               color={theme.colors.danger}
               label="State levy"

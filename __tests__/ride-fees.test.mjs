@@ -2,8 +2,9 @@
  * The driver's money, as the server works it out (lib/ride-fees.ts mirrors
  * packages/config/src/pricing.ts). New pricing: ₦350/km on 10 km is a ₦3,500
  * trip fare; + 7.5% VAT + ₦350 service charge, rounded up to ₦50, is the ₦4,150
- * the rider sees; the driver is paid the trip fare less 10% and the ₦30 levy.
- * A ride agreed before the change keeps the old sums.
+ * the rider sees; the driver is paid the trip fare less 5%, the ₦300
+ * WhatsApp fee and the ₦30 levy (version 3). A ride agreed under an earlier
+ * version keeps its own sums.
  *
  *   node --test __tests__/ride-fees.test.mjs
  */
@@ -24,15 +25,19 @@ const {
   bidCeilingFareNgn, pricingVersionOf,
 } = createRequire(import.meta.url)(outFile);
 
-test('₦350/km on 10 km: the rider sees ₦4,150, the driver gets the trip fare less 10% and the levy', () => {
+test('₦350/km on 10 km: the rider sees ₦4,150, the driver gets the trip fare less 5%, the ₦300 WhatsApp fee and the levy', () => {
   assert.equal(fareFromRatePerKmNgn(350, 10), 4150);
   const f = rideFees(4150);
+  assert.equal(f.pricingVersion, 3);
   assert.equal(f.bookingFeeNgn, 350);
   assert.equal(f.tripFareNgn, 3534.88);
   assert.equal(f.vatNgn, 265.12);
-  assert.equal(f.commissionNgn, 353.49);
+  assert.equal(f.commissionNgn, 176.74);
+  assert.equal(f.whatsappFeeNgn, 300);
   assert.equal(f.stateLevyNgn, 30);
-  assert.equal(f.driverPayoutNgn, 3151.39);
+  assert.equal(f.driverPayoutNgn, 3028.14, 'as the server settles it');
+  const v2 = rideFees(4150, 2);
+  assert.deepEqual([v2.commissionNgn, v2.whatsappFeeNgn, v2.driverPayoutNgn], [353.49, 0, 3151.39], 'a version 2 ride keeps 10% and no WhatsApp fee');
   assert.equal(fareFromRatePerKmNgn(300, 2), 3300, 'never under the minimum fare');
 });
 
@@ -45,6 +50,9 @@ test('a ride agreed before the change: booking fee first, then 4% and 7.5% of th
   assert.equal(f.driverPayoutNgn, 2735.62);
   assert.equal(pricingVersionOf(undefined), 1, 'an older server says nothing: the old rules');
   assert.equal(pricingVersionOf(2), 2);
+  assert.equal(pricingVersionOf(3), 3);
+  assert.equal(pricingVersionOf('3'), 3);
+  assert.equal(pricingVersionOf(4), 3, 'a newer version than this app knows is priced as the newest it does, never as version 1');
 });
 
 test('per km is the trip fare over the distance, and moves with the price', () => {
@@ -76,11 +84,11 @@ test('an old ride, or one with no distance, is still bid on as a fare', () => {
 });
 
 test('a tiny fare never costs the driver money, and the lines always add up to the fare', () => {
-  for (const version of [1, 2]) {
-    for (const fare of [400, 2500, 4150, 12350]) {
+  for (const version of [1, 2, 3]) {
+    for (const fare of [400, 700, 2500, 3300, 4150, 12350]) {
       const f = rideFees(fare, version);
       assert.ok(f.driverPayoutNgn >= 0);
-      assert.equal(Math.round((f.bookingFeeNgn + f.commissionNgn + f.vatNgn + f.stateLevyNgn + f.driverPayoutNgn) * 100) / 100, fare);
+      assert.equal(Math.round((f.bookingFeeNgn + f.commissionNgn + f.whatsappFeeNgn + f.vatNgn + f.stateLevyNgn + f.driverPayoutNgn) * 100) / 100, fare);
     }
   }
 });

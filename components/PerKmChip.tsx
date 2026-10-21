@@ -56,13 +56,13 @@ export function PerKmChip({ priceNgn, distanceKm, pricingVersion = 1, compact = 
         <View style={styles.explain}>
           <OnLight>
           <View style={styles.explainTop}>
-            <AppText variant="label">{pricingVersion === 2 ? 'Your rate per km' : 'Your share per km'}</AppText>
+            <AppText variant="label">{pricingVersion >= 2 ? 'Your rate per km' : 'Your share per km'}</AppText>
             <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={18} color={theme.colors.muted} />
             </Pressable>
           </View>
           <AppText variant="caption" color={theme.colors.muted}>
-            {pricingVersion === 2
+            {pricingVersion >= 2
               ? `${naira(priceNgn)} − ${naira(fees.bookingFeeNgn)} booking fee − ${naira(fees.vatNgn)} VAT = ${naira(share)}`
               : `${naira(priceNgn)} − ${naira(fees.bookingFeeNgn)} booking fee = ${naira(share)}`}
           </AppText>
@@ -70,9 +70,11 @@ export function PerKmChip({ priceNgn, distanceKm, pricingVersion = 1, compact = 
             {naira(share)} ÷ {distanceKm.toFixed(1)} km = {formatPerKmNgn(perKm)}/km
           </AppText>
           <AppText variant="caption" color={theme.colors.mutedLight}>
-            {pricingVersion === 2
-              ? 'Commission (10%) and the ₦30 levy come out of the trip fare when the trip is paid. The rider pays the VAT and the booking fee.'
-              : 'Commission (4%), VAT (7.5%) and the ₦30 levy come out of your share when the trip is paid.'}
+            {pricingVersion === 3
+              ? 'Commission (5%), the ₦300 WhatsApp fee and the ₦30 levy come out of the trip fare when the trip is paid. The rider pays the VAT and the booking fee.'
+              : pricingVersion === 2
+                ? 'Commission (10%) and the ₦30 levy come out of the trip fare when the trip is paid. The rider pays the VAT and the booking fee.'
+                : 'Commission (4%), VAT (7.5%) and the ₦30 levy come out of your share when the trip is paid.'}
           </AppText>
           </OnLight>
         </View>

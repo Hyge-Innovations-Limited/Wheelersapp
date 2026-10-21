@@ -2,7 +2,7 @@
  * How a fare is built and what the driver is paid. Mirrors
  * packages/config/src/pricing.ts in the backend — keep them in step.
  *
- * Since 2026-10-10 (pricing version 2) the driver prices the trip per km:
+ * Since 2026-10-21 (pricing version 3) the driver prices the trip per km:
  *
  *   trip fare         ₦350/km × 10 km           ₦3,500      (the driver's price)
  *   + VAT 7.5%                                   ₦262.50
@@ -10,18 +10,24 @@
  *   = the rider's fare, rounded up to ₦50        ₦4,150      (the one amount a rider sees)
  *
  *   the driver is paid: the trip fare inside that fare (₦3,534.88)
- *   − commission 10% ₦353.49 − Lagos levy ₦30  = ₦3,151.39
+ *   − commission 5% ₦176.74 − WhatsApp fee ₦300 − Lagos levy ₦30  = ₦3,028.14
  *
- * Version 1 (rides agreed before): the booking fee came off the fare, then 4%
+ * Version 2 (10 to 21 Oct 2026): the same with 10% commission and no WhatsApp
+ * fee. Version 1 (before): the booking fee came off the fare, then 4%
  * commission, 7.5% VAT and the levy all came off the driver's share.
  */
-export type PricingVersion = 1 | 2;
+export type PricingVersion = 1 | 2 | 3;
 /** Wheelers' service charge inside every fare. Rides agreed under version 1 carried ₦375. */
 export const BOOKING_FEE_NGN = 350;
 export const V1_BOOKING_FEE_NGN = 375;
 const bookingFeeOf = (version: PricingVersion) => (version === 1 ? V1_BOOKING_FEE_NGN : BOOKING_FEE_NGN);
-export const COMMISSION_RATE = 0.1;
+/** Version 3: 5% of the trip fare. */
+export const COMMISSION_RATE = 0.05;
+export const V2_COMMISSION_RATE = 0.1;
 export const V1_COMMISSION_RATE = 0.04;
+/** Version 3: a flat ₦300 from the driver on every ride. */
+export const WHATSAPP_FEE_NGN = 300;
+const commissionRateOf = (version: PricingVersion) => (version === 1 ? V1_COMMISSION_RATE : version === 2 ? V2_COMMISSION_RATE : COMMISSION_RATE);
 export const VAT_RATE = 0.075;
 export const STATE_LEVY_NGN = 30;
 export const MIN_FARE_NGN = 3300;
@@ -38,6 +44,8 @@ export interface RideFees {
   /** Old name for the trip fare. */
   driverShareNgn: number;
   commissionNgn: number;
+  /** Version 3: the flat ₦300 from the driver. Earlier versions: 0. */
+  whatsappFeeNgn: number;
   vatNgn: number;
   stateLevyNgn: number;
   driverPayoutNgn: number;
@@ -49,9 +57,16 @@ export interface RideFees {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** The version a server payload says a price was made under. An older server says nothing: version 1. */
+/**
+ * The version a server payload says a price was made under. An older server
+ * says nothing: version 1. A version newer than this app knows is priced as
+ * the newest it does, never as version 1.
+ */
 export function pricingVersionOf(value: unknown): PricingVersion {
-  return Number(value) === 2 ? 2 : 1;
+  if (value === null || value === undefined || value === '') return 1;
+  const n = Number(value);
+  if (n === 1 || n === 2 || n === 3) return n;
+  return Number.isFinite(n) && n > 3 ? 3 : 1;
 }
 
 /** The fare a rider pays when the driver's rate is `ratePerKmNgn` over `distanceKm`. */
@@ -62,22 +77,25 @@ export function fareFromRatePerKmNgn(ratePerKmNgn: number, distanceKm: number): 
 }
 
 /** The trip fare inside a fare. */
-export function tripFareNgn(fareNgn: number, version: PricingVersion = 2): number {
+export function tripFareNgn(fareNgn: number, version: PricingVersion = 3): number {
   const afterFee = Math.max(0, round2(fareNgn - bookingFeeOf(version)));
   return version === 1 ? afterFee : round2(afterFee / (1 + VAT_RATE));
 }
 
-export function rideFees(fareNgn: number, version: PricingVersion = 2): RideFees {
+export function rideFees(fareNgn: number, version: PricingVersion = 3): RideFees {
   const fare = round2(fareNgn);
   const booking = Math.min(bookingFeeOf(version), Math.max(0, fare));
   const afterFee = round2(fare - booking);
   const share = version === 1 ? afterFee : round2(afterFee / (1 + VAT_RATE));
-  let commission = round2(share * (version === 1 ? V1_COMMISSION_RATE : COMMISSION_RATE));
+  let commission = round2(share * commissionRateOf(version));
   let vat = version === 1 ? round2(share * VAT_RATE) : round2(afterFee - share);
   let levy = STATE_LEVY_NGN;
-  // A fare too small to carry every line never makes the driver pay to work (as on the server).
-  let over = round2(commission + levy + (version === 1 ? vat : 0) - share);
+  let whatsapp = version === 3 ? WHATSAPP_FEE_NGN : 0;
+  // A fare too small to carry every line never makes the driver pay to work (as on the server):
+  // the levy, then the WhatsApp fee, then the commission shrink.
+  let over = round2(commission + whatsapp + levy + (version === 1 ? vat : 0) - share);
   if (over > 0) { const cut = Math.min(levy, over); levy = round2(levy - cut); over = round2(over - cut); }
+  if (over > 0) { const cut = Math.min(whatsapp, over); whatsapp = round2(whatsapp - cut); over = round2(over - cut); }
   if (over > 0) { const cut = Math.min(commission, over); commission = round2(commission - cut); over = round2(over - cut); }
   if (over > 0 && version === 1) { const cut = Math.min(vat, over); vat = round2(vat - cut); }
   return {
@@ -86,9 +104,10 @@ export function rideFees(fareNgn: number, version: PricingVersion = 2): RideFees
     tripFareNgn: share,
     driverShareNgn: share,
     commissionNgn: commission,
+    whatsappFeeNgn: whatsapp,
     vatNgn: vat,
     stateLevyNgn: levy,
-    driverPayoutNgn: Math.max(0, round2(share - commission - levy - (version === 1 ? vat : 0))),
+    driverPayoutNgn: Math.max(0, round2(share - commission - whatsapp - levy - (version === 1 ? vat : 0))),
     pricingVersion: version,
     platformFeeNgn: commission,
     serviceFeeNgn: booking,
@@ -103,7 +122,7 @@ export function rideFees(fareNgn: number, version: PricingVersion = 2): RideFees
 export function driverRatePerKmNgn(
   priceNgn: number,
   distanceKm: number | null | undefined,
-  version: PricingVersion = 2,
+  version: PricingVersion = 3,
 ): number | null {
   if (!distanceKm || !Number.isFinite(distanceKm) || distanceKm <= 0 || !Number.isFinite(priceNgn)) return null;
   return Math.round((tripFareNgn(priceNgn, version) / distanceKm) * 10) / 10;
@@ -131,7 +150,7 @@ export function suggestedRateBids(
   distanceKm: number | null | undefined,
   maxRatePerKmNgn?: number | null,
 ): RateBid[] {
-  const riderRate = driverRatePerKmNgn(riderFareNgn, distanceKm, 2);
+  const riderRate = driverRatePerKmNgn(riderFareNgn, distanceKm, 3);
   if (riderRate === null || !distanceKm) return [];
   const base = Math.ceil(riderRate / 5) * 5;
   const out: RateBid[] = [];
@@ -152,9 +171,9 @@ export interface BidTerms {
   maxRatePerKmNgn?: number | null;
 }
 
-/** The driver types a rate per km (not a fare): the new pricing, on a trip whose distance is known. */
+/** The driver types a rate per km (not a fare): pricing version 2 and later, on a trip whose distance is known. */
 export function bidsPerKm(offer: BidTerms): boolean {
-  return offer.pricingVersion === 2 && !!offer.plannedDistanceKm && Number.isFinite(offer.plannedDistanceKm) && offer.plannedDistanceKm > 0;
+  return (offer.pricingVersion ?? 1) >= 2 && !!offer.plannedDistanceKm && Number.isFinite(offer.plannedDistanceKm) && offer.plannedDistanceKm > 0;
 }
 
 /**
@@ -162,7 +181,7 @@ export function bidsPerKm(offer: BidTerms): boolean {
  * price when they offered more than that. Null when the server set no ceiling.
  */
 export function bidCeilingFareNgn(riderFareNgn: number, offer: BidTerms): number | null {
-  if (offer.pricingVersion !== 2 || !offer.maxOfferNgn) return null;
+  if ((offer.pricingVersion ?? 1) < 2 || !offer.maxOfferNgn) return null;
   return Math.max(offer.maxOfferNgn, riderFareNgn);
 }
 
