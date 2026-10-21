@@ -8,7 +8,7 @@ import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 import { AppScreen } from '@/components/app-screen';
 import { AppText, OnLight } from '@/components/app-text';
 import { useNearbyAlerts } from '@/components/nearby-alerts';
-import { useRideOverlaySetting } from '@/lib/ride-overlay';
+import { useRideBubbleSetting, useRideOverlaySetting } from '@/lib/ride-overlay';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { deleteAccount } from '@/lib/api';
@@ -129,6 +129,7 @@ export default function DriverSettingsScreen() {
   const { session } = useDriverSession();
   const nearbyAlerts = useNearbyAlerts(getAccessToken, session.status !== 'offline');
   const overlaySetting = useRideOverlaySetting();
+  const bubbleSetting = useRideBubbleSetting();
   const responsive = useResponsive();
 
   const handleLogout = () => {
@@ -474,6 +475,31 @@ export default function DriverSettingsScreen() {
                 thumbColor={theme.colors.white}
               />
             </View>
+            {/* The Wheelers bubble: needs the same permission; off here hides it everywhere. */}
+            {bubbleSetting.supported ? (
+              <View style={[styles.menuItem, menuItemStyle]}>
+                <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: bubbleSetting.on && overlaySetting.allowed ? theme.colors.orangeLight : subtleBg }]}>
+                  <AppText variant="label" color={bubbleSetting.on && overlaySetting.allowed ? theme.colors.orange : theme.colors.muted}>●</AppText>
+                </View>
+                <View style={styles.menuInfo}>
+                  <AppText variant="bodyMedium">Wheelers bubble</AppText>
+                  <AppText variant="bodySmall" color={theme.colors.muted}>
+                    {!overlaySetting.allowed
+                      ? 'Needs "Show requests over other apps" on first'
+                      : bubbleSetting.on
+                        ? 'On — while you are online in another app, tap the Wheelers logo on the side to come back'
+                        : 'Off'}
+                  </AppText>
+                </View>
+                <Switch
+                  value={bubbleSetting.on && overlaySetting.allowed}
+                  disabled={!overlaySetting.allowed}
+                  onValueChange={bubbleSetting.set}
+                  trackColor={{ false: theme.colors.borderLight, true: theme.colors.orange }}
+                  thumbColor={theme.colors.white}
+                />
+              </View>
+            ) : null}
           </View>
         </View>
       ) : null}

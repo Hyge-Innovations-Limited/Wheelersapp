@@ -53,8 +53,13 @@ import { emitStartResult, isTripCodeError } from '@/lib/trip-code';
 import { emitKycRequired, knownDriverKyc } from '@/lib/driver-kyc';
 import { toUserMessage } from '@/lib/error-messages';
 import {
+  hideRideBubble,
   hideRideOverlay,
   onRideOverlayAction,
+  pulseRideBubble,
+  resetRideBubble,
+  rideBubbleWanted,
+  showRideBubble,
   showRideOverlay,
   takeRideOverlayAction,
 } from '@/lib/ride-overlay';
@@ -960,8 +965,35 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     const newest = fresh[fresh.length - 1];
     if (!newest) return;
     showRideOverlay(newest, ringDeadlineMs(newest) - Date.now());
+    pulseRideBubble();
     overlaid.rideId = newest.rideId;
   }, [session.offers, session.pendingBids, session.status]);
+
+  // The Wheelers bubble (Android, lib/ride-overlay.ts): on the side of the screen while the
+  // driver is online and in another app; gone inside Wheelers and when offline. Going online
+  // again brings back a bubble that was dragged to the ✕.
+  const bubbleOnline = session.status !== 'offline';
+  const bubbleTrip = Boolean(session.currentRide);
+  const bubbleWasOnlineRef = useRef(false);
+  useEffect(() => {
+    if (bubbleOnline && !bubbleWasOnlineRef.current) resetRideBubble();
+    bubbleWasOnlineRef.current = bubbleOnline;
+    let live = true;
+    const place = async (state: AppStateStatus) => {
+      if (!bubbleOnline || state === 'active') {
+        hideRideBubble();
+        return;
+      }
+      if ((await rideBubbleWanted()) && live) showRideBubble(bubbleTrip);
+    };
+    void place(AppState.currentState);
+    const subscription = AppState.addEventListener('change', (next: AppStateStatus) => void place(next));
+    return () => {
+      live = false;
+      subscription.remove();
+    };
+  }, [bubbleOnline, bubbleTrip]);
+  useEffect(() => () => hideRideBubble(), []);
 
   // What the driver pressed on the card: Wheelers is in front by then.
   const handleOverlayChoice = useCallback(async () => {

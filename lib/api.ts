@@ -1628,6 +1628,8 @@ export async function submitDriverKyc(input: {
   ninImage: string;
   licenceImage: string;
   selfieImage: string;
+  /** How the selfie was taken: with the face check passed, without it, or on a phone without it. */
+  selfieCheck?: "passed" | "skipped" | "unavailable";
   vehicleImages: string[];
   vehicleMake: string;
   vehicleModel: string;
@@ -1649,6 +1651,7 @@ export async function submitDriverKyc(input: {
       ninImage: input.ninImage,
       licenceImage: input.licenceImage,
       selfieImage: input.selfieImage,
+      ...(input.selfieCheck ? { selfieCheck: input.selfieCheck } : {}),
       vehicleImages: input.vehicleImages,
       vehicleMake: input.vehicleMake,
       vehicleModel: input.vehicleModel,
@@ -1672,6 +1675,7 @@ export async function resubmitDriverKyc(input: {
   ninImage?: string;
   licenceImage?: string;
   selfieImage?: string;
+  selfieCheck?: "passed" | "skipped" | "unavailable";
   vehicleImages?: string[];
   vehicleMake?: string;
   vehicleModel?: string;

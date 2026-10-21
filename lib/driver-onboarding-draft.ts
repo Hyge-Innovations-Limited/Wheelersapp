@@ -20,6 +20,7 @@ export type DraftFields = {
   licenceUri: string | null;
   licenceType: "image" | "pdf";
   selfieUri: string | null;
+  selfieCheck?: "passed" | "skipped" | "unavailable" | null;
   vehiclePhotos: string[];
   vehicleInfo: { make: string; model: string; plate: string; year: number; phone: string } | null;
 };
@@ -37,6 +38,7 @@ export function draftFrom(data: DraftFields, owner: string, now: number): string
     licenceUri: data.licenceUri,
     licenceType: data.licenceType,
     selfieUri: data.selfieUri,
+    selfieCheck: data.selfieCheck ?? null,
     vehiclePhotos: data.vehiclePhotos,
     vehicleInfo: data.vehicleInfo,
   });
@@ -89,6 +91,8 @@ export function restoreDraft(
     licenceUri: photo(parsed.licenceUri),
     licenceType: parsed.licenceType === "pdf" ? "pdf" : "image",
     selfieUri: photo(parsed.selfieUri),
+    // Only with the photo it was taken with.
+    selfieCheck: photo(parsed.selfieUri) && (parsed.selfieCheck === "passed" || parsed.selfieCheck === "skipped" || parsed.selfieCheck === "unavailable") ? parsed.selfieCheck : null,
     vehiclePhotos: Array.isArray(parsed.vehiclePhotos)
       ? parsed.vehiclePhotos.map(photo).filter((uri): uri is string => uri !== null).slice(0, 10)
       : [],

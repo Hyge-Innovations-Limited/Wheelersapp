@@ -1,0 +1,9 @@
+{
+  "name": "face-check",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Wheelers",
+  "homepage": "https://wheelersng.com",
+  "description": "Finds faces in a photo on the phone (Google ML Kit on Android, Apple Vision on iPhone): where, how the head is turned and how open the eyes are. For the driver selfie's face check (lib/face-check.ts)"
+}

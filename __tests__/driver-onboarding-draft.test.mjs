@@ -22,7 +22,7 @@ const { draftFrom, restoreDraft, draftHasProgress, firstUnfinishedStep } = creat
 
 const STEPS = ['nin', 'licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos'];
 const NOW = Date.UTC(2026, 9, 14, 12);
-const empty = { legalDetails: null, phoneVerified: false, ninUri: null, licenceUri: null, licenceType: 'image', selfieUri: null, vehiclePhotos: [], vehicleInfo: null };
+const empty = { legalDetails: null, phoneVerified: false, ninUri: null, licenceUri: null, licenceType: 'image', selfieUri: null, selfieCheck: null, vehiclePhotos: [], vehicleInfo: null };
 const halfway = {
   ...empty,
   ninUri: 'file:///nin.jpg',
@@ -30,6 +30,7 @@ const halfway = {
   licenceType: 'pdf',
   legalDetails: { legalName: 'Ada Obi', licenceNumber: 'ABC12345DE67', licenceExpiresOn: '2030-01-01' },
   selfieUri: 'file:///selfie.jpg',
+  selfieCheck: 'passed',
   vehicleInfo: { make: 'Toyota', model: 'Corolla', plate: 'LAG123XY', year: 2015, phone: '08030000000' },
   vehiclePhotos: ['file:///car1.jpg', 'file:///car2.jpg'],
 };
@@ -49,6 +50,7 @@ test('a photo the phone has thrown away is asked for again; the rest stays', () 
   const gone = new Set(['file:///selfie.jpg', 'file:///car2.jpg']);
   const back = restoreDraft(draftFrom(halfway, 'driver-1', NOW), 'driver-1', NOW, (uri) => !gone.has(uri));
   assert.equal(back.selfieUri, null);
+  assert.equal(back.selfieCheck, null, 'how a photo was taken goes with the photo');
   assert.deepEqual(back.vehiclePhotos, ['file:///car1.jpg']);
   assert.equal(back.ninUri, 'file:///nin.jpg');
   assert.equal(back.legalDetails.legalName, 'Ada Obi');

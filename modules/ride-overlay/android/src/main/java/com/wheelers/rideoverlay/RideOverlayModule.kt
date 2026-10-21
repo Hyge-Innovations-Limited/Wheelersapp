@@ -25,7 +25,7 @@ class RideRequestCard : Record {
 
 /**
  * A ride request over other apps, for a driver who is online while another
- * app is in front. Android only; the driver allows "Display over other apps"
+ * app is in front, and the Wheelers bubble on the side of the screen. Android only; the driver allows "Display over other apps"
  * in Android's settings, and without it nothing is ever drawn.
  */
 class RideOverlayModule : Module() {
@@ -70,6 +70,23 @@ class RideOverlayModule : Module() {
 
     Function("takePendingAction") {
       RideOverlay.takePending()
+    }
+
+    // The Wheelers bubble on the side of the screen (RideBubble.kt).
+    Function("showBubble") { onTrip: Boolean ->
+      RideBubble.show(context, onTrip)
+    }
+
+    Function("hideBubble") {
+      RideBubble.hide()
+    }
+
+    Function("pulseBubble") {
+      RideBubble.pulse()
+    }
+
+    Function("resetBubble") {
+      RideBubble.reset()
     }
   }
 }

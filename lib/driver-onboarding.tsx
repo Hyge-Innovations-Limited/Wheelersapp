@@ -5,6 +5,7 @@ import { resubmitDriverKyc, submitDriverKyc } from "@/lib/api";
 import { getAccessTokenWithRetry, getStoredLocalAccessToken, type AccessTokenGetter } from "@/lib/access-token";
 import { DRAFT_KEY, draftFrom, draftHasProgress, restoreDraft } from "@/lib/driver-onboarding-draft";
 import { KYC_STEP_LABELS, stepsToWalk, type KycStep } from "@/lib/kyc-steps";
+import type { SelfieCheck } from "@/lib/face-check";
 
 export interface VehicleInfo {
   make: string;
@@ -29,6 +30,8 @@ export interface OnboardingData {
   licenceUri: string | null;
   licenceType: 'image' | 'pdf';
   selfieUri: string | null;
+  /** Whether the selfie was taken with the face check: passed, gone on without it, or not on this phone. */
+  selfieCheck: SelfieCheck | null;
   vehiclePhotos: string[];
   vehicleInfo: VehicleInfo | null;
   /** Fix mode: only these steps, sent back by the reviewer. Null: the whole application. */
@@ -41,7 +44,7 @@ interface DriverOnboardingContextValue {
   data: OnboardingData;
   setNinUri: (uri: string) => void;
   setLicenceUri: (uri: string, type?: 'image' | 'pdf') => void;
-  setSelfieUri: (uri: string) => void;
+  setSelfieUri: (uri: string, check?: SelfieCheck) => void;
   setVehiclePhotos: (uris: string[]) => void;
   addVehiclePhoto: (uri: string) => void;
   removeVehiclePhoto: (index: number) => void;
@@ -110,6 +113,7 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
     licenceUri: null,
     licenceType: 'image',
     selfieUri: null,
+    selfieCheck: null,
     vehiclePhotos: [],
     vehicleInfo: null,
     fixSteps: null,
@@ -161,8 +165,8 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
     setData((prev) => ({ ...prev, licenceUri: uri, licenceType: type }));
   }, []);
 
-  const setSelfieUri = useCallback((uri: string) => {
-    setData((prev) => ({ ...prev, selfieUri: uri }));
+  const setSelfieUri = useCallback((uri: string, check?: SelfieCheck) => {
+    setData((prev) => ({ ...prev, selfieUri: uri, selfieCheck: check ?? null }));
   }, []);
 
   const setVehiclePhotos = useCallback((uris: string[]) => {
@@ -237,13 +241,14 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
         : {};
 
       if (data.fixSteps) {
-        await resubmitDriverKyc({ accessToken, ninImage, licenceImage, selfieImage, vehicleImages, ...vehicle });
+        await resubmitDriverKyc({ accessToken, ninImage, licenceImage, selfieImage, ...(selfieImage && data.selfieCheck ? { selfieCheck: data.selfieCheck } : {}), vehicleImages, ...vehicle });
       } else {
         await submitDriverKyc({
           accessToken,
           ninImage: ninImage!,
           licenceImage: licenceImage!,
           selfieImage: selfieImage!,
+          ...(data.selfieCheck ? { selfieCheck: data.selfieCheck } : {}),
           vehicleImages: vehicleImages!,
           vehicleMake: data.vehicleInfo!.make,
           vehicleModel: data.vehicleInfo!.model,

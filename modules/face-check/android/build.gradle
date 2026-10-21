@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.wheelers'
+version = '1.0.0'
+
+android {
+  namespace "com.wheelers.facecheck"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // Google's on-device face detection, with its model inside the app: free, offline, ready on first use.
+  implementation 'com.google.mlkit:face-detection:16.1.7'
+}

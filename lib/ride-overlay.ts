@@ -33,6 +33,11 @@ type NativeOverlay = {
   show(card: RideRequestCard): boolean;
   hide(rideId: string | null): void;
   takePendingAction(): { action?: string; rideId?: string } | null;
+  /** The Wheelers bubble (builds made before it have none of these). */
+  showBubble?(onTrip: boolean): boolean;
+  hideBubble?(): void;
+  pulseBubble?(): void;
+  resetBubble?(): void;
   addListener(event: "onAction", listener: (event: { action?: string; rideId?: string }) => void): { remove(): void };
 };
 
@@ -136,6 +141,76 @@ export function onRideOverlayAction(listener: () => void): () => void {
   } catch {
     return () => undefined;
   }
+}
+
+/* ── the Wheelers bubble ────────────────────────────────────────────── */
+
+/**
+ * The Wheelers bubble (Android): a round Wheelers logo on the side of the
+ * screen while an online driver is in another app, one tap back to Wheelers.
+ * It can be dragged anywhere and slides back to the nearest side; dragged to
+ * the ✕ it hides until the driver next goes online (they stay online). It uses
+ * the same "Display over other apps" permission as the request card, and the
+ * driver can switch it off in Settings.
+ */
+const BUBBLE_KEY = "wheelers.driver.bubble.off";
+
+/** This build has the bubble (whether or not it is allowed yet). */
+export function rideBubbleSupported(): boolean {
+  return typeof overlay()?.showBubble === "function";
+}
+
+/** Shown, with the orange ring while a trip is on. Does nothing without the permission or after the ✕. */
+export function showRideBubble(onTrip: boolean): void {
+  try {
+    overlay()?.showBubble?.(onTrip);
+  } catch {
+    // No bubble on this phone.
+  }
+}
+
+export function hideRideBubble(): void {
+  try {
+    overlay()?.hideBubble?.();
+  } catch {
+    // Nothing showing.
+  }
+}
+
+/** A request came in while the driver is elsewhere. */
+export function pulseRideBubble(): void {
+  try {
+    overlay()?.pulseBubble?.();
+  } catch {
+    // Nothing showing.
+  }
+}
+
+/** A new online session: a bubble dragged to the ✕ may come back. */
+export function resetRideBubble(): void {
+  try {
+    overlay()?.resetBubble?.();
+  } catch {
+    // Nothing to reset.
+  }
+}
+
+export async function rideBubbleWanted(): Promise<boolean> {
+  return (await AsyncStorage.getItem(BUBBLE_KEY).catch(() => null)) !== "1";
+}
+
+/** The Settings row: on unless the driver switched it off (it still needs "Display over other apps"). */
+export function useRideBubbleSetting(): { supported: boolean; on: boolean; set: (on: boolean) => void } {
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    void rideBubbleWanted().then(setOn);
+  }, []);
+  const set = (next: boolean) => {
+    setOn(next);
+    void AsyncStorage.setItem(BUBBLE_KEY, next ? "0" : "1").catch(() => undefined);
+    if (!next) hideRideBubble();
+  };
+  return { supported: rideBubbleSupported(), on, set };
 }
 
 const ASKED_KEY = "wheelers.driver.overlay.asked";
