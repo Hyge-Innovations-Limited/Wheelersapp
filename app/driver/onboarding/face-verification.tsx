@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-
-import { Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppButton } from "@/components/app-button";
@@ -14,210 +12,204 @@ import { theme } from "@/theme";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
 import { useKycStep } from "@/lib/use-kyc-step";
 
-type Challenge = "center" | "blink" | "turn_left" | "turn_right";
-
-const CHALLENGES: { key: Challenge; instruction: string }[] = [
-  { key: "center", instruction: "Look straight at the camera" },
-  { key: "blink", instruction: "Blink slowly" },
-  { key: "turn_left", instruction: "Turn your head left" },
-  { key: "turn_right", instruction: "Turn your head right" },
+/** What makes a selfie usable, shown under the camera. */
+const TIPS: { icon: keyof typeof Ionicons.glyphMap; text: string }[] = [
+  { icon: "phone-portrait-outline", text: "Hold your phone at eye level" },
+  { icon: "scan-outline", text: "Your whole face inside the oval" },
+  { icon: "sunny-outline", text: "Good light, no cap or sunglasses" },
 ];
 
+/**
+ * The driver's selfie. The driver takes it themselves and looks at it before
+ * it is used: nothing is snapped on a timer. A photo used to be taken by
+ * itself after ten seconds of timed prompts ("Blink", "Turn your head"),
+ * whatever the camera was pointing at, and called "Verification complete":
+ * drivers sent the sky or a ceiling without ever seeing it.
+ *
+ * The front camera only, never the gallery. Coming back to this step shows
+ * the photo already taken, to keep or retake.
+ */
 export default function FaceVerificationScreen() {
   const responsive = useResponsive();
   const step = useKycStep("selfie");
-  const { setSelfieUri } = useDriverOnboarding();
+  const { data, setSelfieUri } = useDriverOnboarding();
   const [permission, requestPermission] = useCameraPermissions();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [captured, setCaptured] = useState(false);
-  // The prompts only run once the camera is really on, and "captured" means a
-  // photo exists: a camera that failed used to pass as done, and the driver
-  // only found out when sending failed at the very end.
+  // The photo being looked at: a fresh one, or the one already kept.
+  const [photoUri, setPhotoUri] = useState<string | null>(data.selfieUri);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraKey, setCameraKey] = useState(0);
-  const capturingRef = useRef(false);
+  const [taking, setTaking] = useState(false);
   const cameraRef = useRef<CameraView>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const challenge = CHALLENGES[currentStep];
 
   useEffect(() => {
-    if (!permission?.granted) {
-      requestPermission();
+    if (permission && !permission.granted && permission.canAskAgain) {
+      void requestPermission();
     }
-  }, [permission]);
+  }, [permission, requestPermission]);
 
-  useEffect(() => {
-    // Auto-advance through challenges every 2.5s (simulating liveness detection)
-    if (captured || cameraError || !cameraReady || !permission?.granted) return;
-
-    timerRef.current = setTimeout(() => {
-      if (currentStep < CHALLENGES.length - 1) {
-        setCurrentStep((s) => s + 1);
-      } else {
-        handleCapture();
-      }
-    }, 2500);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [currentStep, captured, cameraError, cameraReady, permission?.granted]);
-
-  async function handleCapture() {
-    if (capturingRef.current) return;
+  async function takePhoto() {
+    if (taking) return;
     if (!cameraRef.current || !cameraReady) {
       setCameraError("The camera isn't ready yet. Try again in a moment.");
       return;
     }
-
-    capturingRef.current = true;
+    setTaking(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
-      if (photo?.uri) {
-        setSelfieUri(photo.uri);
-        setCaptured(true);
-      } else {
-        setCameraError("The photo didn't save. Try again.");
-      }
+      if (photo?.uri) setPhotoUri(photo.uri);
+      else setCameraError("The photo didn't save. Try again.");
     } catch {
       setCameraError("Your camera couldn't take the photo. Try again.");
     } finally {
-      capturingRef.current = false;
+      setTaking(false);
     }
   }
 
-  /** Starts the check again with a fresh camera. */
-  function retry() {
-    if (timerRef.current) clearTimeout(timerRef.current);
+  /** Back to the camera, fresh. */
+  function retake() {
+    setPhotoUri(null);
     setCameraError(null);
-    setCaptured(false);
-    setCurrentStep(0);
     setCameraReady(false);
     setCameraKey((k) => k + 1);
+  }
+
+  /** Keep this photo and move on (or send, when it is the last step). */
+  function usePhoto() {
+    if (!photoUri) return;
+    setSelfieUri(photoUri);
+    void step.go({ selfieUri: photoUri });
   }
 
   if (!permission?.granted) {
     return (
       <AppScreen contentStyle={styles.container}>
-        <FlowHeader
-          title="Face Verification"
-          subtitle="Camera permission is required"
-          showBack
-          progress={step.progress}
-        />
+        <FlowHeader title="Face check" subtitle="Camera access is needed" showBack progress={step.progress} />
         <View style={styles.center}>
-          <AppText variant="body" color={theme.colors.muted}>
-            Please allow camera access to continue
+          <Ionicons name="camera-outline" size={40} color={theme.colors.muted} />
+          <AppText variant="body" color={theme.colors.muted} style={styles.centerText}>
+            {"We use your front camera for one photo of your face. It is only used to check it's you."}
           </AppText>
         </View>
-        <AppButton title="Allow Camera" onPress={requestPermission} />
+        <AppButton title="Allow camera" onPress={requestPermission} />
       </AppScreen>
     );
   }
 
-  // The preview takes whatever height is left after header, prompts and CTA,
-  // capped to a 3:4 frame — so it shrinks on an SE instead of pushing the
-  // Continue button off screen.
-  const cameraHeight = responsive.vh(46, 240, 460);
-  const guideHeight = Math.round(cameraHeight * 0.7);
+  // The frame takes whatever height is left after the header, tips and buttons,
+  // capped to 3:4, so it shrinks on a small phone instead of pushing the buttons off.
+  const frameHeight = responsive.vh(46, 240, 460);
+  const guideHeight = Math.round(frameHeight * 0.7);
+  const reviewing = photoUri !== null;
 
   return (
     <AppScreen scroll contentStyle={styles.container}>
       <FlowHeader
-        title="Face Verification"
-        subtitle={captured ? "Looking good!" : cameraError ? "Let's try that again" : "Follow the prompts below"}
+        title="Face check"
+        subtitle={reviewing ? "Check your photo before you use it" : cameraError ? "Let's try that again" : "Take a clear photo of your face"}
         showBack
         progress={step.progress}
       />
 
-      <View style={[styles.cameraSection, { gap: responsive.scale(16) }]}>
-        <View style={[styles.cameraWrap, { height: cameraHeight, maxWidth: Math.round(cameraHeight * 0.75) }]}>
-          <CameraView
-            key={cameraKey}
-            ref={cameraRef}
-            style={styles.camera}
-            facing="front"
-            mode="picture"
-            onCameraReady={() => setCameraReady(true)}
-            onMountError={() => setCameraError("Your camera didn't start. Close any other app using it, then try again.")}
-          />
-          <View style={styles.overlay}>
-            <View
-              style={[
-                styles.faceGuide,
-                {
-                  height: guideHeight,
-                  width: Math.round(guideHeight * 0.77),
-                  borderRadius: Math.round(guideHeight * 0.4),
-                },
-              ]}
-            />
-          </View>
+      <View style={[styles.section, { gap: responsive.scale(16) }]}>
+        <View style={[styles.frame, { height: frameHeight, maxWidth: Math.round(frameHeight * 0.75) }]}>
+          {reviewing ? (
+            // Shown mirrored, as the driver saw themselves in the camera; the photo itself is sent as taken.
+            <Image source={{ uri: photoUri }} style={[styles.fill, styles.mirrored]} resizeMode="cover" accessibilityLabel="Your photo" />
+          ) : (
+            <>
+              <CameraView
+                key={cameraKey}
+                ref={cameraRef}
+                style={styles.fill}
+                facing="front"
+                mode="picture"
+                onCameraReady={() => setCameraReady(true)}
+                onMountError={() => setCameraError("Your camera didn't start. Close any other app using it, then try again.")}
+              />
+              <View style={styles.overlay} pointerEvents="none">
+                <View
+                  style={[
+                    styles.faceGuide,
+                    { height: guideHeight, width: Math.round(guideHeight * 0.77), borderRadius: Math.round(guideHeight * 0.4) },
+                  ]}
+                />
+              </View>
+            </>
+          )}
         </View>
 
-        {cameraError && (
+        {cameraError && !reviewing ? (
           <View style={styles.errorWrap}>
             <Ionicons name="alert-circle" size={28} color={theme.colors.danger} />
-            <AppText variant="body" style={styles.instruction}>
+            <AppText variant="body" style={styles.centerText}>
               {cameraError}
             </AppText>
-            <AppButton title="Try again" variant="ghost" onPress={retry} />
+            <AppButton title="Try again" variant="ghost" onPress={retake} />
           </View>
-        )}
+        ) : null}
 
-        {!captured && !cameraError && challenge && (
-          cameraReady ? (
-          <View style={styles.instructionWrap}>
-            <AppText variant="h3" style={styles.instruction}>
-              {challenge.instruction}
+        {reviewing ? (
+          <View style={styles.tips}>
+            <AppText variant="h3" style={styles.centerText}>
+              Is your face clear?
             </AppText>
-            <AppText variant="bodySmall" color={theme.colors.muted}>
-              Step {currentStep + 1} of {CHALLENGES.length}
+            <AppText variant="bodySmall" color={theme.colors.muted} style={styles.centerText}>
+              Your whole face, not blurry or dark. If not, take it again.
             </AppText>
           </View>
+        ) : !cameraError ? (
+          <View style={styles.tips}>
+            {TIPS.map((tip) => (
+              <View key={tip.text} style={styles.tipRow}>
+                <Ionicons name={tip.icon} size={18} color={theme.colors.muted} />
+                <AppText variant="bodySmall" color={theme.colors.muted}>
+                  {tip.text}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {!reviewing && !cameraError ? (
+          cameraReady ? (
+            <View style={styles.shutterWrap}>
+              <Pressable
+                onPress={() => void takePhoto()}
+                disabled={taking}
+                accessibilityRole="button"
+                accessibilityLabel="Take photo"
+                style={({ pressed }) => [styles.shutter, (pressed || taking) && styles.shutterPressed]}>
+                <OnLight>
+                  <View style={styles.shutterInner}>
+                    <Ionicons name="camera" size={28} color={theme.colors.white} />
+                  </View>
+                </OnLight>
+              </Pressable>
+              <AppText variant="bodySmall" color={theme.colors.muted}>
+                {taking ? "Taking photo…" : "Tap to take the photo"}
+              </AppText>
+            </View>
           ) : (
             <AppText variant="bodySmall" color={theme.colors.muted}>
               Starting your camera…
             </AppText>
           )
-        )}
-
-        {!captured && !cameraError && cameraReady && (
-          <Pressable
-            onPress={handleCapture}
-            style={({ pressed }) => [
-              styles.captureButton,
-              pressed && styles.capturePressed,
-            ]}
-          >
-            <OnLight>
-            <View style={styles.captureInner}>
-              <Ionicons name="camera" size={28} color={theme.colors.white} />
-            </View>
-            </OnLight>
-          </Pressable>
-        )}
-
-        {captured && (
-          <View style={styles.successWrap}>
-            <Ionicons name="checkmark-circle" size={32} color={theme.colors.green} />
-            <AppText variant="h3" color={theme.colors.green}>
-              Verification complete
-            </AppText>
-          </View>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.spacer} />
 
-      <AppButton
-        title={step.buttonTitle}
-        onPress={() => void step.go()}
-        disabled={!captured}
-        loading={step.submitting}
-      />
+      {reviewing ? (
+        <View style={styles.actions}>
+          <AppButton
+            title={step.isLast ? (step.fixing ? "Use photo and send" : "Use photo and submit") : "Use this photo"}
+            onPress={usePhoto}
+            loading={step.submitting}
+          />
+          <AppButton title="Retake" variant="ghost" onPress={retake} disabled={step.submitting} />
+        </View>
+      ) : null}
     </AppScreen>
   );
 }
@@ -230,13 +222,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
   },
-  cameraSection: {
+  centerText: {
+    textAlign: "center",
+  },
+  section: {
     alignItems: "center",
     justifyContent: "center",
     marginTop: theme.spacing.lg,
   },
-  cameraWrap: {
+  frame: {
     width: "90%",
     alignSelf: "center",
     borderRadius: theme.radius.lg,
@@ -245,8 +242,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...theme.shadows.card,
   },
-  camera: {
+  fill: {
     flex: 1,
+  },
+  mirrored: {
+    transform: [{ scaleX: -1 }],
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -258,14 +258,21 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.orange,
     borderStyle: "dashed",
   },
-  instructionWrap: {
+  tips: {
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  tipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  shutterWrap: {
     alignItems: "center",
     gap: theme.spacing.xs,
   },
-  instruction: {
-    textAlign: "center",
-  },
-  captureButton: {
+  shutter: {
     width: 72,
     height: 72,
     borderRadius: 36,
@@ -276,12 +283,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...theme.shadows.card,
   },
-  capturePressed: {
+  shutterPressed: {
     transform: [{ scale: 0.92 }],
     shadowOpacity: 0,
     elevation: 0,
   },
-  captureInner: {
+  shutterInner: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -294,8 +301,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.lg,
   },
-  successWrap: {
-    alignItems: "center",
+  actions: {
     gap: theme.spacing.sm,
   },
   spacer: {
