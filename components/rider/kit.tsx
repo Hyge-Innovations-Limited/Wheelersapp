@@ -1,9 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -340,17 +343,17 @@ export function RAvatar({
 const BID_STEPS = ["Your price", "Drivers reply", "You choose", "Ride"] as const;
 
 /** Where the rider is in the four steps of getting a ride. */
-export function RStepBar({ active }: { active: 1 | 2 | 3 | 4 }) {
+export function RStepBar({ active, working = false }: { active: 1 | 2 | 3 | 4; working?: boolean }) {
   return (
     <View
-      accessibilityLabel={`Step ${active} of 4: ${BID_STEPS[active - 1]}`}
+      accessibilityLabel={`Step ${active} of 4: ${BID_STEPS[active - 1]}${working ? ", in progress" : ""}`}
       accessibilityRole="progressbar"
       style={styles.steps}>
       {BID_STEPS.map((label, index) => {
         const step = index + 1;
         return (
           <View key={label} style={styles.step}>
-            <View style={[styles.stepBar, step <= active ? styles.stepBarOn : null]} />
+            {working && step === active ? <WorkingStepBar /> : <View style={[styles.stepBar, step <= active ? styles.stepBarOn : null]} />}
             <Text
               maxFontSizeMultiplier={1.1}
               numberOfLines={1}
@@ -360,6 +363,47 @@ export function RStepBar({ active }: { active: 1 | 2 | 3 | 4 }) {
           </View>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * The step the app is busy on (drivers being found): a light that keeps
+ * sweeping along the orange bar, so it plainly reads "working on it", not
+ * done. Still for anyone who turned motion down on their phone.
+ */
+function WorkingStepBar() {
+  const sweep = useRef(new Animated.Value(0)).current;
+  const [width, setWidth] = useState(0);
+  const [still, setStill] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduce) => { if (!cancelled) setStill(reduce); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (still || width === 0) return;
+    sweep.setValue(0);
+    const loop = Animated.loop(
+      Animated.timing(sweep, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [still, sweep, width]);
+
+  const band = Math.max(24, width * 0.45);
+  return (
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={[styles.stepBar, styles.stepBarWorking]}>
+      {still || width === 0 ? null : (
+        <Animated.View
+          style={[
+            styles.stepBarSweep,
+            { width: band, transform: [{ translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [-band, width] }) }] },
+          ]}
+        />
+      )}
     </View>
   );
 }
@@ -502,6 +546,8 @@ const styles = StyleSheet.create({
   step: { flex: 1, gap: 5 },
   stepBar: { height: 5, borderRadius: 3, backgroundColor: colors.line },
   stepBarOn: { backgroundColor: colors.orange },
+  stepBarWorking: { backgroundColor: colors.orange, overflow: "hidden" },
+  stepBarSweep: { position: "absolute", top: 0, bottom: 0, left: 0, borderRadius: 3, backgroundColor: "rgba(255, 255, 255, 0.55)" },
   stepText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.muted },
   stepTextOn: { fontFamily: fonts.heavy, color: colors.ink },
 

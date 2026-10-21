@@ -785,7 +785,8 @@ export default function MatchingScreen() {
         contentContainerStyle={styles.sheetBody}
         showsVerticalScrollIndicator={false}
         style={styles.sheet}>
-        <RStepBar active={2} />
+        {/* Drivers are being found: the step keeps moving while it is. */}
+        <RStepBar active={2} working={!requestFailed} />
 
         <View style={styles.titleBlock}>
           <RText variant="title">Finding drivers</RText>
