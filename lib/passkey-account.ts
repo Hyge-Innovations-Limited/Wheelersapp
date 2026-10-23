@@ -6,7 +6,7 @@ import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getCurrentProfile, listPasskeys, passkeyRegistrationOptions, savePasskey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
-import { makePasskey, PASSKEY_OFFERED_KEY, PasskeyCancelled, passkeysAvailable, rememberPasskeyHere, thisDeviceName } from "@/lib/passkeys";
+import { forgetPasskeyHere, makePasskey, PASSKEY_OFFERED_KEY, PasskeyCancelled, passkeysAvailable, rememberPasskeyHere, thisDeviceName } from "@/lib/passkeys";
 import { firstNameOf } from "@/lib/rider-sign-in";
 
 const OFFERED_KEY = PASSKEY_OFFERED_KEY;
@@ -19,6 +19,39 @@ export async function addPasskeyForThisPhone(accessToken: string): Promise<void>
   // Next sign-in on this phone offers the passkey first, greeting them by name.
   const profile = await getCurrentProfile({ accessToken }).catch(() => null);
   await rememberPasskeyHere(profile?.user.name ? firstNameOf(profile.user.name) : null);
+}
+
+/** Checked once a run, while signed in. */
+let checkedHereThisRun = false;
+
+/**
+ * While signed in: does this account have a passkey that could be this
+ * phone's? Then signing in next time offers only the passkey (rider-phone).
+ * Passkeys made before the phone remembered them are picked up this way, with
+ * nothing for the rider to do. None left: forgotten. Passkeys are named only
+ * "iPhone" or "Android phone", so another phone of the same kind can be taken
+ * for this one; that passkey then fails once and the phone number takes over.
+ */
+export function useRememberPasskeyHere(): void {
+  const { getAccessToken, isReady, user } = useAuth();
+
+  useEffect(() => {
+    if (checkedHereThisRun || !isReady || !user || !passkeysAvailable()) return;
+    checkedHereThisRun = true;
+    void (async () => {
+      const accessToken = await getAccessTokenWithRetry(getAccessToken).catch(() => null);
+      if (!accessToken) return;
+      const mine = await listPasskeys({ accessToken }).catch(() => null);
+      if (!mine) return;
+      const here = mine.passkeys.some((p) => (p.deviceName ?? thisDeviceName()) === thisDeviceName());
+      if (!here) {
+        await forgetPasskeyHere();
+        return;
+      }
+      const profile = await getCurrentProfile({ accessToken }).catch(() => null);
+      await rememberPasskeyHere(profile?.user.name ? firstNameOf(profile.user.name) : null);
+    })();
+  }, [getAccessToken, isReady, user]);
 }
 
 /** Asked once of each signed-in account on this phone. */
