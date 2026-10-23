@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.PixelFormat
@@ -198,6 +199,18 @@ object RideBubble {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("right", toRight).putInt("y", endY).apply()
   }
 
+  /** Back to its side and on screen, after the screen turned. */
+  private fun keepOnScreen(context: Context) {
+    val view = bubble ?: return
+    val layout = params ?: return
+    val size = dp(context, SIZE_DP)
+    val screen = context.resources.displayMetrics
+    val onRight = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("right", true)
+    layout.x = if (onRight) screen.widthPixels - size - dp(context, EDGE_DP) else dp(context, EDGE_DP)
+    layout.y = layout.y.coerceIn(dp(context, 40), (screen.heightPixels - size - dp(context, 80)).coerceAtLeast(dp(context, 40)))
+    update(context.getSystemService(Context.WINDOW_SERVICE) as WindowManager, view, layout)
+  }
+
   private fun update(windows: WindowManager, view: View, layout: WindowManager.LayoutParams) {
     try {
       windows.updateViewLayout(view, layout)
@@ -218,6 +231,8 @@ object RideBubble {
   }
 
   private fun removeNow() {
+    // Hidden mid-drag (offline, or Wheelers came to the front): the ✕ goes too.
+    target?.let { hideTarget(it.context) }
     val view = bubble ?: return
     bubble = null
     ring = null
@@ -286,7 +301,13 @@ object RideBubble {
   }
 
   private fun build(context: Context, size: Int): FrameLayout {
-    val box = FrameLayout(context).apply {
+    val box = object : FrameLayout(context) {
+      // The screen turned: the side it was on may now be past the edge.
+      override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        post { keepOnScreen(context) }
+      }
+    }.apply {
       contentDescription = "Open Wheelers"
       elevation = dp(context, 6).toFloat()
     }
