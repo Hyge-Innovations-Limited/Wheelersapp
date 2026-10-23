@@ -1,6 +1,6 @@
 import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -48,6 +48,8 @@ export default function RiderPhoneScreen() {
   /** A passkey set up on this phone (undefined while it is being looked up), and whether they chose the phone number instead. */
   const [here, setHere] = useState<PasskeyHere | null | undefined>(passkeyReady ? undefined : null);
   const [usePhone, setUsePhone] = useState(false);
+  /** The phone's passkey prompt closed without a passkey, in a row. */
+  const cancelsRef = useRef(0);
 
   useEffect(() => {
     if (!passkeyReady) return;
@@ -80,29 +82,44 @@ export default function RiderPhoneScreen() {
     if (withPasskey || sending) return;
     setWithPasskey(true);
     setError(null);
+    let result: Awaited<ReturnType<typeof signInWithPasskey>>;
+    let step: "options" | "phone" | "verify" = "options";
     try {
       const { challengeId, options } = await passkeySignInOptions();
+      step = "phone";
       const response = await signWithPasskey(options);
-      const result = await signInWithPasskey({ challengeId, response });
-      // Next time on this phone, the passkey comes first again, with their name.
-      await rememberPasskeyHere(firstNameOf(result.user.name ?? ""));
-      await finishRiderSignIn(result, router, refreshAuthState);
+      step = "verify";
+      result = await signInWithPasskey({ challengeId, response });
     } catch (failure) {
-      // Closing the phone's own prompt is a choice, not a failure.
-      if (failure instanceof PasskeyCancelled) return;
-      // No connection: the passkey is fine, try again. Anything else (removed, not on this
-      // phone, refused): forgotten here, and the phone number takes its place.
-      const offline = failure instanceof ApiError && failure.status === 0;
-      if (!offline) {
+      setWithPasskey(false);
+      if (failure instanceof PasskeyCancelled) {
+        // Closing the phone's own prompt is a choice, not a failure. Twice in a row
+        // usually means this phone has no passkey to give: the phone number then.
+        cancelsRef.current += 1;
+        if (cancelsRef.current >= 2) setUsePhone(true);
+        return;
+      }
+      // Only our server refusing the passkey means it is gone (removed, or another
+      // account's). No connection, a busy server, a restart: kept, try again.
+      const refused = step === "verify" && failure instanceof ApiError && failure.status >= 400 && failure.status < 500 && failure.status !== 408 && failure.status !== 429;
+      if (refused) {
         await forgetPasskeyHere();
         setHere(null);
         setUsePhone(true);
+        setError("That passkey did not work. Sign in with your phone number instead.");
+      } else {
+        setError(toUserMessage(failure, "Could not sign in with the passkey. Check your network and try again."));
       }
-      setError(
-        offline
-          ? toUserMessage(failure, "No connection. Check your network and try again.")
-          : "That passkey did not work. Sign in with your phone number instead.",
-      );
+      return;
+    }
+    // Signed in: what follows is not the passkey's doing, so it never forgets it.
+    try {
+      cancelsRef.current = 0;
+      // Next time on this phone, the passkey comes first again, with their name.
+      await rememberPasskeyHere(firstNameOf(result.user.name ?? ""), result.user.id);
+      await finishRiderSignIn(result, router, refreshAuthState);
+    } catch (failure) {
+      setError(toUserMessage(failure, "Could not finish signing in. Try again."));
     } finally {
       setWithPasskey(false);
     }

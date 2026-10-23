@@ -45,23 +45,29 @@ export const PASSKEY_OFFERED_KEY = "wheelers.passkey.offered";
  */
 const PASSKEY_HERE_KEY = "wheelers.passkey.here";
 
-export type PasskeyHere = { name: string | null; savedAt: number };
+/** `userId`: whose passkey it is (absent on markers saved before it was kept). */
+export type PasskeyHere = { name: string | null; userId?: string | null; savedAt: number };
 
 export async function passkeyHere(): Promise<PasskeyHere | null> {
   const raw = await SecureStore.getItemAsync(PASSKEY_HERE_KEY).catch(() => null);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<PasskeyHere>;
-    return { name: typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : null, savedAt: Number(parsed.savedAt) || 0 };
+    return {
+      name: typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : null,
+      userId: typeof parsed.userId === "string" ? parsed.userId : null,
+      savedAt: Number(parsed.savedAt) || 0,
+    };
   } catch {
     return null;
   }
 }
 
-/** A name of null keeps the one already remembered. */
-export async function rememberPasskeyHere(name: string | null): Promise<void> {
+/** A name of null keeps the one already remembered, only when it is the same account's: never another person's name. */
+export async function rememberPasskeyHere(name: string | null, userId: string | null): Promise<void> {
   const before = await passkeyHere();
-  const value: PasskeyHere = { name: name?.trim() || before?.name || null, savedAt: Date.now() };
+  const sameAccount = Boolean(before && (!before.userId || !userId || before.userId === userId));
+  const value: PasskeyHere = { name: name?.trim() || (sameAccount ? before?.name : null) || null, userId: userId ?? before?.userId ?? null, savedAt: Date.now() };
   await SecureStore.setItemAsync(PASSKEY_HERE_KEY, JSON.stringify(value)).catch(() => undefined);
 }
 

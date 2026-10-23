@@ -83,3 +83,9 @@ test('a face whose eyes cannot be read skips the eye prompts instead of getting 
   const out = run([frame([face({ eyes: null })]), frame([face({ eyes: null })])]);
   assert.equal(out.state.prompt, 'turn_one');
 });
+
+test('eyes that read low when open (glasses, narrow eyes) still pass: judged against the driver\'s own open eyes', () => {
+  const low = (eyes) => frame([face({ eyes })]);
+  const out = run([low(0.45), low(0.45), low(0.1), low(0.42), low(0.42)]);
+  assert.equal(out.state.prompt, 'turn_one');
+});

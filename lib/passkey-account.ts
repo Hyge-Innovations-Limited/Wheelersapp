@@ -18,11 +18,11 @@ export async function addPasskeyForThisPhone(accessToken: string): Promise<void>
   await savePasskey({ accessToken, response, deviceName: thisDeviceName() });
   // Next sign-in on this phone offers the passkey first, greeting them by name.
   const profile = await getCurrentProfile({ accessToken }).catch(() => null);
-  await rememberPasskeyHere(profile?.user.name ? firstNameOf(profile.user.name) : null);
+  await rememberPasskeyHere(profile?.user.name ? firstNameOf(profile.user.name) : null, profile?.user.id ?? null);
 }
 
-/** Checked once a run, while signed in. */
-let checkedHereThisRun = false;
+/** The sign-in checked this run: signing out and in again (maybe another account) is checked again. */
+let checkedHereFor: object | null = null;
 
 /**
  * While signed in: does this account have a passkey that could be this
@@ -36,8 +36,8 @@ export function useRememberPasskeyHere(): void {
   const { getAccessToken, isReady, user } = useAuth();
 
   useEffect(() => {
-    if (checkedHereThisRun || !isReady || !user || !passkeysAvailable()) return;
-    checkedHereThisRun = true;
+    if (!isReady || !user || checkedHereFor === user || !passkeysAvailable()) return;
+    checkedHereFor = user;
     void (async () => {
       const accessToken = await getAccessTokenWithRetry(getAccessToken).catch(() => null);
       if (!accessToken) return;
@@ -49,7 +49,7 @@ export function useRememberPasskeyHere(): void {
         return;
       }
       const profile = await getCurrentProfile({ accessToken }).catch(() => null);
-      await rememberPasskeyHere(profile?.user.name ? firstNameOf(profile.user.name) : null);
+      await rememberPasskeyHere(profile?.user.name ? firstNameOf(profile.user.name) : null, profile?.user.id ?? null);
     })();
   }, [getAccessToken, isReady, user]);
 }

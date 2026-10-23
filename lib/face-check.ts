@@ -110,8 +110,10 @@ function shut(eyes: number, open: number, kind: FaceFrame["eyesKind"]): boolean 
   return kind === "probability" ? eyes < Math.min(0.35, open * 0.5) : eyes < open * 0.6;
 }
 
+// Judged against this driver's own open eyes: glasses or narrow eyes read low
+// (0.3 to 0.6) and must still pass. Never above 0.6, never below the shut line.
 function opened(eyes: number, open: number, kind: FaceFrame["eyesKind"]): boolean {
-  return kind === "probability" ? eyes > Math.max(0.6, open * 0.75) : eyes > open * 0.8;
+  return kind === "probability" ? eyes > Math.min(0.6, open * 0.8) : eyes > open * 0.8;
 }
 
 /**

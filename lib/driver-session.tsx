@@ -984,7 +984,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         hideRideBubble();
         return;
       }
-      if ((await rideBubbleWanted()) && live) showRideBubble(bubbleTrip);
+      // Asked again after the wait: the driver may have come back to Wheelers meanwhile.
+      if ((await rideBubbleWanted()) && live && AppState.currentState !== 'active') showRideBubble(bubbleTrip);
     };
     void place(AppState.currentState);
     const subscription = AppState.addEventListener('change', (next: AppStateStatus) => void place(next));

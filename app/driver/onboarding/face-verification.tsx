@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { AppState, Image, Pressable, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -27,6 +27,8 @@ const STUCK_MS = 20_000;
 const MISSES_BEFORE_SKIP = 3;
 /** Frame reads that fail in a row before the check is given up on this phone. */
 const ERRORS_BEFORE_GIVING_UP = 4;
+/** The camera giving no frames for this long (it restarts when the size is set, or after the app was away): the check is given up. */
+const CAMERA_FAILING_MS = 8_000;
 
 const STUCK_HINTS: Record<string, string> = {
   straight: "Hold the phone at eye level, face in the oval, in good light",
@@ -34,6 +36,7 @@ const STUCK_HINTS: Record<string, string> = {
   open_eyes: "Open your eyes and look at the screen",
   turn_one: "Turn your head slowly, as if looking over your shoulder",
   turn_other: "Now turn the other way, past the middle",
+  ready: "Look straight at the camera with your eyes open",
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -84,6 +87,13 @@ export default function FaceVerificationScreen() {
   const frameRef = useRef<Promise<unknown> | null>(null);
 
   const reviewing = photoUri !== null;
+  /** The app is in front: frames and the stuck timer stop while the driver is elsewhere. */
+  const [active, setActive] = useState(AppState.currentState === "active");
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => setActive(state === "active"));
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
@@ -93,24 +103,30 @@ export default function FaceVerificationScreen() {
 
   // A few frames a second while the camera is open: each one moves the prompts on, or says what is off.
   useEffect(() => {
-    if (!checking || !checker || reviewing || !cameraReady || cameraError) return;
+    // Not before the picture size is set: setting it restarts the camera, and frames taken meanwhile fail.
+    if (!checking || !checker || reviewing || !cameraReady || cameraError || !active || pictureSize === undefined) return;
     let alive = true;
+    /** The check itself failing on frames it was given; the camera failing to give one is only given up on after a while. */
     let errors = 0;
+    let failingSince: number | null = null;
     void (async () => {
       while (alive) {
         if (pausedRef.current || !cameraRef.current) {
           await sleep(150);
           continue;
         }
+        let gotFrame = false;
         const read = (async () => {
           const picture = await cameraRef.current!.takePictureAsync({ quality: 0.3, skipProcessing: true, shutterSound: false });
           if (!picture?.uri) throw new Error("no frame");
+          gotFrame = true;
           return checker.detect(picture.uri, true);
         })();
         frameRef.current = read;
         try {
           const frame = await read;
           errors = 0;
+          failingSince = null;
           if (!alive) break;
           const before = checkRef.current.prompt;
           const out = readFrame(checkRef.current, frame);
@@ -123,8 +139,9 @@ export default function FaceVerificationScreen() {
             void Haptics.selectionAsync().catch(() => undefined);
           }
         } catch {
-          errors += 1;
-          if (errors >= ERRORS_BEFORE_GIVING_UP && alive) {
+          if (gotFrame) errors += 1;
+          failingSince ??= Date.now();
+          if (alive && (errors >= ERRORS_BEFORE_GIVING_UP || Date.now() - failingSince > CAMERA_FAILING_MS)) {
             // This phone cannot run it: the photo is taken by hand, marked as without the check.
             setWithout("unavailable");
             setChecking(false);
@@ -139,17 +156,17 @@ export default function FaceVerificationScreen() {
     return () => {
       alive = false;
     };
-  }, [checking, checker, reviewing, cameraReady, cameraError]);
+  }, [checking, checker, reviewing, cameraReady, cameraError, active, pictureSize]);
 
   // A prompt not done for a while: a clearer hint, and a miss.
   useEffect(() => {
-    if (!checking || reviewing || !cameraReady || check.prompt === "ready") return;
+    if (!checking || reviewing || !cameraReady || !active) return;
     const timer = setTimeout(() => {
       setMisses((n) => n + 1);
       setStuckHint(STUCK_HINTS[check.prompt] ?? null);
     }, STUCK_MS);
     return () => clearTimeout(timer);
-  }, [checking, reviewing, cameraReady, check.prompt, misses]);
+  }, [checking, reviewing, cameraReady, active, check.prompt, misses]);
 
   async function takePhoto() {
     if (taking) return;
@@ -160,7 +177,8 @@ export default function FaceVerificationScreen() {
     setTaking(true);
     // The frame being read finishes first: the camera takes one picture at a time.
     pausedRef.current = true;
-    await frameRef.current?.catch(() => undefined);
+    // Never waits for good on a frame the camera does not finish.
+    await Promise.race([frameRef.current?.catch(() => undefined), sleep(2000)]);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
       if (photo?.uri) {
@@ -372,7 +390,7 @@ export default function FaceVerificationScreen() {
             <AppText variant="bodySmall" color={theme.colors.muted}>
               {taking ? "Taking photo…" : shutterOn ? "Tap to take the photo" : "Finish the steps first"}
             </AppText>
-            {checking && misses >= MISSES_BEFORE_SKIP && check.prompt !== "ready" ? (
+            {checking && misses >= MISSES_BEFORE_SKIP ? (
               <AppButton title="Continue without the face check" variant="ghost" onPress={goOnWithout} />
             ) : null}
           </View>
