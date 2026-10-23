@@ -35,7 +35,6 @@ import {
   PriceCardNote,
 } from "@/components/rider/price-card";
 import { PulseCircle } from "@/components/static-map";
-import { clock, secondsUntil } from "@/lib/countdown";
 import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
@@ -119,7 +118,6 @@ export default function MatchingScreen() {
   const { overview: wallet } = useWalletOverview();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   /** The price being set in the change-price view; null while that view is closed. */
   const [draftNgn, setDraftNgn] = useState<number | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -142,7 +140,6 @@ export default function MatchingScreen() {
   const suggestedNgn = currentRide?.suggestedFareNgn;
   const minOfferNgn = currentRide?.minOfferNgn ?? 100;
   const timedOut = currentRide?.bidTimeout === true;
-  const isSearching = status === "requesting" || status === "bidding" || status === "matching";
   const confirming = status === "matching" && Boolean(currentRide?.driver);
   const requestFailed = requestSettled && !currentRide && pendingSearch === null;
   const destination = itinerary.stops[itinerary.stops.length - 1];
@@ -255,24 +252,8 @@ export default function MatchingScreen() {
     }
   }, [status, router, serializedItinerary, currentRide?.rideId, navigation, goHome]);
 
-  /* ── how long the search stays open ────────────────────────────────── */
-
-  const closesAtMs = useMemo(() => {
-    const parsed = currentRide?.bidsCloseAt ? Date.parse(currentRide.bidsCloseAt) : NaN;
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [currentRide?.bidsCloseAt]);
-
-  useEffect(() => {
-    if (!isSearching || timedOut || closesAtMs === null) return;
-    setNowMs(Date.now());
-    const timer = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [isSearching, timedOut, closesAtMs]);
-
-  const timeLeftLine =
-    closesAtMs !== null && isSearching && !timedOut
-      ? `Search stays open for ${clock(secondsUntil(closesAtMs, nowMs))}`
-      : null;
+  // No "Search stays open for 4:32": a ticking clock makes riders anxious and
+  // pushes them to give up early. The search ends by itself, and they are told then.
 
   /* ── a new offer deserves to be felt, not just seen ────────────────── */
 
@@ -698,9 +679,9 @@ export default function MatchingScreen() {
               </>
             ) : null}
           </RText>
-          {suggestedLine || timeLeftLine ? (
+          {suggestedLine ? (
             <RText variant="caption" style={styles.tabular}>
-              {[suggestedLine, timeLeftLine].filter(Boolean).join(" · ")}
+              {suggestedLine}
             </RText>
           ) : null}
         </View>
@@ -811,18 +792,11 @@ export default function MatchingScreen() {
               </RText>
             ) : null}
           </View>
-          {suggestedLine || timeLeftLine ? (
+          {suggestedLine ? (
             <View style={styles.offerMeta}>
-              {suggestedLine ? (
-                <RText variant="caption" color={colors.onInkMuted} style={styles.tabular}>
-                  {suggestedLine}
-                </RText>
-              ) : null}
-              {timeLeftLine ? (
-                <RText variant="caption" color={colors.onInkMuted} style={styles.tabular}>
-                  {timeLeftLine}
-                </RText>
-              ) : null}
+              <RText variant="caption" color={colors.onInkMuted} style={styles.tabular}>
+                {suggestedLine}
+              </RText>
             </View>
           ) : null}
         </RCard>
