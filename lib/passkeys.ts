@@ -35,6 +35,40 @@ function module(): Passkeys | null {
 /** Set once this phone has offered the signed-in account a passkey (lib/passkey-account.ts). */
 export const PASSKEY_OFFERED_KEY = "wheelers.passkey.offered";
 
+/**
+ * "A passkey is set up on this phone", with the first name it signs in as:
+ * then the sign-in screen offers the passkey first, not the phone number. Set
+ * when a passkey is made here or signs in here; kept through signing out (that
+ * is when it is wanted); dropped when it stops working or is removed here.
+ * The server cannot say which phone holds a passkey (they are all "iPhone" or
+ * "Android phone"), so this phone remembers.
+ */
+const PASSKEY_HERE_KEY = "wheelers.passkey.here";
+
+export type PasskeyHere = { name: string | null; savedAt: number };
+
+export async function passkeyHere(): Promise<PasskeyHere | null> {
+  const raw = await SecureStore.getItemAsync(PASSKEY_HERE_KEY).catch(() => null);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<PasskeyHere>;
+    return { name: typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : null, savedAt: Number(parsed.savedAt) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+/** A name of null keeps the one already remembered. */
+export async function rememberPasskeyHere(name: string | null): Promise<void> {
+  const before = await passkeyHere();
+  const value: PasskeyHere = { name: name?.trim() || before?.name || null, savedAt: Date.now() };
+  await SecureStore.setItemAsync(PASSKEY_HERE_KEY, JSON.stringify(value)).catch(() => undefined);
+}
+
+export async function forgetPasskeyHere(): Promise<void> {
+  await SecureStore.deleteItemAsync(PASSKEY_HERE_KEY).catch(() => undefined);
+}
+
 /** On sign-out, so the next account on this phone is offered one too. */
 export async function forgetPasskeyOffer(): Promise<void> {
   await SecureStore.deleteItemAsync(PASSKEY_OFFERED_KEY).catch(() => undefined);

@@ -6,7 +6,8 @@ import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getCurrentProfile, listPasskeys, passkeyRegistrationOptions, savePasskey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
-import { makePasskey, PASSKEY_OFFERED_KEY, PasskeyCancelled, passkeysAvailable, thisDeviceName } from "@/lib/passkeys";
+import { makePasskey, PASSKEY_OFFERED_KEY, PasskeyCancelled, passkeysAvailable, rememberPasskeyHere, thisDeviceName } from "@/lib/passkeys";
+import { firstNameOf } from "@/lib/rider-sign-in";
 
 const OFFERED_KEY = PASSKEY_OFFERED_KEY;
 
@@ -15,6 +16,9 @@ export async function addPasskeyForThisPhone(accessToken: string): Promise<void>
   const options = await passkeyRegistrationOptions({ accessToken });
   const response = await makePasskey(options);
   await savePasskey({ accessToken, response, deviceName: thisDeviceName() });
+  // Next sign-in on this phone offers the passkey first, greeting them by name.
+  const profile = await getCurrentProfile({ accessToken }).catch(() => null);
+  await rememberPasskeyHere(profile?.user.name ? firstNameOf(profile.user.name) : null);
 }
 
 /** Asked once of each signed-in account on this phone. */

@@ -7,7 +7,7 @@ import { listPasskeys, removePasskey, type PasskeySummary } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
 import { addPasskeyForThisPhone } from "@/lib/passkey-account";
-import { PasskeyCancelled, passkeysAvailable } from "@/lib/passkeys";
+import { forgetPasskeyHere, PasskeyCancelled, passkeysAvailable, thisDeviceName } from "@/lib/passkeys";
 
 const { colors, fonts } = rider;
 
@@ -73,6 +73,9 @@ export function RiderPasskeys() {
               const accessToken = await getAccessTokenWithRetry(getAccessToken);
               if (!accessToken) throw new Error("Please sign in again.");
               await removePasskey({ accessToken, id: passkey.id });
+              // None left that could be this phone's: sign-in asks for the phone number again.
+              const left = await listPasskeys({ accessToken }).catch(() => null);
+              if (left && !left.passkeys.some((p) => (p.deviceName ?? thisDeviceName()) === thisDeviceName())) await forgetPasskeyHere();
               await load();
             } catch (failure) {
               setError(toUserMessage(failure, "That passkey could not be removed. Try again."));

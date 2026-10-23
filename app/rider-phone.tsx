@@ -1,6 +1,6 @@
 import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,17 +15,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { DriveScene } from "@/components/rider/drive-scene";
-import { RBack, RButton, RText, rider } from "@/components/rider/kit";
-import { passkeySignInOptions, sendPhoneLoginCode, signInWithPasskey } from "@/lib/api";
+import { RBack, RButton, RLink, RText, rider } from "@/components/rider/kit";
+import { ApiError, passkeySignInOptions, sendPhoneLoginCode, signInWithPasskey } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
 import { finishRiderSignIn } from "@/lib/finish-rider-sign-in";
-import { PasskeyCancelled, passkeysAvailable, signWithPasskey } from "@/lib/passkeys";
-import { groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
+import { forgetPasskeyHere, PasskeyCancelled, passkeyHere, passkeysAvailable, rememberPasskeyHere, signWithPasskey, type PasskeyHere } from "@/lib/passkeys";
+import { firstNameOf, groupNationalDigits, riderPhoneFrom, signInErrorMessage } from "@/lib/rider-sign-in";
 import { rememberPendingCode } from "@/lib/rider-sign-in-state";
 
-/** A rider's way in: their phone number, then a code. The terms are answered after the code, once per account. */
+/**
+ * A rider's way in: their phone number, then a code. The terms are answered
+ * after the code, once per account.
+ *
+ * On a phone where a passkey is set up (lib/passkeys.ts, passkeyHere) the
+ * passkey comes first: "Welcome back, Timi", one button, no phone box and no
+ * keyboard, with the phone number one tap away. A passkey that no longer
+ * works is forgotten and the phone number takes its place.
+ */
 export default function RiderPhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -37,6 +45,22 @@ export default function RiderPhoneScreen() {
   const [withPasskey, setWithPasskey] = useState(false);
   /** Only where it works: this build has passkeys and the phone supports them. */
   const [passkeyReady] = useState(() => passkeysAvailable());
+  /** A passkey set up on this phone (undefined while it is being looked up), and whether they chose the phone number instead. */
+  const [here, setHere] = useState<PasskeyHere | null | undefined>(passkeyReady ? undefined : null);
+  const [usePhone, setUsePhone] = useState(false);
+
+  useEffect(() => {
+    if (!passkeyReady) return;
+    let live = true;
+    void passkeyHere().then((found) => {
+      if (live) setHere(found);
+    });
+    return () => {
+      live = false;
+    };
+  }, [passkeyReady]);
+
+  const passkeyFirst = passkeyReady && Boolean(here) && !usePhone;
 
   if (isDriverApp) {
     return <Redirect href={publicEntryRoute} />;
@@ -60,12 +84,25 @@ export default function RiderPhoneScreen() {
       const { challengeId, options } = await passkeySignInOptions();
       const response = await signWithPasskey(options);
       const result = await signInWithPasskey({ challengeId, response });
+      // Next time on this phone, the passkey comes first again, with their name.
+      await rememberPasskeyHere(firstNameOf(result.user.name ?? ""));
       await finishRiderSignIn(result, router, refreshAuthState);
     } catch (failure) {
       // Closing the phone's own prompt is a choice, not a failure.
-      if (!(failure instanceof PasskeyCancelled)) {
-        setError(toUserMessage(failure, "We could not sign you in with a passkey. Use your phone number."));
+      if (failure instanceof PasskeyCancelled) return;
+      // No connection: the passkey is fine, try again. Anything else (removed, not on this
+      // phone, refused): forgotten here, and the phone number takes its place.
+      const offline = failure instanceof ApiError && failure.status === 0;
+      if (!offline) {
+        await forgetPasskeyHere();
+        setHere(null);
+        setUsePhone(true);
       }
+      setError(
+        offline
+          ? toUserMessage(failure, "No connection. Check your network and try again.")
+          : "That passkey did not work. Sign in with your phone number instead.",
+      );
     } finally {
       setWithPasskey(false);
     }
@@ -105,6 +142,42 @@ export default function RiderPhoneScreen() {
           <DriveScene dash={rider.colors.cream} ground="#1B1B1B" height={190} skyline="#262626" />
         </View>
 
+        {here === undefined ? (
+          // A moment while this phone is checked for a passkey: nothing, rather than a keyboard that then goes away.
+          <View style={styles.form} />
+        ) : passkeyFirst ? (
+          <View style={[styles.form, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
+            <View style={styles.words}>
+              <RText variant="display">{here?.name ? `Welcome back, ${here.name}` : "Welcome back"}</RText>
+              <RText color={rider.colors.muted}>Sign in with Face ID or your fingerprint. No code to wait for.</RText>
+            </View>
+
+            {error ? (
+              <Text accessibilityLiveRegion="polite" style={styles.error}>
+                {error}
+              </Text>
+            ) : null}
+
+            <View style={styles.spacer} />
+
+            <RButton
+              accessibilityHint="Signs you in with Face ID or a fingerprint"
+              loading={withPasskey}
+              onPress={() => void passkeySignIn()}
+              title="Sign in with a passkey"
+              variant="dark"
+            />
+            <RLink
+              disabled={withPasskey}
+              onPress={() => {
+                setUsePhone(true);
+                setError(null);
+              }}
+              style={styles.otherWay}
+              title="Use my phone number instead"
+            />
+          </View>
+        ) : (
         <View style={[styles.form, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
           <View style={styles.words}>
             <RText variant="display">Enter your phone number</RText>
@@ -174,6 +247,7 @@ export default function RiderPhoneScreen() {
             />
           ) : null}
         </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -181,6 +255,7 @@ export default function RiderPhoneScreen() {
 
 const styles = StyleSheet.create({
   passkey: { marginTop: 12 },
+  otherWay: { alignSelf: "center", marginTop: 8 },
   screen: { flex: 1, backgroundColor: rider.colors.cream },
   scroll: { flexGrow: 1 },
   scene: { backgroundColor: rider.colors.ink, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: "hidden" },
