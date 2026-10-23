@@ -20,18 +20,6 @@ export function stepPriceUp(price: number): number {
   return price + (PRICE_STEP_NGN - (price % PRICE_STEP_NGN));
 }
 
-/** "₦200 above the suggested price", "Same as your offer". Null when there is nothing to compare with. */
-export function comparePrice(
-  price: number,
-  reference: number | null | undefined,
-  referenceName: string,
-): string | null {
-  if (typeof reference !== "number" || !Number.isFinite(reference) || reference <= 0) return null;
-  const gap = Math.round(price - reference);
-  if (gap === 0) return `Same as ${referenceName}`;
-  return `${naira(Math.abs(gap))} ${gap > 0 ? "above" : "below"} ${referenceName}`;
-}
-
 /**
  * The dark card where the rider sets a price: the figure between a minus and
  * a plus, with a line above it and whatever the screen adds below.

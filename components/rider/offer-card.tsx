@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { RAvatar } from "@/components/rider/kit";
-import { comparePrice } from "@/components/rider/price-card";
 import { naira, rider } from "@/constants/rider-theme";
 import type { RideOffer } from "@/lib/ride-offers";
 
@@ -36,10 +35,12 @@ export function OfferCard({
     offer.vehicleModel || null,
     minutes !== null ? `${minutes} min away` : null,
   ].filter(Boolean);
+  // Only a driver who took the rider's own price is called out. No "₦800 above your offer":
+  // a gap in naira makes every offer read as a loss.
   const comparison =
     typeof riderOfferNgn === "number" && Math.round(offer.counterOfferNgn) === Math.round(riderOfferNgn)
       ? "Accepted your price"
-      : comparePrice(offer.counterOfferNgn, riderOfferNgn, "your offer");
+      : null;
   const price = naira(offer.counterOfferNgn);
   const quiet = featured ? colors.onInkMuted : colors.muted;
   const strong = featured ? colors.cream : colors.ink;

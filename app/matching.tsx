@@ -33,7 +33,6 @@ import {
   PriceCard,
   PriceCardChip,
   PriceCardNote,
-  comparePrice,
 } from "@/components/rider/price-card";
 import { PulseCircle } from "@/components/static-map";
 import { clock, secondsUntil } from "@/lib/countdown";
@@ -406,7 +405,6 @@ export default function MatchingScreen() {
     const highest = prices.length > 0 ? Math.max(...prices) : null;
     const within = prices.filter((price) => price <= draftNgn).length;
     const restarting = timedOut || !currentRide;
-    const comparison = comparePrice(draftNgn, suggestedNgn, "the suggested price");
 
     return (
       <RScreen contentStyle={styles.page}>
@@ -451,11 +449,7 @@ export default function MatchingScreen() {
                 title="Reset"
               />
             </View>
-            {comparison && suggestedLine ? (
-              <PriceCardNote strong>
-                {suggestedLine}. {comparison}.
-              </PriceCardNote>
-            ) : null}
+            {suggestedLine ? <PriceCardNote strong>{suggestedLine}</PriceCardNote> : null}
             {currentRide?.minOfferNgn !== undefined ? (
               <PriceCardNote>
                 {draftNgn <= minOfferNgn

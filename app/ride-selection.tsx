@@ -15,7 +15,7 @@ import {
   naira,
   rider,
 } from "@/components/rider/kit";
-import { PriceCard, PriceCardNote, PriceShimmer, comparePrice } from "@/components/rider/price-card";
+import { PriceCard, PriceCardNote, PriceShimmer } from "@/components/rider/price-card";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import {
   getRideEstimate,
@@ -450,7 +450,6 @@ export default function RideSelectionScreen() {
   const balanceNgn = typeof wallet?.balanceNgn === "number" ? wallet.balanceNgn : null;
   const shortNgn =
     balanceNgn !== null && !scheduledAt ? Math.ceil(effectiveOfferNgn - balanceNgn) : 0;
-  const comparison = comparePrice(effectiveOfferNgn, suggestedNgn, "the suggested price");
 
   return (
     <RScreen contentStyle={styles.screen}>
@@ -587,7 +586,6 @@ export default function RideSelectionScreen() {
               onChange={setOfferNgn}
               sideLabel="Suggested price"
               sideValue={naira(suggestedNgn)}>
-              {comparison && !isPriceLoading ? <PriceCardNote strong>{comparison}</PriceCardNote> : null}
               <PriceCardNote>
                 {isPriceLoading
                   ? "Getting the price for this route."
