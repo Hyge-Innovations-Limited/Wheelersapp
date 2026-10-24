@@ -103,7 +103,7 @@ export default function ReferralScreen() {
     () =>
       referralCode
         ? shareLink
-          ? `Ride with Wheelers and name your own price. Tap to start with my referral code ${referralCode}: ${shareLink}`
+          ? `Ride with Wheelers and name your own price. Get the app and use my code ${referralCode} when you sign up: ${shareLink}`
           : `Use my Wheelers referral code ${referralCode} after onboarding and book your rides on Wheelers.`
         : "Join me on Wheelers.",
     [referralCode, shareLink],
@@ -240,8 +240,8 @@ export default function ReferralScreen() {
             </OnLight>
           </View>
           <AppText variant="bodySmall" color={theme.colors.muted} style={styles.qrHint}>
-            Let a driver or rider scan this with their phone camera. It opens a chat with
-            Wheelers with your code already filled in.
+            Let a driver or rider scan this with their phone camera. It opens the Wheelers
+            app in their store; they enter your code when they sign up.
           </AppText>
           <AppText variant="bodySmall" numberOfLines={2} selectable style={styles.qrLink}>
             {shareLink}

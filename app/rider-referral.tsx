@@ -89,7 +89,7 @@ export default function RiderReferralScreen() {
   async function share() {
     if (!code) return;
     const message = link
-      ? `Ride with Wheelers and name your own price. Start with my code ${code}: ${link}`
+      ? `Ride with Wheelers and name your own price. Get the app and use my code ${code} when you sign up: ${link}`
       : `Ride with Wheelers and name your own price. Use my referral code ${code}.`;
     await Share.share({ message }).catch(() => undefined);
   }
@@ -273,7 +273,7 @@ export default function RiderReferralScreen() {
             <QRCodeStyled color={colors.ink} data={link} padding={12} pieceSize={5} style={styles.qr} />
           </View>
           <RText color={colors.muted} style={styles.center} variant="small">
-            A friend scans this with their camera to start with your code.
+            A friend scans this with their camera to get the app, then enters your code when they sign up.
           </RText>
           <RLink
             color={colors.orangeText}
@@ -337,8 +337,8 @@ export default function RiderReferralScreen() {
 
       <View style={styles.rules}>
         <RText variant="label">HOW IT WORKS</RText>
-        <Rule text="Share your link or QR code. It opens WhatsApp with your code typed for your friend to send." />
-        <Rule text="Friends on the app can type your code when they sign up." />
+        <Rule text="Share your link or QR code. It takes your friend to the Wheelers app in their phone's store." />
+        <Rule text="They enter your code when they sign up." />
         <Rule text="Everyone who joins with your code shows here, and whether they have taken a ride." />
       </View>
     </RScreen>

@@ -100,7 +100,7 @@ export interface ReferralSummaryResponse {
   qualifiedReferrals: number;
   expiredNoRideReferrals: number;
   closedReferrals: number;
-  /** Opens a chat with Wheelers with the code already typed: what the QR code holds. Absent on older servers. */
+  /** app.wheelersng.com/r/CODE: to the app in the friend's store (or the chat on a laptop). What the QR code holds. Absent on older servers. */
   shareLink?: string | null;
   shareMessage?: string | null;
   /** Someone else's code is already on this account (one per person). Absent on older servers. */
