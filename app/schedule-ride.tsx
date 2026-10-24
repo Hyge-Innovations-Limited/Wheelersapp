@@ -103,7 +103,8 @@ export default function ScheduleRideScreen() {
     }
     const scheduledAt = pickup.toISOString();
     if (itineraryParam) {
-      router.replace({
+      // Back to the price screen this came from, with the time: not a second price screen on top of it.
+      router.dismissTo({
         pathname: "/ride-selection",
         params: {
           itinerary: itineraryParam,

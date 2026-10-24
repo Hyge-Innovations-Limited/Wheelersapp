@@ -144,6 +144,12 @@ export default function DestinationSearchScreen() {
     scheduledAt?: string | string[];
     /** Which address was tapped to get here: "pickup", "destination", or a stop's number (0 first). */
     edit?: string | string[];
+    /**
+     * Set each time the price screen sends the rider back here to change the
+     * trip (it comes back to this same screen, never a new one on top), so
+     * tapping the same address twice still opens it.
+     */
+    editAt?: string | string[];
   }>();
   const initialItinerary = useMemo(
     () => parseRideItineraryParam(params.itinerary),
@@ -419,8 +425,19 @@ export default function DestinationSearchScreen() {
 
   // Booking opens with the cursor in To (or in whichever field still needs
   // filling); changing a trip in progress opens showing the whole route.
+  // Coming back from the price screen (editAt) does the same, with the trip
+  // that screen was showing: this screen is returned to, not opened again,
+  // so Back always goes price → search → home.
+  const editAt = firstParam(params.editAt);
+  const openedRef = useRef(false);
   useEffect(() => {
     if (flowMode !== "booking") return;
+    if (openedRef.current) {
+      // Keep the pickup found from the phone when the trip carried none.
+      applyRoute({ pickup: seededItinerary.pickup || pickupValue, stops: seededItinerary.stops });
+      setIsSubmittingRoute(false);
+    }
+    openedRef.current = true;
     const missing = findFirstIncompleteTarget(seededItinerary);
     // An address tapped on the price screen opens on that address, ready to type over.
     const wanted = Array.isArray(params.edit) ? params.edit[0] : params.edit;
@@ -434,9 +451,9 @@ export default function DestinationSearchScreen() {
             ? Number(wanted)
             : null;
     moveTo(tapped ?? missing ?? last, 320);
-    // Once, when the screen opens.
+    // When the screen opens, and each time the price screen sends the rider back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [editAt]);
 
   /* ── the estimate, fetched ahead ────────────────────────────────────── */
 
@@ -526,7 +543,8 @@ export default function DestinationSearchScreen() {
       setIsSubmittingRoute(true);
       try {
         await updateRideRoute(itinerary);
-        router.replace({
+        // Back to the trip screen this came from, with the new route: not a second trip screen on top.
+        router.dismissTo({
           pathname: "/rider/active-trip",
           params: { itinerary: serializeRideItinerary(itinerary) },
         });

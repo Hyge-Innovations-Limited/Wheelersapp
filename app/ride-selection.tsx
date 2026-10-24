@@ -170,6 +170,11 @@ export default function RideSelectionScreen() {
     () => parseScheduledAtParam(params.scheduledAt),
     [params.scheduledAt],
   );
+  // This screen is returned to with a new time or trip (from Schedule, or after
+  // changing the trip): a new booking, never a retry of the one before.
+  useEffect(() => {
+    scheduledRideIdempotencyKeyRef.current = null;
+  }, [params.scheduledAt, serializedItinerary]);
   const { overview: wallet } = useWalletOverview();
 
   // Sync initial estimate only once on mount / when params change.
@@ -358,13 +363,18 @@ export default function RideSelectionScreen() {
    * link names none and opens on the destination.
    */
   const handleEditRoute = (edit?: string) => {
-    router.push({
+    // Back to the search screen this one came from, not a new one on top:
+    // Back then goes price → search → home, however often the trip changes.
+    // From a price opened elsewhere (rebooking from history), the search takes
+    // this screen's place.
+    router.dismissTo({
       pathname: "/destination-search",
       // Editing the route of a ride for later keeps it a ride for later.
       params: {
         itinerary: serializedItinerary,
         ...(scheduledAt ? { scheduledAt } : {}),
         ...(edit ? { edit } : {}),
+        editAt: String(Date.now()),
       },
     });
   };
