@@ -857,6 +857,23 @@ export async function getReferralSummary(input: {
   });
 }
 
+/** Someone who joined with your code: their first name, when, and whether they have ridden. */
+export interface ReferralFriend {
+  id: string;
+  referredUser: string;
+  status: "PENDING" | "QUALIFIED_RIDE" | "EXPIRED_NO_RIDE" | "CLOSED" | string;
+  appliedAt: string;
+  firstRideId: string | null;
+}
+
+/** The people who joined with your code, newest first (the last 30). */
+export async function listReferralFriends(input: { accessToken: string }): Promise<{ items: ReferralFriend[] }> {
+  return getJson<{ items: ReferralFriend[] }>("/referrals/me/referrals", {
+    accessToken: input.accessToken,
+    fallbackError: "Could not load the people you invited.",
+  });
+}
+
 /** Choose your own referral code in place of the one you were given. */
 export async function setReferralCode(input: {
   accessToken: string;

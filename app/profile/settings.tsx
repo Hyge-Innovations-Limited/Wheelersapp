@@ -382,9 +382,9 @@ function ReferralSettingsCard({ onPress }: { onPress: () => void }) {
         </OnLight>
       </View>
       <View style={styles.referralCopy}>
-        <AppText variant="bodyMedium">Referral rewards</AppText>
+        <AppText variant="bodyMedium">Invite friends</AppText>
         <AppText variant="bodySmall" color={theme.colors.muted}>
-          Share your code and track ride cashback.
+          Share your code and see who joined.
         </AppText>
       </View>
       <View style={styles.referralAction}>

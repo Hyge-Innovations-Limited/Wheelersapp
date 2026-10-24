@@ -20,6 +20,7 @@ import {
   type ReferralSummaryResponse,
 } from "@/lib/api";
 import { REFERRAL_CODE_MIN, tidyReferralCode } from "@/lib/referral-entry";
+import { friendHasRidden, joinedCount, joinedOn, useReferralFriends } from "@/lib/referral-friends";
 import QRCodeStyled from "react-native-qrcode-styled";
 
 import { theme } from "@/theme";
@@ -37,6 +38,7 @@ export default function ReferralScreen() {
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const friends = useReferralFriends();
 
   // Loaded on open, and again whenever the page is pulled down.
   const [refreshing, setRefreshing] = useState(false);
@@ -66,7 +68,7 @@ export default function ReferralScreen() {
 
   async function pullToRefresh() {
     setRefreshing(true);
-    await loadSummary();
+    await Promise.all([loadSummary(), friends.refresh()]);
     setRefreshing(false);
   }
 
@@ -156,9 +158,9 @@ export default function ReferralScreen() {
       <View style={styles.headerRow}>
         <BackArrow />
         <View style={styles.headerCopy}>
-          <AppText variant="screenTitle">Referral rewards</AppText>
+          <AppText variant="screenTitle">Invite friends</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted}>
-            Share your code with drivers and riders.
+            Share your code with drivers and riders, and see who joined.
           </AppText>
         </View>
       </View>
@@ -264,26 +266,47 @@ export default function ReferralScreen() {
 
       <View style={styles.statsGrid}>
         <StatCard
-          icon="account-balance-wallet"
-          label="Available"
-          value={formatNgn(summary?.availableCashbackNgn)}
-        />
-        <StatCard
-          icon="ac-unit"
-          label="Frozen"
-          value={formatNgn(summary?.frozenCashbackNgn)}
+          icon="group-add"
+          label="Joined"
+          value={String(joinedCount(summary))}
         />
         <StatCard
           icon="directions-car"
-          label="Ride referrals"
+          label="Have ridden"
           value={String(summary?.qualifiedReferrals ?? 0)}
         />
-        <StatCard
-          icon="hourglass-empty"
-          label="Pending"
-          value={String(summary?.pendingReferrals ?? 0)}
-        />
       </View>
+      {/* Cashback given before referrals stopped paying stays to spend: shown only while there is some. */}
+      {summary && summary.availableCashbackNgn > 0 ? (
+        <AppText variant="bodySmall" color={theme.colors.muted}>
+          You have {formatNgn(summary.availableCashbackNgn)} ride cashback from earlier referrals to use.
+        </AppText>
+      ) : null}
+
+      {friends.data && friends.data.items.length > 0 ? (
+        <AppCard style={styles.friends}>
+          <AppText variant="monoSmall" color={theme.colors.orange}>
+            PEOPLE YOU INVITED
+          </AppText>
+          {friends.data.items.map((friend) => (
+            <View key={friend.id} style={styles.friendRow}>
+              <OnLight>
+              <MaterialIcons
+                color={friendHasRidden(friend) ? theme.colors.green : theme.colors.muted}
+                name={friendHasRidden(friend) ? "check-circle" : "schedule"}
+                size={20}
+              />
+              </OnLight>
+              <AppText variant="bodyMedium" numberOfLines={1} style={styles.friendName}>
+                {friend.referredUser}
+              </AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>
+                {friendHasRidden(friend) ? "Has ridden" : "Yet to ride"} · {joinedOn(friend)}
+              </AppText>
+            </View>
+          ))}
+        </AppCard>
+      ) : null}
 
 
       <View style={styles.actions}>
@@ -332,6 +355,9 @@ function StatCard({
 
 const styles = StyleSheet.create({
   codeForm: { gap: theme.spacing.md },
+  friends: { gap: theme.spacing.sm },
+  friendRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
+  friendName: { flex: 1 },
   qrCard: { alignItems: "center", gap: theme.spacing.md },
   qrFrame: {
     borderRadius: theme.radii.md,

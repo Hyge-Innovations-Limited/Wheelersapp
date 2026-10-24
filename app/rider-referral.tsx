@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { useCachedQuery } from "@/lib/cached-query";
 import { toUserMessage } from "@/lib/error-messages";
 import { referralRefusal, tidyReferralCode } from "@/lib/referral-entry";
+import { friendHasRidden, joinedCount, joinedOn, useReferralFriends } from "@/lib/referral-friends";
 
 const { colors, fonts } = rider;
 const tidyCode = tidyReferralCode;
@@ -25,8 +26,9 @@ const tidyCode = tidyReferralCode;
 /**
  * Invite friends: a box to add a code someone gave them (first, until one is
  * on the account: it is what most people open this screen for); the code the
- * rider creates for themselves, then its link and QR code to share; and what
- * their referrals have earned. Nobody is handed a code. Creating one asks
+ * rider creates for themselves, then its link and QR code to share; and the
+ * people who joined with it. Nobody is paid for it, and nobody is handed a
+ * code. Creating one asks
  * first, because it is theirs for good: a friend's code typed into the
  * wrong box would otherwise become their own.
  */
@@ -38,6 +40,7 @@ export default function RiderReferralScreen() {
     staleMs: 60_000,
     enabled: isBackendConfigured(),
   });
+  const friends = useReferralFriends();
 
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
@@ -69,7 +72,7 @@ export default function RiderReferralScreen() {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await refresh();
+      await Promise.all([refresh(), friends.refresh()]);
     } finally {
       setRefreshing(false);
     }
@@ -203,7 +206,7 @@ export default function RiderReferralScreen() {
             Create your own code
           </RText>
           <RText color={colors.onInkMuted} variant="small">
-            For inviting friends: your name, your nickname, anything they will remember. You earn when they ride.
+            For inviting friends: your name, your nickname, anything they will remember.
           </RText>
         </RCard>
       ) : (
@@ -292,13 +295,36 @@ export default function RiderReferralScreen() {
       ) : null}
 
       <View style={styles.stats}>
-        <Stat label="Cashback to use" value={summary ? naira(summary.availableCashbackNgn) : "…"} tone="ink" />
-        <Stat label="Frozen" value={summary ? naira(summary.frozenCashbackNgn) : "…"} />
-      </View>
-      <View style={styles.stats}>
+        <Stat label="Friends joined" value={summary ? String(joinedCount(summary)) : "…"} tone="ink" />
         <Stat label="Friends who rode" value={summary ? String(summary.qualifiedReferrals) : "…"} />
-        <Stat label="Yet to ride" value={summary ? String(summary.pendingReferrals) : "…"} />
       </View>
+      {/* Cashback given before referrals stopped paying stays to spend: shown only while there is some. */}
+      {summary && summary.availableCashbackNgn > 0 ? (
+        <RText color={colors.muted} variant="small">
+          You have {naira(summary.availableCashbackNgn)} ride cashback from earlier referrals to use.
+        </RText>
+      ) : null}
+
+      {friends.data && friends.data.items.length > 0 ? (
+        <RCard style={styles.block}>
+          <RText variant="label">PEOPLE YOU INVITED</RText>
+          {friends.data.items.map((friend) => (
+            <View key={friend.id} style={styles.friend}>
+              <Ionicons
+                color={friendHasRidden(friend) ? colors.green : colors.muted}
+                name={friendHasRidden(friend) ? "checkmark-circle" : "time-outline"}
+                size={20}
+              />
+              <RText numberOfLines={1} style={styles.flex} variant="bodyBold">
+                {friend.referredUser}
+              </RText>
+              <RText color={colors.muted} variant="small">
+                {friendHasRidden(friend) ? "Has ridden" : "Yet to ride"} · {joinedOn(friend)}
+              </RText>
+            </View>
+          ))}
+        </RCard>
+      ) : null}
 
       {error && !summary ? (
         <View style={styles.errorBox}>
@@ -311,9 +337,9 @@ export default function RiderReferralScreen() {
 
       <View style={styles.rules}>
         <RText variant="label">HOW IT WORKS</RText>
-        <Rule text="A friend who rides within 30 days of using your code earns you ₦1,000 ride cashback." />
-        <Rule text="If they have not ridden after 30 days, you earn ₦500." />
-        <Rule text="Cashback is for rides only. Unused cashback freezes after 30 days; one new referral unfreezes it." />
+        <Rule text="Share your link or QR code. It opens WhatsApp with your code typed for your friend to send." />
+        <Rule text="Friends on the app can type your code when they sign up." />
+        <Rule text="Everyone who joins with your code shows here, and whether they have taken a ride." />
       </View>
     </RScreen>
   );
@@ -369,6 +395,7 @@ const styles = StyleSheet.create({
 
   block: { gap: 12 },
   doneRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  friend: { flexDirection: "row", alignItems: "center", gap: 10 },
 
   qrCard: { alignItems: "center", gap: 10 },
   qrFrame: { borderRadius: 16, borderWidth: 2, borderColor: colors.ink, backgroundColor: "#FFFFFF", overflow: "hidden" },
