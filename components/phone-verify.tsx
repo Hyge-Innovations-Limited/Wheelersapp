@@ -14,7 +14,7 @@ import { theme } from "@/theme";
 
 /**
  * A driver proves their phone number is theirs. They type it, a 6-digit code
- * goes to it by SMS, and they type the code back.
+ * goes to it (by SMS and on WhatsApp at once), and they type the code back.
  *
  * What the driver can see at every moment: where the code went, how long it
  * lasts (30 minutes), when they may ask for another (a minute apart, counted
@@ -39,7 +39,6 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const [sentBy, setSentBy] = useState<"sms" | "whatsapp">("sms");
   const [codesLeft, setCodesLeft] = useState<number | null>(null);
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +112,7 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
     setBusy("send"); setError(null);
     try {
       const sent = await sendDriverPhoneCode({ accessToken: await token(), phone });
-      setSentTo(sent.sentTo); setSentBy(sent.by); setCodesLeft(sent.codesLeft);
+      setSentTo(sent.sentTo); setCodesLeft(sent.codesLeft);
       setResendAt(Date.now() + sent.resendInSeconds * 1000);
       setCode(""); setStage("code");
       setTimeout(() => codeRef.current?.focus(), 250);
@@ -181,7 +180,7 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
         {lockNote}
         <AppInput
           label="Phone number"
-          hint="We will send a 6-digit code to this number by SMS"
+          hint="We will send a 6-digit code to this number"
           placeholder="e.g. 0803 123 4567"
           value={phone}
           onChangeText={(text) => { setPhone(text); setError(null); }}
@@ -209,9 +208,9 @@ export function PhoneVerify({ onVerified, doneTitle, onDone, doneLoading }: Prop
       {lockNote}
       <View style={styles.note}>
         <OnLight>
-        <Ionicons name={sentBy === "whatsapp" ? "logo-whatsapp" : "chatbubble-ellipses-outline"} size={22} color={theme.colors.orange} />
+        <Ionicons name="chatbubble-ellipses-outline" size={22} color={theme.colors.orange} />
         <AppText variant="bodySmall" style={styles.flex}>
-          We sent a 6-digit code {sentBy === "whatsapp" ? "on WhatsApp" : "by SMS"} to {sentTo ?? "your number"}. It lasts 30 minutes.
+          We sent a 6-digit code to {sentTo ?? "your number"}. It lasts 30 minutes.
         </AppText>
         </OnLight>
       </View>

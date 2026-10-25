@@ -80,7 +80,7 @@ export function usePasskeyOffer(skip: boolean): void {
       await SecureStore.setItemAsync(OFFERED_KEY, "1").catch(() => undefined);
       Alert.alert(
         "Sign in faster next time",
-        "Use Face ID or your fingerprint to sign in, instead of waiting for a text message. You can turn it off any time in Security.",
+        "Use Face ID or your fingerprint to sign in, instead of waiting for a code. You can turn it off any time in Security.",
         [
           { text: "Not now", style: "cancel" },
           {

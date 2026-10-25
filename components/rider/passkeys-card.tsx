@@ -60,7 +60,7 @@ export function RiderPasskeys() {
   }
 
   function remove(passkey: PasskeySummary) {
-    Alert.alert("Remove this passkey?", `${passkey.deviceName ?? "This phone"} will sign in with a text message code again.`, [
+    Alert.alert("Remove this passkey?", `${passkey.deviceName ?? "This phone"} will sign in with a code again.`, [
       { text: "Keep it", style: "cancel" },
       {
         text: "Remove",
@@ -91,7 +91,7 @@ export function RiderPasskeys() {
     <RCard style={styles.block}>
       <RText variant="heading">Passkeys</RText>
       <RText color={colors.muted} variant="small">
-        Sign in with Face ID or your fingerprint instead of waiting for a text message.
+        Sign in with Face ID or your fingerprint instead of waiting for a code.
       </RText>
       {passkeys?.map((passkey) => (
         <View key={passkey.id} style={styles.row}>

@@ -198,7 +198,7 @@ export default function RiderPhoneScreen() {
         <View style={[styles.form, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
           <View style={styles.words}>
             <RText variant="display">Enter your phone number</RText>
-            <RText color={rider.colors.muted}>We will text you a 6-digit code.</RText>
+            <RText color={rider.colors.muted}>We will send a 6-digit code to your number.</RText>
           </View>
 
           <View style={styles.phoneRow}>
@@ -253,7 +253,7 @@ export default function RiderPhoneScreen() {
           />
           {passkeyReady ? (
             <RButton
-              accessibilityHint="Signs you in with Face ID or a fingerprint instead of a text message"
+              accessibilityHint="Signs you in with Face ID or a fingerprint instead of a code"
               disabled={sending}
               loading={withPasskey}
               onPress={() => void passkeySignIn()}

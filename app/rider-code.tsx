@@ -18,7 +18,7 @@ import {
 } from "@/lib/rider-sign-in";
 
 /**
- * Type the 6-digit code, which always comes by SMS. A known number goes to
+ * Type the 6-digit code, sent by SMS and on WhatsApp at once. A known number goes to
  * "welcome back"; a new one to a short sign-up. An account that has not agreed
  * to the terms (here or on WhatsApp) reads and answers them first.
  */
@@ -100,7 +100,7 @@ export default function RiderCodeScreen() {
       <View style={styles.words}>
         <RText variant="display">Enter the 6-digit code</RText>
         <RText color={rider.colors.muted}>
-          Sent by SMS to{" "}
+          We sent a code to{" "}
           <Text style={styles.phone}>{spacedPhone(phone)}</Text>
         </RText>
       </View>
