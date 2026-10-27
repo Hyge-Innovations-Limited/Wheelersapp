@@ -30,7 +30,6 @@ import {
 } from "@/components/rider/kit";
 import { OfferCard } from "@/components/rider/offer-card";
 import { PaySheet } from "@/components/rider/pay-sheet";
-import { AutoAcceptRow } from "@/components/rider/auto-accept-row";
 import {
   PriceCard,
   PriceCardChip,
@@ -41,7 +40,7 @@ import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { driversSawLine, searchClock, shouldNudgeRaise } from "@/lib/ride-search-status";
-import { paySheetStep, shouldSendAfterTopUp, walletShortNgn } from "@/lib/ride-pay";
+import { paySheetStep, shouldSendAfterTopUp, walletCovers } from "@/lib/ride-pay";
 import { useWalletOverview } from "@/lib/wallet-overview";
 import { useGoHome } from "@/hooks/use-go-home";
 
@@ -118,8 +117,6 @@ export default function MatchingScreen() {
     updateOffer,
     dismissOffer,
     clearRide,
-    setAutoAccept,
-    autoAcceptBusy,
   } = useRideSession();
   const { overview: wallet, refresh: refreshWallet } = useWalletOverview();
 
@@ -469,36 +466,6 @@ export default function MatchingScreen() {
     />
   );
 
-  /* ── auto-accept ───────────────────────────────────────────────────── */
-
-  const handleAutoAccept = useCallback(
-    async (on: boolean) => {
-      void Haptics.selectionAsync();
-      try {
-        await setAutoAccept(on);
-      } catch (switchError) {
-        Alert.alert(
-          "Could not change auto-accept",
-          switchError instanceof Error ? switchError.message : "Please try again.",
-        );
-      }
-    },
-    [setAutoAccept],
-  );
-
-  const autoAcceptRow =
-    currentRide?.autoAcceptSupported === true && status === "bidding" && !timedOut ? (
-      <AutoAcceptRow
-        busy={autoAcceptBusy}
-        on={currentRide.autoAccept === true}
-        onAddMoney={(shortNgn) =>
-          router.push({ pathname: "/rider-add-money", params: { depositAmount: String(shortNgn) } })
-        }
-        onChange={(on) => void handleAutoAccept(on)}
-        shortNgn={walletShortNgn(balanceNgn, riderOfferNgn)}
-      />
-    ) : null;
-
   const errorBanner = error ? (
     <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.errorBanner}>
       <Ionicons color={colors.danger} name="alert-circle" size={20} />
@@ -829,7 +796,6 @@ export default function MatchingScreen() {
         </View>
 
         {errorBanner}
-        {autoAcceptRow}
 
         <ScrollView
           contentContainerStyle={styles.offerList}
@@ -877,6 +843,11 @@ export default function MatchingScreen() {
   const mapHeight = Math.round(Math.min(330, windowHeight * 0.39));
   const canReprice = status === "bidding";
   const sawLine = status === "bidding" ? driversSawLine(currentRide?.driversNotified) : null;
+  // Auto-accept is automatic on the server whenever the wallet covers the price.
+  const autoBookLine =
+    status === "bidding" && !requestFailed && riderOfferNgn !== undefined && walletCovers(balanceNgn, riderOfferNgn)
+      ? `A driver at ${naira(riderOfferNgn)} is booked for you`
+      : null;
   const clockText = status === "bidding" && !requestFailed ? searchClock(currentRide?.bidsCloseAt, nowMs) : null;
   const nudgeRaise =
     canReprice && shouldNudgeRaise({ pricedAtMs, nowMs, offerCount: offers.length });
@@ -935,6 +906,11 @@ export default function MatchingScreen() {
                   ? "Your offer has been sent to drivers near you."
                   : "Sending your offer to drivers near you."}
           </RText>
+          {autoBookLine ? (
+            <RText variant="caption" color={colors.muted} style={styles.tabular}>
+              {autoBookLine}
+            </RText>
+          ) : null}
         </View>
 
         <RCard tone="ink" style={styles.offerCard}>
@@ -964,7 +940,6 @@ export default function MatchingScreen() {
           ) : null}
         </RCard>
 
-        {autoAcceptRow}
         {errorBanner}
 
         {canReprice ? (

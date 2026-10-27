@@ -39,3 +39,10 @@ export function shouldSendAfterTopUp(input: {
   if (typeof input.fareNgn !== 'number' || !(input.fareNgn > 0)) return false;
   return input.balanceNgn >= input.fareNgn;
 }
+
+/** The wallet is known to cover this fare (the server then books the first driver at or under it). */
+export function walletCovers(balanceNgn: number | null | undefined, fareNgn: number | null | undefined): boolean {
+  if (typeof balanceNgn !== 'number' || !Number.isFinite(balanceNgn)) return false;
+  if (typeof fareNgn !== 'number' || !Number.isFinite(fareNgn) || fareNgn <= 0) return false;
+  return balanceNgn >= fareNgn;
+}

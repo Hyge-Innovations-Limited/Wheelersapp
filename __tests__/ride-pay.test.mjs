@@ -45,3 +45,12 @@ test('the accept goes once the money lands, never after Back, never on an unknow
   assert.equal(shouldSendAfterTopUp({ ...base, balanceNgn: null }), false);
   assert.equal(shouldSendAfterTopUp({ ...base, sending: true }), false, 'one accept at a time');
 });
+
+test('the auto-book line needs a known balance that covers the price', async () => {
+  const { walletCovers } = createRequire(import.meta.url)(outFile);
+  assert.equal(walletCovers(5000, 4500), true);
+  assert.equal(walletCovers(4500, 4500), true);
+  assert.equal(walletCovers(4000, 4500), false);
+  assert.equal(walletCovers(null, 4500), false);
+  assert.equal(walletCovers(5000, undefined), false);
+});
