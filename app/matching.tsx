@@ -29,6 +29,7 @@ import {
   rider,
 } from "@/components/rider/kit";
 import { OfferCard } from "@/components/rider/offer-card";
+import { PaySheet } from "@/components/rider/pay-sheet";
 import {
   PriceCard,
   PriceCardChip,
@@ -39,6 +40,7 @@ import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { driversSawLine, searchClock, shouldNudgeRaise } from "@/lib/ride-search-status";
+import { paySheetStep, shouldSendAfterTopUp } from "@/lib/ride-pay";
 import { useWalletOverview } from "@/lib/wallet-overview";
 import { useGoHome } from "@/hooks/use-go-home";
 
@@ -116,7 +118,7 @@ export default function MatchingScreen() {
     dismissOffer,
     clearRide,
   } = useRideSession();
-  const { overview: wallet } = useWalletOverview();
+  const { overview: wallet, refresh: refreshWallet } = useWalletOverview();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** The price being set in the change-price view; null while that view is closed. */
@@ -305,6 +307,32 @@ export default function MatchingScreen() {
     [acceptOffer],
   );
 
+  /**
+   * The offer being paid for on the pay sheet. `checked`: the balance has been
+   * fetched fresh since it opened. `waitingForMoney`: the sheet asked for a
+   * top-up, so the accept goes by itself when the money lands. Back clears it.
+   */
+  const [payFor, setPayFor] = useState<{
+    driverId: string;
+    checked: boolean;
+    waitingForMoney: boolean;
+  } | null>(null);
+
+  const openPay = useCallback(
+    (driverId: string) => {
+      void Haptics.selectionAsync();
+      setPayFor({ driverId, checked: false, waitingForMoney: false });
+      void refreshWallet()
+        .catch(() => undefined)
+        .finally(() =>
+          setPayFor((previous) =>
+            previous && previous.driverId === driverId ? { ...previous, checked: true } : previous,
+          ),
+        );
+    },
+    [refreshWallet],
+  );
+
   const handleDeclineAll = useCallback(() => {
     offers.forEach((offer) => dismissOffer(offer.driverId));
   }, [offers, dismissOffer]);
@@ -375,6 +403,68 @@ export default function MatchingScreen() {
     error !== null &&
     (SHORT_OF_MONEY.test(error) ||
       (balanceNgn !== null && cheapest !== undefined && balanceNgn < cheapest.counterOfferNgn));
+
+  /* ── the pay sheet ─────────────────────────────────────────────────── */
+
+  const payOffer = payFor ? offers.find((offer) => offer.driverId === payFor.driverId) : undefined;
+  const payStep =
+    payOffer && status === "bidding" ? paySheetStep(balanceNgn, payOffer.counterOfferNgn) : null;
+  const payStepKind = payStep?.kind ?? null;
+
+  // The offer left the screen (withdrawn, booked elsewhere, the search ended): the sheet goes too.
+  useEffect(() => {
+    if (payFor && !payOffer) setPayFor(null);
+  }, [payFor, payOffer]);
+
+  // Short on a fresh balance: from here the accept waits on the money.
+  useEffect(() => {
+    if (payFor && payFor.checked && !payFor.waitingForMoney && payStepKind === "add") {
+      setPayFor({ ...payFor, waitingForMoney: true });
+    }
+  }, [payFor, payStepKind]);
+
+  // A transfer usually lands with a wallet:updated; the balance is asked for again as well.
+  const waitingForMoney = payFor?.waitingForMoney === true;
+  useEffect(() => {
+    if (!waitingForMoney) return;
+    const timer = setInterval(() => void refreshWallet().catch(() => undefined), 10_000);
+    return () => clearInterval(timer);
+  }, [waitingForMoney, refreshWallet]);
+
+  // The money landed: the accept goes, as if Pay was tapped.
+  useEffect(() => {
+    if (!payFor || !payOffer) return;
+    if (
+      !shouldSendAfterTopUp({
+        waitingForMoney: payFor.waitingForMoney,
+        backedOut: false,
+        balanceNgn,
+        fareNgn: payOffer.counterOfferNgn,
+        sending: isSubmitting,
+      })
+    ) {
+      return;
+    }
+    setPayFor(null);
+    void handleAccept(payOffer.driverId);
+  }, [payFor, payOffer, balanceNgn, isSubmitting, handleAccept]);
+
+  const paySheet = (
+    <PaySheet
+      busy={isSubmitting}
+      onBack={() => setPayFor(null)}
+      onOpenAddMoney={(shortNgn) => {
+        setPayFor(null);
+        router.push({ pathname: "/rider-add-money", params: { depositAmount: String(shortNgn) } });
+      }}
+      onPay={() => {
+        if (!payOffer) return;
+        setPayFor(null);
+        void handleAccept(payOffer.driverId);
+      }}
+      step={payStep}
+    />
+  );
 
   const errorBanner = error ? (
     <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.errorBanner}>
@@ -717,7 +807,7 @@ export default function MatchingScreen() {
               featured={index === 0}
               key={offer.driverId}
               offer={offer}
-              onAccept={() => void handleAccept(offer.driverId)}
+              onAccept={() => openPay(offer.driverId)}
               onDecline={() => dismissOffer(offer.driverId)}
               riderOfferNgn={riderOfferNgn}
             />
@@ -743,6 +833,7 @@ export default function MatchingScreen() {
           </View>
           <RLink color={colors.danger} onPress={() => void handleCancel()} title="Cancel search" />
         </View>
+        {paySheet}
       </RScreen>
     );
   }
