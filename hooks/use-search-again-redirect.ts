@@ -16,9 +16,13 @@ import { isDriverBail, searchAgainRoute } from "@/lib/search-again-route";
  *   replaced by Finding drivers.
  *
  * A screen opened while the ride is still a search (a "Driver found!" push
- * tapped before the app has heard of the booking) does not move: the booking
- * arrives a moment later and the screen shows it.
+ * tapped before the app has heard of the booking) waits a few seconds: the
+ * booking usually arrives and the screen shows it; if it is still a search,
+ * on to Finding drivers.
  */
+/** How long a trip screen opened on a search waits for the booking before moving on. */
+export const STILL_SEARCHING_AFTER_MS = 5_000;
+
 export function useSearchAgainRedirect(mode: "replace" | "back", enabled = true): boolean {
   const { currentRide } = useRideSession();
   const router = useRouter();
@@ -32,6 +36,15 @@ export function useSearchAgainRedirect(mode: "replace" | "back", enabled = true)
     previousStatusRef.current = status;
     if (status !== "bidding") setBailed(false);
     else if (isDriverBail(previous, status)) setBailed(true);
+  }, [status]);
+
+  // Still a search a few seconds after this trip screen opened on one (a "Driver
+  // found!" push tapped after that driver had already pulled out): the booking is
+  // not coming, so on to Finding drivers, where the offers are.
+  useEffect(() => {
+    if (status !== "bidding") return;
+    const timer = setTimeout(() => setBailed(true), STILL_SEARCHING_AFTER_MS);
+    return () => clearTimeout(timer);
   }, [status]);
 
   const route = enabled && bailed ? searchAgainRoute(currentRide) : null;
