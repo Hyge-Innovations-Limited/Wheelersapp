@@ -54,3 +54,22 @@ export async function prefetchWalletOverview(
 ): Promise<void> {
   return;
 }
+
+/**
+ * The balance as the server has it right now (not the kept copy), for a
+ * decision that holds money. Null when it cannot be had; every screen
+ * showing the wallet fetches it again too.
+ */
+export async function fetchFreshBalanceNgn(
+  getAccessToken: () => Promise<string | null | undefined>,
+): Promise<number | null> {
+  try {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return null;
+    const overview = await getWalletOverview({ accessToken });
+    invalidateWalletCache();
+    return typeof overview.balanceNgn === "number" && Number.isFinite(overview.balanceNgn) ? overview.balanceNgn : null;
+  } catch {
+    return null;
+  }
+}

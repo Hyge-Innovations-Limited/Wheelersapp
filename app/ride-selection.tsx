@@ -17,6 +17,9 @@ import {
 } from "@/components/rider/kit";
 import { PriceCard, PriceCardNote, PriceShimmer } from "@/components/rider/price-card";
 import { priceReasonLine, samePriceReason } from "@/lib/price-reason";
+import { AutoBookSheet } from "@/components/rider/auto-book-sheet";
+import { shouldAskAutoBook } from "@/lib/ride-pay";
+import { fetchFreshBalanceNgn } from "@/lib/wallet-overview";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import {
   getRideEstimate,
@@ -164,6 +167,8 @@ export default function RideSelectionScreen() {
    */
   const [offerNgn, setOfferNgn] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /** The price "Auto-book a driver at ₦X?" is asking about; null while not asking. */
+  const [autoBookAsk, setAutoBookAsk] = useState<number | null>(null);
   const scheduledRideIdempotencyKeyRef = useRef<string | null>(null);
   const serializedItinerary = serializeRideItinerary(itinerary);
   const scheduledAt = useMemo(
@@ -450,12 +455,29 @@ export default function RideSelectionScreen() {
       return;
     }
 
+    // The wallet covers the price (fresh from the server): ask once whether
+    // the first driver at it may be booked, and the money held, by itself.
+    // Short, or the balance cannot be had: no question, no auto-booking.
+    setIsSubmitting(true);
+    const priceNgn = effectiveOfferNgn;
+    const balanceNgn = await fetchFreshBalanceNgn(() => getAccessTokenWithRetry(getAccessToken));
+    setIsSubmitting(false);
+    if (shouldAskAutoBook({ balanceNgn, priceNgn, scheduled: false })) {
+      setAutoBookAsk(priceNgn);
+      return;
+    }
+    findDrivers(priceNgn, false);
+  };
+
+  /** The search goes out on the next screen, with the rider's answer to auto-booking. */
+  const findDrivers = (priceNgn: number, autoAccept: boolean) => {
     router.push({
       pathname: "/matching",
       params: {
         itinerary: serializedItinerary,
         ...(estimateParam ? { estimate: estimateParam } : {}),
-        offer: String(effectiveOfferNgn),
+        offer: String(priceNgn),
+        autoAccept: autoAccept ? "1" : "0",
       },
     });
   };
@@ -642,6 +664,15 @@ export default function RideSelectionScreen() {
           }
         />
       </View>
+
+      <AutoBookSheet
+        onAnswer={(autoBook) => {
+          const priceNgn = autoBookAsk;
+          setAutoBookAsk(null);
+          if (priceNgn !== null) findDrivers(priceNgn, autoBook);
+        }}
+        priceNgn={autoBookAsk}
+      />
     </RScreen>
   );
 }

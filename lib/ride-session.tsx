@@ -123,8 +123,10 @@ export type RiderRideState = {
   driversNotified?: number | null;
   /** Auto-accept is on for this search: the server books the first driver at or under the price. */
   autoAccept?: boolean;
-  /** The server knows auto-accept (newer servers): the switch shows. */
+  /** The server books by itself (newer servers). */
   autoAcceptSupported?: boolean;
+  /** The rider said yes to "Auto-book a driver at ₦X?" for this search. */
+  autoAcceptChosen?: boolean;
   /** Set when the window closed with nobody accepting. */
   bidTimeout?: boolean;
   startedAt?: string;
@@ -153,7 +155,7 @@ type RideSessionContextValue = {
   currentRide: RiderRideState | null;
   chatMessages: RideChatMessage[];
   error: string | null;
-  requestRide: (itinerary: RideItinerary, options?: { offerNgn?: number }) => Promise<void>;
+  requestRide: (itinerary: RideItinerary, options?: { offerNgn?: number; autoAccept?: boolean }) => Promise<void>;
   /** Take a driver's bid — this is what actually books the ride. */
   acceptOffer: (driverId: string, shownNgn?: number) => Promise<void>;
   /** Counter a specific driver with a different price. */
@@ -1027,7 +1029,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   );
 
   const requestRide = useCallback(
-    async (itinerary: RideItinerary, options?: { offerNgn?: number }): Promise<void> => {
+    async (itinerary: RideItinerary, options?: { offerNgn?: number; autoAccept?: boolean }): Promise<void> => {
       if (!isBackendConfigured()) {
         throw new Error('Wheelers is not available right now. Please try again later.');
       }
@@ -1046,10 +1048,12 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       const rideId = Crypto.randomUUID();
 
       setError(null);
+      const autoAccept = options?.autoAccept === true;
       setRideState({
         rideId,
         status: 'requesting',
         itinerary,
+        autoAcceptChosen: autoAccept,
       });
 
       try {
@@ -1065,6 +1069,10 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           // to its suggested fare — but then the rider never named a price,
           // which is the whole point of bidding.
           ...(options?.offerNgn !== undefined ? { offerNgn: options.offerNgn } : {}),
+          // The rider said yes to "Auto-book a driver at ₦X?" (their wallet
+          // covers it). Only then does the server book and hold by itself;
+          // older servers ignore it.
+          autoAccept,
         });
       } catch (requestError) {
         setRideState(null);

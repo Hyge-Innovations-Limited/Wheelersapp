@@ -103,3 +103,26 @@ test('the accept sends the price the rider was shown', () => {
   assert.equal(agreedPriceFor(3400, undefined), 3400);
   assert.equal(agreedPriceFor(3400, 0), 3400);
 });
+
+test('"Auto-book a driver at ₦X?" is asked only when the fresh balance covers it, never for a ride for later', () => {
+  const { shouldAskAutoBook } = createRequire(import.meta.url)(outFile);
+  assert.equal(shouldAskAutoBook({ balanceNgn: 5000, priceNgn: 4500, scheduled: false }), true);
+  assert.equal(shouldAskAutoBook({ balanceNgn: 4500, priceNgn: 4500, scheduled: false }), true);
+  assert.equal(shouldAskAutoBook({ balanceNgn: 4000, priceNgn: 4500, scheduled: false }), false, 'short: no sheet, no auto-booking');
+  assert.equal(shouldAskAutoBook({ balanceNgn: null, priceNgn: 4500, scheduled: false }), false, 'balance not had: no sheet');
+  assert.equal(shouldAskAutoBook({ balanceNgn: 9000, priceNgn: 4500, scheduled: true }), false, 'a ride for later is never auto-booked');
+});
+
+test('"A driver at ₦X is booked for you" only after a yes, on a server that books by itself, with the wallet covering it', () => {
+  const { autoBookLineShows, autoAcceptParam } = createRequire(import.meta.url)(outFile);
+  const yes = { autoAcceptChosen: true, autoAcceptSupported: true, balanceNgn: 5000, priceNgn: 4500 };
+  assert.equal(autoBookLineShows(yes), true);
+  assert.equal(autoBookLineShows({ ...yes, autoAcceptChosen: false }), false, 'the rider chose to pick');
+  assert.equal(autoBookLineShows({ ...yes, autoAcceptChosen: undefined }), false);
+  assert.equal(autoBookLineShows({ ...yes, autoAcceptSupported: undefined }), false, 'an older server');
+  assert.equal(autoBookLineShows({ ...yes, balanceNgn: 4000 }), false);
+  assert.equal(autoAcceptParam('1'), true);
+  assert.equal(autoAcceptParam(['1']), true);
+  assert.equal(autoAcceptParam('0'), false);
+  assert.equal(autoAcceptParam(undefined), false, 'opened from elsewhere (Home, a restart): no auto-booking');
+});

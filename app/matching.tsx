@@ -41,8 +41,17 @@ import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { driversSawLine, searchClock, shouldNudgeRaise } from "@/lib/ride-search-status";
-import { paySheetStep, shouldSendAfterTopUp, walletCovers } from "@/lib/ride-pay";
-import { useWalletOverview } from "@/lib/wallet-overview";
+import {
+  autoAcceptParam,
+  autoBookLineShows,
+  paySheetStep,
+  shouldAskAutoBook,
+  shouldSendAfterTopUp,
+} from "@/lib/ride-pay";
+import { AutoBookSheet } from "@/components/rider/auto-book-sheet";
+import { getAccessTokenWithRetry } from "@/lib/access-token";
+import { useAuth } from "@/lib/auth";
+import { fetchFreshBalanceNgn, useWalletOverview } from "@/lib/wallet-overview";
 import { useGoHome } from "@/hooks/use-go-home";
 
 const { colors, fonts } = rider;
@@ -75,6 +84,8 @@ export default function MatchingScreen() {
     itinerary?: string | string[];
     estimate?: string | string[];
     offer?: string | string[];
+    /** "1": the rider said yes to "Auto-book a driver at ₦X?" on Set your price. */
+    autoAccept?: string | string[];
   }>();
 
   const itinerary = useMemo(
@@ -120,6 +131,7 @@ export default function MatchingScreen() {
     clearRide,
   } = useRideSession();
   const { overview: wallet, refresh: refreshWallet } = useWalletOverview();
+  const { getAccessToken } = useAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** The price being set in the change-price view; null while that view is closed. */
@@ -130,7 +142,12 @@ export default function MatchingScreen() {
   /** The price last sent to drivers from this screen. */
   const [askedNgn, setAskedNgn] = useState<number | undefined>(requestedOfferNgn);
   /** A new search waiting for the finished one to be put away. */
-  const [pendingSearch, setPendingSearch] = useState<{ offerNgn?: number } | null>(null);
+  const [pendingSearch, setPendingSearch] = useState<{ offerNgn?: number; autoAccept: boolean } | null>(null);
+  /** The rider's answer to auto-booking for the search on screen; a retry of a failed send keeps it. */
+  const autoAcceptRef = useRef(autoAcceptParam(params.autoAccept));
+  /** The price "Auto-book a driver at ₦X?" is asking about before a new search; null while not asking. */
+  const [autoBookAsk, setAutoBookAsk] = useState<number | null>(null);
+  const [checkingWallet, setCheckingWallet] = useState(false);
   const [requestSettled, setRequestSettled] = useState(false);
   const requestFiredRef = useRef(false);
   /** A ride that had already ended when this screen opened. */
@@ -152,10 +169,10 @@ export default function MatchingScreen() {
     .join(" to ");
 
   const sendRequest = useCallback(
-    async (offerNgn: number | undefined, onFailure?: () => void) => {
+    async (offerNgn: number | undefined, autoAccept: boolean, onFailure?: () => void) => {
       setRequestSettled(false);
       try {
-        await requestRide(itinerary, { offerNgn });
+        await requestRide(itinerary, { offerNgn, autoAccept });
       } catch (requestError) {
         Alert.alert(
           "Could not request this ride",
@@ -198,12 +215,12 @@ export default function MatchingScreen() {
     if (open && (open.status === "cancelled" || open.status === "completed")) {
       staleRideIdRef.current = open.rideId;
       setAskedNgn(requestedOfferNgn);
-      setPendingSearch({ offerNgn: requestedOfferNgn });
+      setPendingSearch({ offerNgn: requestedOfferNgn, autoAccept: autoAcceptRef.current });
       clearRide();
       return;
     }
 
-    void sendRequest(requestedOfferNgn, () => router.back());
+    void sendRequest(requestedOfferNgn, autoAcceptRef.current, () => router.back());
     // Once per mount on purpose: re-running this on every render would publish
     // the same trip to drivers over and over.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,12 +229,13 @@ export default function MatchingScreen() {
   /* ── search again after a search nobody took ───────────────────────── */
 
   const searchAgain = useCallback(
-    (offerNgn: number | undefined) => {
+    (offerNgn: number | undefined, autoAccept: boolean) => {
       void Haptics.selectionAsync();
       setDraftNgn(null);
       setPickedRetryNgn(null);
       setAskedNgn(offerNgn);
-      setPendingSearch({ offerNgn });
+      autoAcceptRef.current = autoAccept;
+      setPendingSearch({ offerNgn, autoAccept });
       // The finished search has to be put away first: a new request for the
       // same trip is ignored while the old one is still held.
       clearRide();
@@ -227,10 +245,29 @@ export default function MatchingScreen() {
 
   useEffect(() => {
     if (!pendingSearch || currentRide) return;
-    const { offerNgn } = pendingSearch;
+    const { offerNgn, autoAccept } = pendingSearch;
     setPendingSearch(null);
-    void sendRequest(offerNgn);
+    void sendRequest(offerNgn, autoAccept);
   }, [pendingSearch, currentRide, sendRequest]);
+
+  /**
+   * Search again after nobody took it: when the wallet (fresh) covers the
+   * price, ask once whether to auto-book; otherwise search, choosing by hand.
+   */
+  const askThenSearchAgain = useCallback(
+    async (offerNgn: number | undefined) => {
+      if (checkingWallet) return;
+      setCheckingWallet(true);
+      const balanceNgn = await fetchFreshBalanceNgn(() => getAccessTokenWithRetry(getAccessToken));
+      setCheckingWallet(false);
+      if (offerNgn !== undefined && shouldAskAutoBook({ balanceNgn, priceNgn: offerNgn, scheduled: false })) {
+        setAutoBookAsk(offerNgn);
+        return;
+      }
+      searchAgain(offerNgn, false);
+    },
+    [checkingWallet, getAccessToken, searchAgain],
+  );
 
   /* ── follow the ride off this screen ───────────────────────────────── */
 
@@ -349,7 +386,7 @@ export default function MatchingScreen() {
   const handleUpdatePrice = useCallback(async () => {
     if (draftNgn === null) return;
     if (timedOut || !currentRide) {
-      searchAgain(draftNgn);
+      void askThenSearchAgain(draftNgn);
       return;
     }
     if (draftNgn === riderOfferNgn) {
@@ -369,7 +406,7 @@ export default function MatchingScreen() {
     } finally {
       setIsUpdating(false);
     }
-  }, [draftNgn, timedOut, currentRide, riderOfferNgn, updateOffer, searchAgain]);
+  }, [draftNgn, timedOut, currentRide, riderOfferNgn, updateOffer, askThenSearchAgain]);
 
   // Cancelling asks why first, on the same screen as a cancel once a driver
   // is coming: it cancels the request on the server and takes the rider home.
@@ -486,6 +523,17 @@ export default function MatchingScreen() {
         void handleAccept(payOffer.driverId, payStep.fareNgn);
       }}
       step={payStep}
+    />
+  );
+
+  const autoBookSheet = (
+    <AutoBookSheet
+      onAnswer={(autoBook) => {
+        const priceNgn = autoBookAsk;
+        setAutoBookAsk(null);
+        if (priceNgn !== null) searchAgain(priceNgn, autoBook);
+      }}
+      priceNgn={autoBookAsk}
     />
   );
 
@@ -616,6 +664,7 @@ export default function MatchingScreen() {
             title={riderOfferNgn !== undefined ? `Keep ${naira(riderOfferNgn)}` : "Back"}
           />
         </View>
+        {autoBookSheet}
       </RScreen>
     );
   }
@@ -745,12 +794,14 @@ export default function MatchingScreen() {
         <View style={styles.footer}>
           {picked !== undefined ? (
             <RButton
-              onPress={() => searchAgain(picked)}
+              disabled={checkingWallet}
+              onPress={() => void askThenSearchAgain(picked)}
               title={`Search again at ${naira(picked)}`}
             />
           ) : null}
           <RButton
-            onPress={() => searchAgain(riderOfferNgn)}
+            disabled={checkingWallet}
+            onPress={() => void askThenSearchAgain(riderOfferNgn)}
             size={picked !== undefined ? "md" : "lg"}
             title={
               riderOfferNgn !== undefined
@@ -760,6 +811,7 @@ export default function MatchingScreen() {
             variant={picked !== undefined ? "ghost" : "primary"}
           />
         </View>
+        {autoBookSheet}
       </RScreen>
     );
   }
@@ -867,13 +919,18 @@ export default function MatchingScreen() {
   const canReprice = status === "bidding";
   const sawLine = status === "bidding" ? driversSawLine(currentRide?.driversNotified) : null;
   // Auto-accept is automatic on the server whenever the wallet covers the price.
+  // Only when the rider said yes to auto-booking for this search, on a server
+  // that books by itself, and while the wallet covers the price.
   const autoBookLine =
     status === "bidding" &&
     !requestFailed &&
-    // Only a server that books by itself says so (it sent a search status or an auto-accept reply).
-    currentRide?.autoAcceptSupported === true &&
     riderOfferNgn !== undefined &&
-    walletCovers(balanceNgn, riderOfferNgn)
+    autoBookLineShows({
+      autoAcceptChosen: currentRide?.autoAcceptChosen,
+      autoAcceptSupported: currentRide?.autoAcceptSupported,
+      balanceNgn,
+      priceNgn: riderOfferNgn,
+    })
       ? `A driver at ${naira(riderOfferNgn)} is booked for you`
       : null;
   const clockText = status === "bidding" && !requestFailed ? searchClock(currentRide?.bidsCloseAt, nowMs) : null;
@@ -1010,7 +1067,10 @@ export default function MatchingScreen() {
         <View style={styles.spacer} />
 
         {requestFailed ? (
-          <RButton onPress={() => setPendingSearch({ offerNgn: askedNgn })} title="Try again" />
+          <RButton
+            onPress={() => setPendingSearch({ offerNgn: askedNgn, autoAccept: autoAcceptRef.current })}
+            title="Try again"
+          />
         ) : (
           <View style={styles.waiting}>
             <RText variant="bodyBold" color={colors.muted}>

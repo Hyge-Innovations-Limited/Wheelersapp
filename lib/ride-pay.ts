@@ -99,3 +99,27 @@ export const CONFIRM_STILL_OPEN_LIMIT = 2;
 export function agreedPriceFor(offerNgn: number, shownNgn: number | null | undefined): number {
   return typeof shownNgn === 'number' && Number.isFinite(shownNgn) && shownNgn > 0 ? Math.round(shownNgn) : offerNgn;
 }
+
+/**
+ * Before a search goes out: ask "Auto-book a driver at ₦X?" only when the
+ * wallet (fetched fresh) covers the price, and never for a ride for later.
+ * Unknown or short balance: no question, and no auto-booking.
+ */
+export function shouldAskAutoBook(input: { balanceNgn: number | null | undefined; priceNgn: number | null | undefined; scheduled: boolean }): boolean {
+  return !input.scheduled && walletCovers(input.balanceNgn, input.priceNgn);
+}
+
+/** "A driver at ₦X is booked for you": only when the rider said yes for this search, the server books by itself, and the wallet covers the price. */
+export function autoBookLineShows(input: {
+  autoAcceptChosen: boolean | undefined;
+  autoAcceptSupported: boolean | undefined;
+  balanceNgn: number | null | undefined;
+  priceNgn: number | null | undefined;
+}): boolean {
+  return input.autoAcceptChosen === true && input.autoAcceptSupported === true && walletCovers(input.balanceNgn, input.priceNgn);
+}
+
+/** The "autoAccept" route param: "1" yes, anything else no. */
+export function autoAcceptParam(value: string | string[] | undefined): boolean {
+  return (Array.isArray(value) ? value[0] : value) === '1';
+}
