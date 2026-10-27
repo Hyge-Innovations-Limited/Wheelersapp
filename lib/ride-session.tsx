@@ -37,7 +37,8 @@ import { isDriverApp } from '@/lib/app-variant';
 import { restoredRideFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
-import { canAcceptOffers } from '@/lib/ride-pay';
+import { DRIVER_LEFT_SEARCHING_AGAIN, isSearchingAgain, rideAfterCancelled } from '@/lib/ride-cancelled';
+import { acceptRefusalText, canAcceptOffers, offersAfterRefusal } from '@/lib/ride-pay';
 import { applyAutoAcceptReply, autoAcceptFromPayload } from '@/lib/auto-accept';
 
 type RideConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -360,14 +361,6 @@ const CONFIRM_RESYNC_MS = 20_000;
 function autoAcceptFieldsFrom(ride: RiderRideState, payload: Record<string, unknown>): Partial<RiderRideState> {
   const next = autoAcceptFromPayload(ride, payload);
   return next === ride ? {} : { autoAccept: next.autoAccept, autoAcceptSupported: next.autoAcceptSupported };
-}
-
-/** What the rider reads when an accept is turned down, short; the server's own words when it knows more (the amount short). */
-function acceptRefusalText(reason: string | undefined, message: string | undefined): string {
-  if (reason === 'driver_away') return "That driver's app is closed. Pick another offer.";
-  if (reason === 'driver_unavailable') return 'That driver is no longer available.';
-  if (reason === 'offer_changed') return 'That price changed. Check the offer again.';
-  return message ?? 'That offer could not be booked. Pick another.';
 }
 
 export function RideSessionProvider({ children }: { children: ReactNode }) {
@@ -730,18 +723,19 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       }
 
       if (type === 'ride:cancelled') {
-        setRideState((previous) => {
-          if (!previous) {
-            return previous;
-          }
-
-          return {
-            ...previous,
-            status: 'cancelled',
-            cancelReason: getString(payload.reason) ?? previous.cancelReason,
-            cancelStage: getString(payload.cancelStage) ?? previous.cancelStage,
-          };
-        });
+        // The booked driver pulled out and the server searches again on the
+        // same ride (searchingAgain): back to finding drivers, with a short
+        // note, and the released hold shows in the balance. Otherwise it ends.
+        const again =
+          isSearchingAgain(payload) &&
+          currentRideRef.current !== null &&
+          rideAfterCancelled(currentRideRef.current, payload)?.status === 'bidding';
+        if (again) {
+          offersBeforeAcceptRef.current = null;
+          invalidateWalletCache();
+          setError(DRIVER_LEFT_SEARCHING_AGAIN);
+        }
+        setRideState((previous) => rideAfterCancelled(previous, payload));
         return;
       }
 
@@ -771,7 +765,6 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         const driverId = getString(payload.driverId);
         const heldOffers = offersBeforeAcceptRef.current;
         offersBeforeAcceptRef.current = null;
-        const gone = reason === 'driver_away' || reason === 'driver_unavailable';
         setError(acceptRefusalText(reason, getString(payload.message)));
         setRideState((previous) =>
           previous && previous.status === 'matching'
@@ -779,7 +772,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
                 ...previous,
                 status: 'bidding',
                 driver: undefined,
-                offers: (heldOffers ?? []).filter((offer) => !(gone && offer.driverId === driverId)),
+                offers: offersAfterRefusal(heldOffers ?? [], reason, driverId),
               }
             : previous,
         );

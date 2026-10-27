@@ -59,3 +59,23 @@ export function walletCovers(balanceNgn: number | null | undefined, fareNgn: num
 export function canAcceptOffers(ride: { status?: string; bidTimeout?: boolean } | null | undefined): boolean {
   return Boolean(ride) && ride!.status === 'bidding' && ride!.bidTimeout !== true;
 }
+
+/** What the rider reads when an accept is turned down, short; the server's own words when it knows more (the amount short). */
+export function acceptRefusalText(reason: string | undefined, message: string | undefined): string {
+  if (reason === 'driver_away') return "That driver's app is closed. Pick another offer.";
+  if (reason === 'driver_unavailable') return 'That driver is no longer available.';
+  if (reason === 'offer_changed') return 'That price changed. Check the offer again.';
+  // Another booking attempt holds the ride for a moment: every offer stays.
+  if (reason === 'busy') return message ?? 'Try again.';
+  return message ?? 'That offer could not be booked. Pick another.';
+}
+
+/**
+ * The offers back on screen after an accept is refused: the driver who is
+ * gone (app closed, unavailable) leaves; anything else ('busy': another
+ * booking attempt held the ride for a moment; a short wallet) keeps them all.
+ */
+export function offersAfterRefusal<T extends { driverId: string }>(held: T[], reason: string | undefined, driverId: string | undefined): T[] {
+  const gone = reason === 'driver_away' || reason === 'driver_unavailable';
+  return held.filter((offer) => !(gone && offer.driverId === driverId));
+}

@@ -76,3 +76,13 @@ test('an accept is only sent on an open search', () => {
   assert.equal(canAcceptOffers({ status: 'matching' }), false);
   assert.equal(canAcceptOffers(null), false);
 });
+
+test('"busy" (another booking attempt held the ride): back to the offers, all of them, "Try again."', () => {
+  const { acceptRefusalText, offersAfterRefusal } = createRequire(import.meta.url)(outFile);
+  const held = [{ driverId: 'a' }, { driverId: 'b' }];
+  assert.deepEqual(offersAfterRefusal(held, 'busy', 'a'), held);
+  assert.equal(acceptRefusalText('busy', 'Try again.'), 'Try again.');
+  assert.equal(acceptRefusalText('busy', undefined), 'Try again.');
+  assert.deepEqual(offersAfterRefusal(held, 'driver_unavailable', 'a'), [{ driverId: 'b' }], 'a driver who is gone still leaves');
+  assert.deepEqual(offersAfterRefusal(held, 'insufficient_funds', 'a'), held);
+});
