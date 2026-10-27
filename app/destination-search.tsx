@@ -553,11 +553,13 @@ export default function DestinationSearchScreen() {
       try {
         // Priced first: when the fare changes, the rider says yes before any
         // money moves. A server that does not quote: as before.
-        const quote = await quoteRideRoute(itinerary);
+        const answer = await quoteRideRoute(itinerary);
+        const quote = answer.kind === "quote" ? answer.quote : null;
         if (quote && routeQuoteNeedsAsk(quote)) {
           setRouteAsk({ itinerary, quote });
           return;
         }
+        // Unpriced only for a server that does not know route prices at all.
         const result = await updateRideRoute(itinerary, quote?.fareNgn);
         if (result.kind === "price_changed") {
           setRouteAsk({ itinerary, quote: result.quote });

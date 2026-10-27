@@ -23,7 +23,7 @@ export * from '${join(projectRoot, 'lib/auto-accept.ts')}';
 `);
 const outFile = join(dir, 'bundle.cjs');
 execFileSync('npx', ['esbuild', entry, '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { routeQuoteFrom, routeQuoteNeedsAsk, routeQuoteLine, applyAutoAcceptReply } = createRequire(import.meta.url)(outFile);
+const { routeQuoteFrom, routeQuoteNeedsAsk, routeQuoteLine, applyAutoAcceptReply, routeQuoteAnswerFrom, isUnknownQuoteType, ROUTE_NOT_PRICED } = createRequire(import.meta.url)(outFile);
 
 test('the quote, from the server\'s answer or a PRICE_CHANGED refusal', () => {
   assert.deepEqual(routeQuoteFrom({ rideId: 'r', fareNgn: 5200, extraNgn: 800 }), { fareNgn: 5200, extraNgn: 800 });
@@ -47,4 +47,19 @@ test('auto-booking switched off after a raise (price_changed): off, quietly', ()
   assert.equal(r.ride.autoAcceptChosen, false);
   assert.equal(r.ride.autoAccept, false);
   assert.equal(r.error, null);
+});
+
+test('only an older server\'s "Unknown event type: ride:route:quote" lets the change go unpriced', () => {
+  assert.deepEqual(routeQuoteAnswerFrom('error', { message: 'Unknown event type: ride:route:quote' }, 'ride-1'), { kind: 'unpriced' });
+  assert.equal(isUnknownQuoteType('error', { message: 'Unknown event type: ride:route:update' }), false);
+  assert.equal(routeQuoteAnswerFrom('error', { message: 'This ride is not yours.' }, 'ride-1'), null, 'any other error is not an answer: nothing is sent');
+  assert.equal(routeQuoteAnswerFrom('error', { message: 'Wheelers is only in Lagos for now.' }, 'ride-1'), null);
+  assert.equal(routeQuoteAnswerFrom('error', {}, 'ride-1'), null);
+});
+
+test('the quote for this ride is the answer; another ride\'s, or a bad one, is not', () => {
+  assert.deepEqual(routeQuoteAnswerFrom('ride:route:quote:result', { rideId: 'ride-1', fareNgn: 5200, extraNgn: 800 }, 'ride-1'), { kind: 'quote', quote: { fareNgn: 5200, extraNgn: 800 } });
+  assert.equal(routeQuoteAnswerFrom('ride:route:quote:result', { rideId: 'ride-2', fareNgn: 5200, extraNgn: 800 }, 'ride-1'), null);
+  assert.equal(routeQuoteAnswerFrom('ride:route:quote:result', { rideId: 'ride-1' }, 'ride-1'), null);
+  assert.equal(ROUTE_NOT_PRICED, 'Could not price that route. Try again.');
 });

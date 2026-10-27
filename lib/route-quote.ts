@@ -28,5 +28,33 @@ export function routeQuoteLine(quote: RouteQuote): string | null {
   return null;
 }
 
+/** What asking for a quote came to: the quote, or a server too old to price routes. */
+export type RouteQuoteAnswer = { kind: 'quote'; quote: RouteQuote } | { kind: 'unpriced' };
+
+/** Said when the route could not be priced (an error, no answer): nothing is sent. */
+export const ROUTE_NOT_PRICED = 'Could not price that route. Try again.';
+
+/**
+ * The error an older server answers with for a message it does not know.
+ * Only that one means "this server does not price routes": the change then
+ * goes as it always did. Any other error says nothing of the sort.
+ */
+export function isUnknownQuoteType(type: string, payload: Record<string, unknown>): boolean {
+  return type === 'error' && payload.message === 'Unknown event type: ride:route:quote';
+}
+
+/** The quote's answer from a reply, or null when the reply is not one (keep waiting). */
+export function routeQuoteAnswerFrom(
+  type: string,
+  payload: Record<string, unknown>,
+  rideId: string,
+): RouteQuoteAnswer | null {
+  if (isUnknownQuoteType(type, payload)) return { kind: 'unpriced' };
+  if (type !== 'ride:route:quote:result') return null;
+  if (typeof payload.rideId === 'string' && payload.rideId && payload.rideId !== rideId) return null;
+  const quote = routeQuoteFrom(payload);
+  return quote ? { kind: 'quote', quote } : null;
+}
+
 /** What a route change sent with a price came to. */
 export type RouteUpdateResult = { kind: 'done' } | { kind: 'price_changed'; quote: RouteQuote };

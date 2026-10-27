@@ -42,7 +42,13 @@ import { isDriverApp } from '@/lib/app-variant';
 import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
-import { routeQuoteFrom, type RouteQuote, type RouteUpdateResult } from '@/lib/route-quote';
+import {
+  ROUTE_NOT_PRICED,
+  routeQuoteAnswerFrom,
+  routeQuoteFrom,
+  type RouteQuoteAnswer,
+  type RouteUpdateResult,
+} from '@/lib/route-quote';
 import { DRIVER_LEFT_SEARCHING_AGAIN, isSearchingAgain, rideAfterBidTimeout, rideAfterCancelled } from '@/lib/ride-cancelled';
 import { isForRide, rideAfterMatched } from '@/lib/ride-matched';
 import {
@@ -174,7 +180,7 @@ type RideSessionContextValue = {
    */
   updateRideRoute: (itinerary: RideItinerary, acceptedFareNgn?: number) => Promise<RouteUpdateResult>;
   /** What the route change would cost before it is made; null from a server that does not quote (behave as before). */
-  quoteRideRoute: (itinerary: RideItinerary) => Promise<RouteQuote | null>;
+  quoteRideRoute: (itinerary: RideItinerary) => Promise<RouteQuoteAnswer>;
   cancelRide: (reason?: string) => Promise<void>;
   /** Rate the driver of the ride that just finished. */
   submitRating: (input: { rating: number; comment?: string }) => Promise<void>;
@@ -231,7 +237,9 @@ const defaultContext: RideSessionContextValue = {
   updateRideRoute: async () => {
     throw new Error('Ride session is unavailable.');
   },
-  quoteRideRoute: async () => null,
+  quoteRideRoute: async () => {
+    throw new Error('Ride session is unavailable.');
+  },
   cancelRide: async () => {
     throw new Error('Ride session is unavailable.');
   },
@@ -430,14 +438,26 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   const confirmingDriverRef = useRef<string | null>(null);
   /** Replies being waited for, by type (and ride); a timeout gives up on each. */
   const replyWaitersRef = useRef<
-    { types: string[]; rideId?: string; resolve: (reply: { type: string; payload: Record<string, unknown> } | null) => void }[]
+    {
+      types: string[];
+      rideId?: string;
+      /** Only replies that answer this request (an error tied to it, not any error). */
+      matches?: (type: string, payload: Record<string, unknown>) => boolean;
+      resolve: (reply: { type: string; payload: Record<string, unknown> } | null) => void;
+    }[]
   >([]);
   const waitForReply = useCallback(
-    (types: string[], rideId: string | undefined, timeoutMs: number) =>
+    (
+      types: string[],
+      rideId: string | undefined,
+      timeoutMs: number,
+      matches?: (type: string, payload: Record<string, unknown>) => boolean,
+    ) =>
       new Promise<{ type: string; payload: Record<string, unknown> } | null>((resolve) => {
         const waiter = {
           types,
           rideId,
+          matches,
           resolve: (reply: { type: string; payload: Record<string, unknown> } | null) => {
             clearTimeout(timer);
             resolve(reply);
@@ -503,7 +523,11 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       // A reply something is waiting for (a route quote, a priced route change).
       let waitedFor = false;
       for (const waiter of [...replyWaitersRef.current]) {
-        if (waiter.types.includes(type) && (!waiter.rideId || !getString(payload.rideId) || getString(payload.rideId) === waiter.rideId)) {
+        if (
+          waiter.types.includes(type) &&
+          (!waiter.rideId || !getString(payload.rideId) || getString(payload.rideId) === waiter.rideId) &&
+          (!waiter.matches || waiter.matches(type, payload))
+        ) {
           replyWaitersRef.current = replyWaitersRef.current.filter((item) => item !== waiter);
           waiter.resolve({ type, payload });
           waitedFor = true;
@@ -1140,25 +1164,34 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * What the route change would cost, before it is made (nothing moves). A
-   * server that does not quote (no answer within 5 s, or an error for it):
-   * null, and the change goes as it always did.
+   * What the route change would cost, before it is made (nothing moves).
+   * Only a server that says it does not know the quote ('Unknown event type')
+   * answers 'unpriced', and the change then goes as it always did. Any other
+   * error, or no answer within 5 s: it throws, and nothing is sent.
    */
   const quoteRideRoute = useCallback(
-    async (itinerary: RideItinerary): Promise<RouteQuote | null> => {
+    async (itinerary: RideItinerary): Promise<RouteQuoteAnswer> => {
       const activeRide = currentRideRef.current;
       if (!activeRide?.rideId) {
         throw new Error('There is no live ride route to update yet.');
       }
       const resolvedRoute = await resolveRideRoute(itinerary);
-      const reply = waitForReply(['ride:route:quote:result', 'error'], activeRide.rideId, ROUTE_QUOTE_WAIT_MS);
+      const rideId = activeRide.rideId;
+      const reply = waitForReply(
+        ['ride:route:quote:result', 'error'],
+        rideId,
+        ROUTE_QUOTE_WAIT_MS,
+        (type, payload) => routeQuoteAnswerFrom(type, payload, rideId) !== null,
+      );
       await sendEnvelope('ride:route:quote', {
-        rideId: activeRide.rideId,
+        rideId,
         destination: resolvedRoute.destination,
         stops: resolvedRoute.stops,
       });
       const answer = await reply;
-      return answer && answer.type === 'ride:route:quote:result' ? routeQuoteFrom(answer.payload) : null;
+      const result = answer ? routeQuoteAnswerFrom(answer.type, answer.payload, rideId) : null;
+      if (!result) throw new Error(ROUTE_NOT_PRICED);
+      return result;
     },
     [sendEnvelope, waitForReply],
   );
@@ -1178,7 +1211,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       const priced = typeof acceptedFareNgn === 'number' && acceptedFareNgn > 0;
       const reply = priced
         ? waitForReply(
-            ['ride:route:update:accepted', 'ride:route:updated', 'ride:route:update:rejected', 'error'],
+            ['ride:route:update:accepted', 'ride:route:updated', 'ride:route:update:rejected'],
             activeRide.rideId,
             ROUTE_UPDATE_WAIT_MS,
           )
@@ -1195,9 +1228,6 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         if (answer?.type === 'ride:route:update:rejected') {
           const quote = routeQuoteFrom(answer.payload);
           if (getString(answer.payload.reason) === 'PRICE_CHANGED' && quote) return { kind: 'price_changed', quote };
-          throw new Error(getString(answer.payload.message) ?? 'Could not update the ride route.');
-        }
-        if (answer?.type === 'error') {
           throw new Error(getString(answer.payload.message) ?? 'Could not update the ride route.');
         }
       }
