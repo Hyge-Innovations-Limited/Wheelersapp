@@ -25,7 +25,7 @@ export { parseRideItineraryParam } from '${join(projectRoot, 'lib/ride-route.ts'
 `);
 const outFile = join(dir, 'bundle.cjs');
 execFileSync('npx', ['esbuild', entry, '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { searchAgainRoute, rideAfterCancelled, parseRideItineraryParam } = createRequire(import.meta.url)(outFile);
+const { searchAgainRoute, rideAfterCancelled, parseRideItineraryParam, isDriverBail } = createRequire(import.meta.url)(outFile);
 
 const itinerary = { pickup: 'Yaba', stops: ['Ikeja'] };
 const matched = { rideId: 'ride-1', status: 'matched', itinerary, riderOfferNgn: 3000, driver: { driverId: 'd1' } };
@@ -49,4 +49,13 @@ test('a plain cancel, a booked or running trip, or no ride: nowhere', () => {
     assert.equal(searchAgainRoute({ ...matched, status }), null, status);
   }
   assert.equal(searchAgainRoute(null), null);
+});
+
+test('only a booked ride going back to a search moves a trip screen; a screen opened during a search stays', () => {
+  assert.equal(isDriverBail('matched', 'bidding'), true);
+  assert.equal(isDriverBail('active', 'bidding'), true);
+  assert.equal(isDriverBail(undefined, 'bidding'), false, 'a "Driver found!" tap before the booking is heard of');
+  assert.equal(isDriverBail('bidding', 'bidding'), false);
+  assert.equal(isDriverBail('matching', 'bidding'), false, 'a refused accept is not a driver leaving');
+  assert.equal(isDriverBail('bidding', 'matched'), false);
 });

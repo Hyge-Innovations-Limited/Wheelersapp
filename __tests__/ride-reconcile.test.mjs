@@ -25,7 +25,7 @@ export * from '${join(projectRoot, 'lib/ride-matched.ts')}';
 `);
 const outFile = join(dir, 'bundle.cjs');
 execFileSync('npx', ['esbuild', entry, '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { serverAnswerFrom, reconcileSearch, carryDriver, rideAfterMatched, isForRide } = createRequire(import.meta.url)(outFile);
+const { serverAnswerFrom, reconcileSearch, carryDriver, rideAfterMatched, isForRide, restoredRideFrom } = createRequire(import.meta.url)(outFile);
 
 const NOW = Date.parse('2026-10-27T10:00:00Z');
 const server = (over = {}) => ({
@@ -109,4 +109,31 @@ test('ride:matched for another ride changes nothing', () => {
   assert.equal(rideAfterMatched(confirming, { rideId: 'ride-2', driverId: 'b' }), confirming);
   assert.equal(isForRide(confirming, { rideId: 'ride-2' }), false);
   assert.equal(isForRide(confirming, {}), true, 'older payloads without rideId still count');
+});
+
+test('offers that came or went on the socket while the server was asked are kept as the socket said', () => {
+  const close = new Date(NOW + 200_000).toISOString();
+  const answer = serverAnswerFrom(server({ search: { bidsCloseAt: close, offers: [offer('a', 3000), offer('w', 2700)] } }), NOW);
+  const events = [
+    { at: NOW, kind: 'add', offer: offer('n', 2600) },
+    { at: NOW + 1, kind: 'remove', driverId: 'w' },
+  ];
+  const next = reconcileSearch(searching, answer, NOW, events);
+  assert.deepEqual(next.offers.map((o) => o.driverId), ['n', 'a'], 'the new offer stays, the withdrawn one does not come back');
+});
+
+test('an empty list from the server while offers are on screen is not believed', () => {
+  const answer = serverAnswerFrom(server({ search: { bidsCloseAt: new Date(NOW + 200_000).toISOString(), offers: [] } }), NOW);
+  const next = reconcileSearch(searching, answer, NOW);
+  assert.deepEqual(next.offers.map((o) => o.driverId), ['a']);
+  const none = reconcileSearch({ ...searching, offers: [] }, answer, NOW);
+  assert.deepEqual(none.offers, []);
+});
+
+test('a search restored after a restart says the server books by itself; an older server without search details does not', () => {
+  const restored = restoredRideFrom(server({ search: { bidsCloseAt: new Date(NOW + 200_000).toISOString(), offers: [] } }), NOW);
+  assert.equal(restored.autoAcceptSupported, true);
+  assert.equal(restoredRideFrom(server(), NOW), null);
+  const answer = serverAnswerFrom(server({ search: { bidsCloseAt: new Date(NOW + 200_000).toISOString(), offers: [offer('a', 3000)] } }), NOW);
+  assert.equal(reconcileSearch(searching, answer, NOW).autoAcceptSupported, true);
 });

@@ -116,3 +116,28 @@ export function stillOpenForChosen(
 ): boolean {
   return restored?.status === 'bidding' && (restored.offers ?? []).some((offer) => offer.driverId === chosenDriverId);
 }
+
+/** An offer arriving or leaving on the socket, with when: replayed over a server list fetched meanwhile. */
+export type OfferEvent =
+  | { at: number; kind: 'add'; offer: RideOffer }
+  | { at: number; kind: 'remove'; driverId: string };
+
+/**
+ * The server's list of open offers, squared with what the socket said while
+ * it was being fetched: an offer that arrived meanwhile stays, one withdrawn
+ * or declined meanwhile does not come back. An empty list from the server
+ * while the screen has offers says nothing for sure (a passing error answers
+ * with none): the screen keeps its own.
+ */
+export function offersAfterServerList(
+  onScreen: RideOffer[],
+  fromServer: RideOffer[] | null | undefined,
+  sinceFetch: OfferEvent[],
+): RideOffer[] {
+  if (!fromServer || (fromServer.length === 0 && onScreen.length > 0)) return onScreen;
+  let offers = offersFromServer(onScreen, fromServer);
+  for (const event of sinceFetch) {
+    offers = event.kind === 'add' ? mergeOffer(offers, event.offer) : dismissOffer(offers, event.driverId);
+  }
+  return offers;
+}

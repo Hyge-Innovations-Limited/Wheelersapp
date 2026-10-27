@@ -5,7 +5,8 @@ import {
   dismissOffer as dismissOfferFrom,
   mergeOffer,
   offersAfterRefusedAccept,
-  offersFromServer,
+  offersAfterServerList,
+  type OfferEvent,
   stillOpenForChosen,
   withOfferPrice,
   type RideOffer,
@@ -408,6 +409,16 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   const confirmChecksRef = useRef(0);
   /** The driver whose accept went out and is being confirmed; set the moment it is sent. */
   const confirmingDriverRef = useRef<string | null>(null);
+  /** Offers that came or went on the socket lately, replayed over a server list fetched meanwhile. */
+  const offerEventsRef = useRef<OfferEvent[]>([]);
+  const noteOfferEvent = useCallback((event: OfferEvent) => {
+    const cutoff = event.at - 120_000;
+    offerEventsRef.current = [...offerEventsRef.current.filter((item) => item.at >= cutoff), event].slice(-50);
+  }, []);
+  const offerEventsSince = useCallback(
+    (startedAt: number) => offerEventsRef.current.filter((item) => item.at >= startedAt),
+    [],
+  );
 
   const setRideState = useCallback(
     (updater: RiderRideState | null | ((previous: RiderRideState | null) => RiderRideState | null)) => {
@@ -521,23 +532,24 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        const offer: RideOffer = {
+          driverId,
+          driverUserId: getString(payload.driverUserId) ?? '',
+          counterOfferNgn,
+          driverName: getString(payload.driverName) ?? 'Driver',
+          driverRating: getNumber(payload.driverRating) ?? 0,
+          vehiclePlate: getString(payload.vehiclePlate) ?? '',
+          vehicleModel: getString(payload.vehicleModel) ?? '',
+          etaSeconds: getNumber(payload.etaSeconds) ?? 0,
+          distanceKm: getNumber(payload.distanceKm),
+          receivedAt: new Date().toISOString(),
+        };
+        if (isForRide(currentRideRef.current, payload)) noteOfferEvent({ at: Date.now(), kind: 'add', offer });
+
         setRideState((previous) => {
           if (!previous) {
             return previous;
           }
-
-          const offer: RideOffer = {
-            driverId,
-            driverUserId: getString(payload.driverUserId) ?? '',
-            counterOfferNgn,
-            driverName: getString(payload.driverName) ?? 'Driver',
-            driverRating: getNumber(payload.driverRating) ?? 0,
-            vehiclePlate: getString(payload.vehiclePlate) ?? '',
-            vehicleModel: getString(payload.vehicleModel) ?? '',
-            etaSeconds: getNumber(payload.etaSeconds) ?? 0,
-            distanceKm: getNumber(payload.distanceKm),
-            receivedAt: new Date().toISOString(),
-          };
 
           const offers = mergeOffer(previous.offers ?? [], offer);
 
@@ -769,6 +781,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         const driverId = getString(payload.driverId);
         if (!driverId) return;
         const sameRide = !rideId || currentRideRef.current?.rideId === rideId;
+        if (sameRide) noteOfferEvent({ at: Date.now(), kind: 'remove', driverId });
         // While a driver is being confirmed, the list kept from Accept loses
         // them too: a refused accept must not bring a withdrawn offer back.
         if (sameRide && offersBeforeAcceptRef.current) {
@@ -877,7 +890,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         return;
       }
     },
-    [setRideState],
+    [setRideState, noteOfferEvent],
   );
 
   const scheduleReconnect = useCallback(() => {
@@ -1243,6 +1256,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
    */
   const dismissOffer = useCallback(
     (driverId: string) => {
+      noteOfferEvent({ at: Date.now(), kind: 'remove', driverId });
       setRideState((previous) =>
         previous
           ? {
@@ -1255,7 +1269,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       const rideId = currentRideRef.current?.rideId;
       if (rideId) void sendEnvelope('ride:decline_offer', { rideId, driverId }).catch(() => undefined);
     },
-    [setRideState, sendEnvelope],
+    [setRideState, sendEnvelope, noteOfferEvent],
   );
 
   const cancelRide = useCallback(
@@ -1359,7 +1373,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) return;
+      const fetchStartedAt = Date.now();
       const answer = serverAnswerFrom((await getRiderActiveRide({ accessToken })).ride);
+      const sinceFetch = offerEventsSince(fetchStartedAt);
       const restored = answer.kind === 'ride' ? answer.ride : null;
       const now = currentRideRef.current;
 
@@ -1367,7 +1383,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       if (now && (now.status === 'bidding' || now.status === 'requesting')) {
         setRideState((previous) =>
           previous && (previous.status === 'bidding' || previous.status === 'requesting')
-            ? (reconcileSearch(previous, answer) as RiderRideState)
+            ? (reconcileSearch(previous, answer, Date.now(), sinceFetch) as RiderRideState)
             : previous,
         );
         return;
@@ -1453,11 +1469,17 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) return;
+      const fetchStartedAt = Date.now();
       const restored = restoredRideFrom((await getRiderActiveRide({ accessToken })).ride);
       if (!restored || restored.status !== 'bidding') return;
+      const sinceFetch = offerEventsSince(fetchStartedAt);
       setRideState((previous) =>
         previous && previous.rideId === restored.rideId && previous.status === 'bidding'
-          ? { ...previous, offers: offersFromServer(previous.offers ?? [], (restored.offers ?? []) as RideOffer[]) }
+          ? {
+              ...previous,
+              autoAcceptSupported: true,
+              offers: offersAfterServerList(previous.offers ?? [], (restored.offers ?? []) as RideOffer[], sinceFetch),
+            }
           : previous,
       );
     } catch {

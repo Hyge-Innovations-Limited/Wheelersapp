@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -233,10 +234,13 @@ export default function MatchingScreen() {
 
   /* ── follow the ride off this screen ───────────────────────────────── */
 
+  // Only while this screen is in front: with the trip screen already open over
+  // it (a "Driver found!" tap), replacing would put Driver found on top of that.
+  const isFocused = useIsFocused();
   useEffect(() => {
     if (navigatedRef.current || !status) return;
 
-    if (status === "matched" || status === "active") {
+    if ((status === "matched" || status === "active") && isFocused) {
       navigatedRef.current = true;
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace({
@@ -253,7 +257,7 @@ export default function MatchingScreen() {
       navigatedRef.current = true;
       goHome();
     }
-  }, [status, router, serializedItinerary, currentRide?.rideId, navigation, goHome]);
+  }, [status, router, serializedItinerary, currentRide?.rideId, navigation, goHome, isFocused]);
 
   /* ── the waiting screen's clock and raise nudge ─────────────────────── */
 

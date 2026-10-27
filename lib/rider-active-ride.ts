@@ -1,4 +1,5 @@
 import type { RiderActiveRideDetail } from '@/lib/api';
+import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ride-offers';
 
 /**
  * The rider's trip as the server has it, turned into what the ride screen
@@ -28,6 +29,8 @@ export type RestoredRide = {
   status: 'bidding' | 'matched' | 'active';
   /** This ride was brought back from the server, not started in this run of the app. */
   restored: true;
+  /** The server gave the search's details: a server that books by itself (auto-accept). */
+  autoAcceptSupported?: boolean;
   /** A search: what the rider is offering, when it closes, and the open offers (cheapest first). */
   riderOfferNgn?: number;
   bidsCloseAt?: string;
@@ -72,6 +75,7 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
     fareEstimateNgn: ride.fareEstimateNgn ?? undefined,
     ...(typeof ride.riderOfferNgn === 'number' ? { riderOfferNgn: ride.riderOfferNgn } : {}),
     bidsCloseAt: ride.search.bidsCloseAt,
+    autoAcceptSupported: true,
     offers: ride.search.offers
       .filter((offer) => offer.counterOfferNgn > 0)
       .map((offer) => ({
@@ -157,7 +161,8 @@ type SearchLike = {
   bidsCloseAt?: string;
   bidTimeout?: boolean;
   riderOfferNgn?: number;
-  offers?: { driverId: string; counterOfferNgn: number; riderCounterNgn?: number }[];
+  offers?: RideOffer[];
+  autoAcceptSupported?: boolean;
   driver?: DriverLike;
   tripCode?: string;
   startedAt?: string;
@@ -171,7 +176,13 @@ type SearchLike = {
  * "nobody took it" once its time is over and the server has nothing. Anything
  * the server cannot say for sure leaves the screen as it is.
  */
-export function reconcileSearch<T extends SearchLike>(previous: T, answer: ServerAnswer, now = Date.now()): T {
+export function reconcileSearch<T extends SearchLike>(
+  previous: T,
+  answer: ServerAnswer,
+  now = Date.now(),
+  /** What the socket said while the server was being asked: replayed over its answer. */
+  sinceFetch: OfferEvent[] = [],
+): T {
   if (previous.status !== 'bidding' && previous.status !== 'requesting') return previous;
   if (answer.kind === 'unknown') return previous;
   if (answer.kind === 'none') {
@@ -184,18 +195,12 @@ export function reconcileSearch<T extends SearchLike>(previous: T, answer: Serve
   const ride = answer.ride;
   if (ride.rideId !== previous.rideId) return previous;
   if (ride.status === 'bidding') {
-    const shown = previous.offers ?? [];
-    const offers = (ride.offers ?? [])
-      .map((offer) => {
-        const same = shown.find((item) => item.driverId === offer.driverId);
-        return same && same.counterOfferNgn === offer.counterOfferNgn && same.riderCounterNgn !== undefined
-          ? { ...offer, riderCounterNgn: same.riderCounterNgn }
-          : offer;
-      });
+    const offers = offersAfterServerList(previous.offers ?? [], ride.offers as RideOffer[] | undefined, sinceFetch);
     return {
       ...previous,
       status: 'bidding',
       bidTimeout: false,
+      autoAcceptSupported: true,
       bidsCloseAt: ride.bidsCloseAt ?? previous.bidsCloseAt,
       riderOfferNgn: ride.riderOfferNgn ?? previous.riderOfferNgn,
       offers,

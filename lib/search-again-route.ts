@@ -19,3 +19,13 @@ export function searchAgainRoute(
         : { itinerary },
   };
 }
+
+/**
+ * The ride went from a booked driver (matched, or the trip under way) back to
+ * a search: the driver pulled out. Only this transition sends a trip screen
+ * to Finding drivers; a trip screen opened while the ride is still a search
+ * (a "Driver found!" tap before the app has heard of the booking) stays put.
+ */
+export function isDriverBail(previousStatus: string | undefined, status: string | undefined): boolean {
+  return status === "bidding" && (previousStatus === "matched" || previousStatus === "active");
+}
