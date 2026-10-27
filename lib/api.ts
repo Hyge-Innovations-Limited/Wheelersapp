@@ -1642,7 +1642,6 @@ export async function checkSession(accessToken: string): Promise<{ ok: boolean }
 
 export async function submitDriverKyc(input: {
   accessToken: string;
-  ninImage: string;
   licenceImage: string;
   selfieImage: string;
   /** How the selfie was taken: with the face check passed, without it, or on a phone without it. */
@@ -1655,17 +1654,11 @@ export async function submitDriverKyc(input: {
   phone?: string;
   /** As on the licence. */
   legalName: string;
-  licenceNumber: string;
-  /** YYYY-MM-DD */
-  licenceExpiresOn: string;
 }): Promise<{ status: string }> {
   return postJson<{ status: string }>(
     "/drivers/kyc/submit",
     {
       legalName: input.legalName,
-      licenceNumber: input.licenceNumber,
-      licenceExpiresOn: input.licenceExpiresOn,
-      ninImage: input.ninImage,
       licenceImage: input.licenceImage,
       selfieImage: input.selfieImage,
       ...(input.selfieCheck ? { selfieCheck: input.selfieCheck } : {}),

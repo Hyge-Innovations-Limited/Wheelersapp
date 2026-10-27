@@ -23,14 +23,13 @@ const { fixStepsFrom, nextKycStep, kycProgress, stepsToWalk, KYC_STEPS, FIXABLE_
 
 test('a new application walks every step, and the photos send it', () => {
   assert.deepEqual(stepsToWalk(null), [...KYC_STEPS]);
-  assert.deepEqual([...KYC_STEPS], ['nin', 'licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos']);
-  assert.equal(nextKycStep('nin', null), 'licence');
+  assert.deepEqual([...KYC_STEPS], ['licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos']);
   assert.equal(nextKycStep('licence', null), 'details', 'the licence\'s details are typed right after its photo');
   assert.equal(nextKycStep('details', null), 'selfie');
   assert.equal(nextKycStep('vehicle', null), 'phone', 'the number is proved before the photos are sent');
   assert.equal(nextKycStep('phone', null), 'vehiclePhotos');
   assert.equal(nextKycStep('vehiclePhotos', null), null);
-  assert.deepEqual(kycProgress('nin', null), { count: 8, active: 1 }, 'the welcome screen is step 0');
+  assert.deepEqual(kycProgress('licence', null), { count: 7, active: 1 }, 'the welcome screen is step 0');
 });
 
 test('sent back for the licence only: one step, and it sends', () => {
@@ -41,16 +40,16 @@ test('sent back for the licence only: one step, and it sends', () => {
 });
 
 test('several items: in the order a driver fills them in, skipping everything approved', () => {
-  const fix = fixStepsFrom(['vehiclePhotos', 'nin', 'unknown']);
-  assert.deepEqual(fix, ['nin', 'vehiclePhotos']);
-  assert.equal(nextKycStep('nin', fix), 'vehiclePhotos');
+  const fix = fixStepsFrom(['vehiclePhotos', 'selfie', 'unknown']);
+  assert.deepEqual(fix, ['selfie', 'vehiclePhotos']);
+  assert.equal(nextKycStep('selfie', fix), 'vehiclePhotos');
   assert.equal(nextKycStep('vehiclePhotos', fix), null);
 });
 
 test('nothing named means the whole application', () => {
   assert.deepEqual(fixStepsFrom([]), [...FIXABLE_STEPS]);
   assert.deepEqual(fixStepsFrom(undefined), [...FIXABLE_STEPS]);
-  assert.deepEqual([...FIXABLE_STEPS], ['nin', 'licence', 'selfie', 'vehicle', 'vehiclePhotos']);
+  assert.deepEqual([...FIXABLE_STEPS], ['licence', 'selfie', 'vehicle', 'vehiclePhotos']);
   // The typed details are never a step to fix: they are corrected from Your papers.
   assert.deepEqual(fixStepsFrom(['details']), [...FIXABLE_STEPS]);
   assert.deepEqual(fixStepsFrom(['details', 'licence']), ['licence']);

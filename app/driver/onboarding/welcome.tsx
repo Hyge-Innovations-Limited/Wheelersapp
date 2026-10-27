@@ -15,9 +15,8 @@ import { draftHasProgress, firstUnfinishedStep } from "@/lib/driver-onboarding-d
 import { KYC_STEPS, KYC_STEP_LABELS, KYC_STEP_ROUTES } from "@/lib/kyc-steps";
 
 const STEPS = [
-  { icon: "id-card-outline" as const, label: "NIN card photo" },
   { icon: "car-outline" as const, label: "Driver's licence (photo or PDF)" },
-  { icon: "person-outline" as const, label: "Your name and licence number" },
+  { icon: "person-outline" as const, label: "Your name" },
   { icon: "camera-outline" as const, label: "Face verification" },
   { icon: "speedometer-outline" as const, label: "Vehicle details" },
   { icon: "call-outline" as const, label: "Your phone number (we send you a code)" },
@@ -75,7 +74,7 @@ export default function OnboardingWelcomeScreen() {
         title={resumeAt ? "Continue where you stopped" : "Let's go"}
         onPress={() => {
           startFull();
-          router.push(resumeAt ? KYC_STEP_ROUTES[resumeAt] : "/driver/onboarding/nin-upload");
+          router.push(resumeAt ? KYC_STEP_ROUTES[resumeAt] : KYC_STEP_ROUTES[KYC_STEPS[0]]);
         }}
       />
       <OnboardingSignOut />

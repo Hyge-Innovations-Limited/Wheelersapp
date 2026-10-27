@@ -15,18 +15,17 @@ export interface VehicleInfo {
   phone: string;
 }
 
-/** The driver's name as on the licence, its number, and the day it expires (YYYY-MM-DD). */
+/** The driver's name as on the licence. Number and expiry (YYYY-MM-DD) only in drafts from before they were dropped. */
 export interface LegalDetails {
   legalName: string;
-  licenceNumber: string;
-  licenceExpiresOn: string;
+  licenceNumber?: string;
+  licenceExpiresOn?: string;
 }
 
 export interface OnboardingData {
   legalDetails: LegalDetails | null;
   /** The driver has typed back the code sent to their number. */
   phoneVerified: boolean;
-  ninUri: string | null;
   licenceUri: string | null;
   licenceType: 'image' | 'pdf';
   selfieUri: string | null;
@@ -42,7 +41,6 @@ export interface OnboardingData {
 
 interface DriverOnboardingContextValue {
   data: OnboardingData;
-  setNinUri: (uri: string) => void;
   setLicenceUri: (uri: string, type?: 'image' | 'pdf') => void;
   setSelfieUri: (uri: string, check?: SelfieCheck) => void;
   setVehiclePhotos: (uris: string[]) => void;
@@ -94,7 +92,6 @@ async function uriToBase64(uri: string): Promise<string> {
 /** The first step of these still missing what it needs, if any. */
 function firstMissing(data: OnboardingData, steps: readonly KycStep[]): KycStep | null {
   for (const step of steps) {
-    if (step === 'nin' && !data.ninUri) return step;
     if (step === 'licence' && !data.licenceUri) return step;
     if (step === 'details' && !data.legalDetails) return step;
     if (step === 'phone' && !data.phoneVerified) return step;
@@ -109,7 +106,6 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
   const [current, setData] = useState<OnboardingData>({
     legalDetails: null,
     phoneVerified: false,
-    ninUri: null,
     licenceUri: null,
     licenceType: 'image',
     selfieUri: null,
@@ -156,10 +152,6 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
     if (!draftHasProgress(current)) return;
     void AsyncStorage.setItem(DRAFT_KEY, draftFrom(current, owner.current, Date.now())).catch(() => undefined);
   }, [current, restored]);
-
-  const setNinUri = useCallback((uri: string) => {
-    setData((prev) => ({ ...prev, ninUri: uri }));
-  }, []);
 
   const setLicenceUri = useCallback((uri: string, type: 'image' | 'pdf' = 'image') => {
     setData((prev) => ({ ...prev, licenceUri: uri, licenceType: type }));
@@ -224,8 +216,7 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
       if (!accessToken) throw new Error("Not authenticated.");
 
       const has = (step: KycStep) => steps.includes(step);
-      const [ninImage, licenceImage, selfieImage, vehicleImages] = await Promise.all([
-        has('nin') ? uriToBase64(data.ninUri!) : undefined,
+      const [licenceImage, selfieImage, vehicleImages] = await Promise.all([
         has('licence') ? uriToBase64(data.licenceUri!) : undefined,
         has('selfie') ? uriToBase64(data.selfieUri!) : undefined,
         has('vehiclePhotos') ? Promise.all(data.vehiclePhotos.map(uriToBase64)) : undefined,
@@ -241,11 +232,10 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
         : {};
 
       if (data.fixSteps) {
-        await resubmitDriverKyc({ accessToken, ninImage, licenceImage, selfieImage, ...(selfieImage && data.selfieCheck ? { selfieCheck: data.selfieCheck } : {}), vehicleImages, ...vehicle });
+        await resubmitDriverKyc({ accessToken, licenceImage, selfieImage, ...(selfieImage && data.selfieCheck ? { selfieCheck: data.selfieCheck } : {}), vehicleImages, ...vehicle });
       } else {
         await submitDriverKyc({
           accessToken,
-          ninImage: ninImage!,
           licenceImage: licenceImage!,
           selfieImage: selfieImage!,
           ...(data.selfieCheck ? { selfieCheck: data.selfieCheck } : {}),
@@ -255,7 +245,7 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
           vehiclePlate: data.vehicleInfo!.plate,
           vehicleYear: data.vehicleInfo!.year,
           phone: data.vehicleInfo!.phone || undefined,
-          ...data.legalDetails!,
+          legalName: data.legalDetails!.legalName,
         });
       }
       // Sent: there is nothing left to pick up later.
@@ -268,7 +258,7 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
   const data = current;
 
   return (
-    <DriverOnboardingContext.Provider value={{ data, setNinUri, setLicenceUri, setSelfieUri, setVehiclePhotos, addVehiclePhoto, removeVehiclePhoto, setVehicleInfo, setLegalDetails, setPhoneVerified, startFix, startFull, submit, submitting, restored }}>
+    <DriverOnboardingContext.Provider value={{ data, setLicenceUri, setSelfieUri, setVehiclePhotos, addVehiclePhoto, removeVehiclePhoto, setVehicleInfo, setLegalDetails, setPhoneVerified, startFix, startFull, submit, submitting, restored }}>
       {children}
     </DriverOnboardingContext.Provider>
   );

@@ -14,9 +14,8 @@ export const DRAFT_KEY = "wheelers.driver.onboarding-draft";
 const KEEP_MS = 3 * 24 * 60 * 60 * 1000;
 
 export type DraftFields = {
-  legalDetails: { legalName: string; licenceNumber: string; licenceExpiresOn: string } | null;
+  legalDetails: { legalName: string; licenceNumber?: string; licenceExpiresOn?: string } | null;
   phoneVerified: boolean;
-  ninUri: string | null;
   licenceUri: string | null;
   licenceType: "image" | "pdf";
   selfieUri: string | null;
@@ -34,7 +33,6 @@ export function draftFrom(data: DraftFields, owner: string, now: number): string
     savedAt: now,
     legalDetails: data.legalDetails,
     phoneVerified: data.phoneVerified,
-    ninUri: data.ninUri,
     licenceUri: data.licenceUri,
     licenceType: data.licenceType,
     selfieUri: data.selfieUri,
@@ -47,7 +45,7 @@ export function draftFrom(data: DraftFields, owner: string, now: number): string
 /** Whether there is anything in it worth keeping. */
 export function draftHasProgress(data: DraftFields): boolean {
   return Boolean(
-    data.ninUri || data.licenceUri || data.selfieUri || data.legalDetails || data.vehicleInfo || data.phoneVerified || data.vehiclePhotos.length,
+    data.licenceUri || data.selfieUri || data.legalDetails || data.vehicleInfo || data.phoneVerified || data.vehiclePhotos.length,
   );
 }
 
@@ -78,16 +76,13 @@ export function restoreDraft(
   const details = parsed.legalDetails as Record<string, unknown> | null | undefined;
   const car = parsed.vehicleInfo as Record<string, unknown> | null | undefined;
   const legalName = text(details?.legalName);
-  const licenceNumber = text(details?.licenceNumber);
-  const licenceExpiresOn = text(details?.licenceExpiresOn);
   const make = text(car?.make);
   const model = text(car?.model);
   const plate = text(car?.plate);
 
   return {
-    legalDetails: legalName && licenceNumber && licenceExpiresOn ? { legalName, licenceNumber, licenceExpiresOn } : null,
+    legalDetails: legalName ? { legalName } : null,
     phoneVerified: parsed.phoneVerified === true,
-    ninUri: photo(parsed.ninUri),
     licenceUri: photo(parsed.licenceUri),
     licenceType: parsed.licenceType === "pdf" ? "pdf" : "image",
     selfieUri: photo(parsed.selfieUri),
@@ -106,7 +101,6 @@ export function restoreDraft(
 /** The first step a draft has not finished: where "Continue" takes them. */
 export function firstUnfinishedStep(data: DraftFields, steps: readonly KycStep[]): KycStep | null {
   for (const step of steps) {
-    if (step === "nin" && !data.ninUri) return step;
     if (step === "licence" && !data.licenceUri) return step;
     if (step === "details" && !data.legalDetails) return step;
     if (step === "selfie" && !data.selfieUri) return step;
