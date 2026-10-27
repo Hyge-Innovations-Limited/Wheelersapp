@@ -37,6 +37,7 @@ import { isDriverApp } from '@/lib/app-variant';
 import { restoredRideFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
+import { applyAutoAcceptReply, autoAcceptFromPayload } from '@/lib/auto-accept';
 
 type RideConnectionState = 'disconnected' | 'connecting' | 'connected';
 type RideStatus =
@@ -105,6 +106,10 @@ export type RiderRideState = {
   bidsCloseAt?: string;
   /** How many drivers the request went to (ride:search_status, newer servers). */
   driversNotified?: number | null;
+  /** Auto-accept is on for this search: the server books the first driver at or under the price. */
+  autoAccept?: boolean;
+  /** The server knows auto-accept (newer servers): the switch shows. */
+  autoAcceptSupported?: boolean;
   /** Set when the window closed with nobody accepting. */
   bidTimeout?: boolean;
   startedAt?: string;
@@ -142,6 +147,10 @@ type RideSessionContextValue = {
   updateOffer: (amountNgn: number) => Promise<void>;
   /** Decline a driver's bid: off the list, and they are told; they can still re-bid. */
   dismissOffer: (driverId: string) => void;
+  /** Switch auto-accept on or off for the search; the server answers. */
+  setAutoAccept: (on: boolean) => Promise<void>;
+  /** A switch of auto-accept is waiting on the server's answer. */
+  autoAcceptBusy: boolean;
   updateRideRoute: (itinerary: RideItinerary) => Promise<void>;
   cancelRide: (reason?: string) => Promise<void>;
   /** Rate the driver of the ride that just finished. */
@@ -195,6 +204,10 @@ const defaultContext: RideSessionContextValue = {
     throw new Error('Ride session is unavailable.');
   },
   dismissOffer: () => undefined,
+  setAutoAccept: async () => {
+    throw new Error('Ride session is unavailable.');
+  },
+  autoAcceptBusy: false,
   updateRideRoute: async () => {
     throw new Error('Ride session is unavailable.');
   },
@@ -347,8 +360,17 @@ async function resolveRideRoute(
   };
 }
 
+/** With no answer to the auto-accept switch in this long, the server does not know it: the switch goes. */
+const AUTO_ACCEPT_ANSWER_MS = 10_000;
+
 /** How long "Confirming your driver" waits before asking the server where the booking stands. */
 const CONFIRM_RESYNC_MS = 20_000;
+
+/** The auto-accept fields a search payload carries (newer servers); nothing from older ones. */
+function autoAcceptFieldsFrom(ride: RiderRideState, payload: Record<string, unknown>): Partial<RiderRideState> {
+  const next = autoAcceptFromPayload(ride, payload);
+  return next === ride ? {} : { autoAccept: next.autoAccept, autoAcceptSupported: next.autoAcceptSupported };
+}
 
 /** What the rider reads when an accept is turned down, short; the server's own words when it knows more (the amount short). */
 function acceptRefusalText(reason: string | undefined, message: string | undefined): string {
@@ -364,6 +386,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   const [currentRide, setCurrentRide] = useState<RiderRideState | null>(null);
   const [chatMessages, setChatMessages] = useState<RideChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [autoAcceptBusy, setAutoAcceptBusy] = useState(false);
+  const autoAcceptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const connectPromiseRef = useRef<Promise<WebSocket> | null>(null);
@@ -468,6 +492,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
               getNumber(payload.suggestedFareNgn) ?? previous.suggestedFareNgn,
             bidsCloseAt: getString(payload.bidsCloseAt) ?? previous.bidsCloseAt,
             offers: previous.offers ?? [],
+            ...autoAcceptFieldsFrom(previous, payload),
           };
         });
         return;
@@ -531,7 +556,26 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
       // Newer servers: how many drivers saw the price, and when the search closes.
       if (type === 'ride:search_status') {
-        setRideState((previous) => applySearchStatus(previous, payload));
+        // A server that sends this knows auto-accept too: the switch shows.
+        setRideState((previous) => {
+          const next = applySearchStatus(previous, payload);
+          return next && next.rideId === getString(payload.rideId) && !next.autoAcceptSupported
+            ? { ...next, autoAcceptSupported: true }
+            : next;
+        });
+        return;
+      }
+
+      if (type === 'ride:auto_accept:done' || type === 'ride:auto_accept:rejected') {
+        const reply = applyAutoAcceptReply(currentRideRef.current, type, payload);
+        if (!reply.answered) return;
+        if (autoAcceptTimerRef.current) {
+          clearTimeout(autoAcceptTimerRef.current);
+          autoAcceptTimerRef.current = null;
+        }
+        setAutoAcceptBusy(false);
+        setRideState((previous) => applyAutoAcceptReply(previous, type, payload).ride);
+        if (reply.error) setError(reply.error);
         return;
       }
 
@@ -1182,6 +1226,47 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     [setRideState, sendEnvelope],
   );
 
+  /**
+   * Auto-accept on or off for the search. Switching it on is the rider's
+   * consent to be booked and paid for from the wallet; the server answers
+   * with ride:auto_accept:done or :rejected. No answer at all means the
+   * server does not know it: the switch goes back off and away.
+   */
+  const setAutoAccept = useCallback(
+    async (on: boolean): Promise<void> => {
+      const ride = currentRideRef.current;
+      if (!ride) {
+        throw new Error('You do not have a ride in progress.');
+      }
+      const rideId = ride.rideId;
+      if (autoAcceptTimerRef.current) clearTimeout(autoAcceptTimerRef.current);
+      setAutoAcceptBusy(true);
+      try {
+        await sendEnvelope('ride:auto_accept', { rideId, on });
+      } catch (sendError) {
+        setAutoAcceptBusy(false);
+        throw sendError;
+      }
+      autoAcceptTimerRef.current = setTimeout(() => {
+        autoAcceptTimerRef.current = null;
+        setAutoAcceptBusy(false);
+        setRideState((previous) =>
+          previous && previous.rideId === rideId
+            ? { ...previous, autoAccept: false, autoAcceptSupported: false }
+            : previous,
+        );
+      }, AUTO_ACCEPT_ANSWER_MS);
+    },
+    [sendEnvelope, setRideState],
+  );
+
+  useEffect(
+    () => () => {
+      if (autoAcceptTimerRef.current) clearTimeout(autoAcceptTimerRef.current);
+    },
+    [],
+  );
+
   const cancelRide = useCallback(
     async (reason?: string): Promise<void> => {
       const activeRide = currentRideRef.current;
@@ -1364,6 +1449,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       error,
       requestRide,
       dismissOffer,
+      setAutoAccept,
+      autoAcceptBusy,
       counterOffer,
       updateOffer,
       acceptOffer,
@@ -1376,7 +1463,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       acceptOffer,
+      autoAcceptBusy,
       cancelRide,
+      setAutoAccept,
       submitRating,
       chatMessages,
       clearRide,
