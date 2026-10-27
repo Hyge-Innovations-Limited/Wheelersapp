@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -107,12 +107,24 @@ export default function RiderActiveTripScreen() {
       goHome();
       return;
     }
+    // The driver pulled out and the search goes on (searchingAgain): back to the offers.
+    if (status === "bidding") {
+      const offerNgn = currentRide?.riderOfferNgn;
+      router.replace({
+        pathname: "/matching",
+        params:
+          typeof offerNgn === "number"
+            ? { itinerary: serializedItinerary, offer: String(offerNgn) }
+            : { itinerary: serializedItinerary },
+      } as Href);
+      return;
+    }
     if (!hasRide) {
       // After a restart the trip is fetched again once the connection is up: give it a moment.
       const timer = setTimeout(() => goHome(), 3000);
       return () => clearTimeout(timer);
     }
-  }, [hasRide, isFocused, router, status, goHome]);
+  }, [hasRide, isFocused, router, status, goHome, currentRide?.riderOfferNgn, serializedItinerary]);
 
   const destination = itinerary.stops[itinerary.stops.length - 1] ?? "";
   const firstName = driver?.driverName?.trim().split(/\s+/)[0];

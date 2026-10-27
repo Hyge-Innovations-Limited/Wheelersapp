@@ -50,6 +50,23 @@ export default function DriverFoundScreen() {
     }, [hasRide, goHome]),
   );
 
+  // The driver pulled out and the search goes on (searchingAgain): back to the offers.
+  const searchingAgain = status === "bidding";
+  const riderOfferNgn = currentRide?.riderOfferNgn;
+  const serializedItinerary = serializeRideItinerary(itinerary);
+  useFocusEffect(
+    useCallback(() => {
+      if (!searchingAgain) return;
+      router.replace({
+        pathname: "/matching",
+        params:
+          typeof riderOfferNgn === "number"
+            ? { itinerary: serializedItinerary, offer: String(riderOfferNgn) }
+            : { itinerary: serializedItinerary },
+      });
+    }, [searchingAgain, riderOfferNgn, serializedItinerary, router]),
+  );
+
   if (!hasRide) {
     return <RScreen>{null}</RScreen>;
   }
