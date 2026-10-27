@@ -160,6 +160,8 @@ export interface RideEstimateResponse {
   fareEstimateNgn: number;
   /** The lowest offer the server takes on this trip (the fare at 90% of the recommended rate). */
   minOfferNgn?: number | null;
+  /** Why the price is up right now ("Busy in this area", +₦1,200). Older servers leave it out. */
+  priceReason?: { label: string; extraNgn: number } | null;
   pickup?: RideEstimateWaypoint;
   destination?: RideEstimateWaypoint;
   stops?: RideEstimateWaypoint[];

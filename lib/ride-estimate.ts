@@ -4,6 +4,7 @@ import {
   type RideEstimateResponse,
 } from "@/lib/api";
 import { estimateRide, type RideItinerary } from "@/lib/ride-route";
+import { parsePriceReason } from "@/lib/price-reason";
 
 export function buildInstantRideEstimate(
   itinerary: RideItinerary,
@@ -47,6 +48,7 @@ export function parseRideEstimateParam(
       plannedDistanceKm: parsed.plannedDistanceKm,
       plannedDurationSeconds: parsed.plannedDurationSeconds,
       fareEstimateNgn: parsed.fareEstimateNgn,
+      priceReason: parsePriceReason(parsed.priceReason),
       pickup: parseRideEstimateWaypoint(parsed.pickup) ?? undefined,
       destination: parseRideEstimateWaypoint(parsed.destination) ?? undefined,
       stops: Array.isArray(parsed.stops)

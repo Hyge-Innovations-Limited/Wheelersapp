@@ -32,6 +32,7 @@ export function PriceCard({
   minNgn,
   onChange,
   loading = false,
+  reason,
   children,
 }: {
   label: string;
@@ -43,6 +44,8 @@ export function PriceCard({
   onChange: (next: number) => void;
   /** The price for this trip is still on its way: no number is shown, and nothing can be changed yet. */
   loading?: boolean;
+  /** One small line under the figure: why the price is up ("Busy in this area · +₦1,200"). */
+  reason?: string | null;
   children?: ReactNode;
 }) {
   const atFloor = loading || amountNgn <= minNgn;
@@ -114,6 +117,12 @@ export function PriceCard({
           <Ionicons color={colors.ink} name="add" size={26} />
         </Pressable>
       </View>
+
+      {reason && !loading ? (
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.reason}>
+          {reason}
+        </Text>
+      ) : null}
 
       {children}
     </View>
@@ -241,6 +250,15 @@ const styles = StyleSheet.create({
     color: colors.orange,
     fontVariant: ["tabular-nums"],
     includeFontPadding: false,
+  },
+  reason: {
+    marginTop: -6,
+    textAlign: "center",
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    lineHeight: 17,
+    color: colors.onInkSoft,
+    fontVariant: ["tabular-nums"],
   },
   note: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.onInkMuted },
   noteStrong: { fontFamily: fonts.semibold, color: colors.cream },

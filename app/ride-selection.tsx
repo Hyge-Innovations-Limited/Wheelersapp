@@ -16,6 +16,7 @@ import {
   rider,
 } from "@/components/rider/kit";
 import { PriceCard, PriceCardNote, PriceShimmer } from "@/components/rider/price-card";
+import { priceReasonLine, samePriceReason } from "@/lib/price-reason";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import {
   getRideEstimate,
@@ -267,7 +268,11 @@ export default function RideSelectionScreen() {
           const changed =
             getLiveEstimateFareNgn(next) !== getLiveEstimateFareNgn(current) ||
             next.minOfferNgn !== current.minOfferNgn;
-          if (!changed) return;
+          if (!changed) {
+            // Same price, a different reason for it: the line changes quietly.
+            if (!samePriceReason(next.priceReason, current.priceReason)) setLiveEstimate(next);
+            return;
+          }
           setIsRepricing(true);
           reveal = setTimeout(() => {
             if (cancelled) return;
@@ -594,6 +599,7 @@ export default function RideSelectionScreen() {
               loading={isPriceLoading}
               minNgn={minOfferNgn}
               onChange={setOfferNgn}
+              reason={priceReasonLine(resolvedEstimate?.priceReason)}
               sideLabel="Suggested price"
               sideValue={naira(suggestedNgn)}>
               <PriceCardNote>
