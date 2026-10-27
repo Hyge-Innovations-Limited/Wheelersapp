@@ -71,11 +71,26 @@ export function acceptRefusalText(reason: string | undefined, message: string | 
 }
 
 /**
- * The offers back on screen after an accept is refused: the driver who is
- * gone (app closed, unavailable) leaves; anything else ('busy': another
- * booking attempt held the ride for a moment; a short wallet) keeps them all.
+ * Who leaves the list when an accept is refused: the driver who is gone (app
+ * closed, unavailable). Anything else ('busy': another booking attempt held
+ * the ride for a moment; a short wallet; a changed price) keeps every offer.
  */
-export function offersAfterRefusal<T extends { driverId: string }>(held: T[], reason: string | undefined, driverId: string | undefined): T[] {
-  const gone = reason === 'driver_away' || reason === 'driver_unavailable';
-  return held.filter((offer) => !(gone && offer.driverId === driverId));
+export function droppedOnRefusal(reason: string | undefined, driverId: string | undefined): string | undefined {
+  return reason === 'driver_away' || reason === 'driver_unavailable' ? driverId : undefined;
 }
+
+/**
+ * A refusal only counts for the driver being confirmed right now: a late one
+ * (for an earlier pick, or once Confirming is over) is ignored. A refusal
+ * that names no driver (older servers) counts while one is being confirmed.
+ */
+export function refusalIsForConfirming(
+  confirmingDriverId: string | null | undefined,
+  refusedDriverId: string | undefined,
+): boolean {
+  if (!confirmingDriverId) return false;
+  return !refusedDriverId || refusedDriverId === confirmingDriverId;
+}
+
+/** "Confirming your driver" with the chosen offer still open on the server after this many 20 s checks: back to the offers. */
+export const CONFIRM_STILL_OPEN_LIMIT = 2;

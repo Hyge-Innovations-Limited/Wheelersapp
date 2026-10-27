@@ -77,12 +77,22 @@ test('an accept is only sent on an open search', () => {
   assert.equal(canAcceptOffers(null), false);
 });
 
-test('"busy" (another booking attempt held the ride): back to the offers, all of them, "Try again."', () => {
-  const { acceptRefusalText, offersAfterRefusal } = createRequire(import.meta.url)(outFile);
-  const held = [{ driverId: 'a' }, { driverId: 'b' }];
-  assert.deepEqual(offersAfterRefusal(held, 'busy', 'a'), held);
+test('"busy" (another booking attempt held the ride): nobody leaves the list, "Try again."', () => {
+  const { acceptRefusalText, droppedOnRefusal } = createRequire(import.meta.url)(outFile);
+  assert.equal(droppedOnRefusal('busy', 'a'), undefined);
   assert.equal(acceptRefusalText('busy', 'Try again.'), 'Try again.');
   assert.equal(acceptRefusalText('busy', undefined), 'Try again.');
-  assert.deepEqual(offersAfterRefusal(held, 'driver_unavailable', 'a'), [{ driverId: 'b' }], 'a driver who is gone still leaves');
-  assert.deepEqual(offersAfterRefusal(held, 'insufficient_funds', 'a'), held);
+  assert.equal(droppedOnRefusal('driver_unavailable', 'a'), 'a', 'a driver who is gone still leaves');
+  assert.equal(droppedOnRefusal('driver_away', 'a'), 'a');
+  assert.equal(droppedOnRefusal('insufficient_funds', 'a'), undefined);
+  assert.equal(droppedOnRefusal('offer_changed', 'a'), undefined, 'a changed price stays, at the new price');
+});
+
+test('a refusal counts only for the driver being confirmed', () => {
+  const { refusalIsForConfirming, CONFIRM_STILL_OPEN_LIMIT } = createRequire(import.meta.url)(outFile);
+  assert.equal(refusalIsForConfirming('a', 'a'), true);
+  assert.equal(refusalIsForConfirming('b', 'a'), false, 'late, for an earlier pick');
+  assert.equal(refusalIsForConfirming(null, 'a'), false, 'nobody is being confirmed');
+  assert.equal(refusalIsForConfirming('a', undefined), true, 'older servers name no driver');
+  assert.equal(CONFIRM_STILL_OPEN_LIMIT, 2);
 });
