@@ -137,7 +137,7 @@ type RideSessionContextValue = {
   counterOffer: (driverId: string, amountNgn: number) => Promise<void>;
   /** Move the rider's own price and re-offer the trip to every driver. */
   updateOffer: (amountNgn: number) => Promise<void>;
-  /** Hide a driver's bid locally; they can still re-bid. */
+  /** Decline a driver's bid: off the list, and they are told; they can still re-bid. */
   dismissOffer: (driverId: string) => void;
   updateRideRoute: (itinerary: RideItinerary) => Promise<void>;
   cancelRide: (reason?: string) => Promise<void>;
@@ -1166,8 +1166,11 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
             }
           : previous,
       );
+      // The driver is told ("Offer declined") and can send a new price.
+      const rideId = currentRideRef.current?.rideId;
+      if (rideId) void sendEnvelope('ride:decline_offer', { rideId, driverId }).catch(() => undefined);
     },
-    [setRideState],
+    [setRideState, sendEnvelope],
   );
 
   const cancelRide = useCallback(

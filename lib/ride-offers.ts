@@ -55,11 +55,9 @@ export function applyRiderCounter(
 }
 
 /**
- * Hide a bid the rider is not interested in.
- *
- * Local only, by design: the driver is never told they were dismissed, and is
- * free to come back with a better price — which `mergeOffer` will then let back
- * into the list.
+ * Take a declined bid off the list. The driver is told (ride:decline_offer)
+ * and is free to come back with a new price — which `mergeOffer` will then let
+ * back into the list.
  */
 export function dismissOffer(offers: RideOffer[], driverId: string): RideOffer[] {
   return offers.filter((offer) => offer.driverId !== driverId);
