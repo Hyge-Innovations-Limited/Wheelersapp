@@ -35,7 +35,6 @@ import {
   serializeRideItinerary,
 } from "@/lib/ride-route";
 import { submitScheduledRide } from "@/lib/scheduled-rides";
-import { useWalletOverview } from "@/lib/wallet-overview";
 
 const { colors, fonts } = rider;
 
@@ -176,7 +175,6 @@ export default function RideSelectionScreen() {
   useEffect(() => {
     scheduledRideIdempotencyKeyRef.current = null;
   }, [params.scheduledAt, serializedItinerary]);
-  const { overview: wallet } = useWalletOverview();
 
   // Sync initial estimate only once on mount / when params change.
   // Use serialized string as dep to avoid object-reference churn.
@@ -462,10 +460,6 @@ export default function RideSelectionScreen() {
     });
   };
 
-  const balanceNgn = typeof wallet?.balanceNgn === "number" ? wallet.balanceNgn : null;
-  const shortNgn =
-    balanceNgn !== null && !scheduledAt ? Math.ceil(effectiveOfferNgn - balanceNgn) : 0;
-
   return (
     <RScreen contentStyle={styles.screen}>
       <StatusBar style="dark" backgroundColor={colors.cream} />
@@ -634,26 +628,6 @@ export default function RideSelectionScreen() {
           </>
         )}
 
-        {balanceNgn !== null && !isFareResolving ? (
-          <RCard style={styles.infoCard}>
-            <Ionicons color={colors.ink} name="wallet-outline" size={24} />
-            <View style={styles.infoText}>
-              <RText variant="bodyBold">Pay from wallet</RText>
-              <RText variant="small" color={colors.muted} style={styles.tabular}>
-                {shortNgn > 0
-                  ? `Balance ${naira(balanceNgn)}. Add ${naira(shortNgn)} to pay for this trip.`
-                  : `Balance ${naira(balanceNgn)}`}
-              </RText>
-            </View>
-            {shortNgn > 0 ? (
-              <RLink
-                color={colors.orangeText}
-                onPress={() => router.push("/rider/wallet")}
-                title="Add money"
-              />
-            ) : null}
-          </RCard>
-        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
