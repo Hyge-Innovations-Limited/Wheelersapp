@@ -344,6 +344,17 @@ async function resolveRideRoute(
   };
 }
 
+/** How long "Confirming your driver" waits before asking the server where the booking stands. */
+const CONFIRM_RESYNC_MS = 20_000;
+
+/** What the rider reads when an accept is turned down, short; the server's own words when it knows more (the amount short). */
+function acceptRefusalText(reason: string | undefined, message: string | undefined): string {
+  if (reason === 'driver_away') return "That driver's app is closed. Pick another offer.";
+  if (reason === 'driver_unavailable') return 'That driver is no longer available.';
+  if (reason === 'offer_changed') return 'That price changed. Check the offer again.';
+  return message ?? 'That offer could not be booked. Pick another.';
+}
+
 export function RideSessionProvider({ children }: { children: ReactNode }) {
   const { getAccessToken, isReady, user } = useAuth();
   const [connectionState, setConnectionState] = useState<RideConnectionState>('disconnected');
@@ -704,6 +715,35 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
       if (type === 'ride:driver_rejected') {
         setError('A driver skipped this request. Reassigning another nearby driver.');
+        return;
+      }
+
+      // The server turned the accept down: back to the offers, without a
+      // driver who cannot take it. Left alone, "Confirming your driver"
+      // waited for a booking that was never made.
+      if (type === 'ride:accept_offer:rejected') {
+        const reason = getString(payload.reason);
+        if (reason === 'already_matched') {
+          // Booked another way (twice tapped, or on WhatsApp): the server has the driver.
+          void restoreActiveRideRef.current();
+          return;
+        }
+        const driverId = getString(payload.driverId);
+        const heldOffers = offersBeforeAcceptRef.current;
+        offersBeforeAcceptRef.current = null;
+        const gone = reason === 'driver_away' || reason === 'driver_unavailable';
+        setError(acceptRefusalText(reason, getString(payload.message)));
+        setRideState((previous) =>
+          previous && previous.status === 'matching'
+            ? {
+                ...previous,
+                status: 'bidding',
+                driver: undefined,
+                offers: (heldOffers ?? []).filter((offer) => !(gone && offer.driverId === driverId)),
+              }
+            : previous,
+        );
+        if (reason === 'offer_changed') void restoreActiveRideRef.current();
         return;
       }
 
@@ -1217,21 +1257,46 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   restoreActiveRideRef.current = async () => {
     if (isDriverApp || !isBackendConfigured()) return;
     const current = currentRideRef.current;
-    if (current && (current.status !== 'matched' || current.tripCode)) return;
+    // A ride waiting on its driver ("Confirming") is settled by the server too:
+    // the "matched" that ends it may have been lost on the way.
+    const confirming = current?.status === 'matching';
+    if (current && !confirming && (current.status !== 'matched' || current.tripCode)) return;
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) return;
       const restored = restoredRideFrom((await getRiderActiveRide({ accessToken })).ride);
-      if (!restored) return;
       setRideState((previous) => {
-        if (!previous) return restored as RiderRideState;
-        if (previous.rideId !== restored.rideId) return previous;
+        if (!previous) return (restored as RiderRideState | null) ?? previous;
+        if (previous.status === 'matching') {
+          // The server has no search or trip for it any more: the booking did not go through.
+          if (!restored || restored.rideId !== previous.rideId) {
+            return { ...previous, status: 'cancelled', cancelReason: previous.cancelReason ?? 'driver_unavailable' };
+          }
+          offersBeforeAcceptRef.current = null;
+          return {
+            ...previous,
+            ...restored,
+            restored: previous.restored,
+            offers: restored.offers ?? [],
+            driver: restored.driver ? { ...previous.driver, ...restored.driver } : undefined,
+          } as RiderRideState;
+        }
+        if (!restored || previous.rideId !== restored.rideId) return previous;
         return { ...previous, tripCode: previous.tripCode ?? restored.tripCode };
       });
     } catch {
       /* the next reconnect tries again */
     }
   };
+
+  // "Confirming your driver" never waits on a lost message: after a short
+  // while, the server says where the booking stands.
+  const confirmingRideId = currentRide?.status === 'matching' ? currentRide.rideId : null;
+  useEffect(() => {
+    if (isDriverApp || !confirmingRideId) return;
+    const timer = setTimeout(() => void restoreActiveRideRef.current(), CONFIRM_RESYNC_MS);
+    return () => clearTimeout(timer);
+  }, [confirmingRideId]);
 
   useEffect(() => {
     // One socket per user. The driver app has its own session (driver-session),
