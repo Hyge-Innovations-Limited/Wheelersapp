@@ -38,12 +38,14 @@ import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } fr
 import { invalidateWalletCache } from '@/lib/wallet-overview';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { isDriverApp } from '@/lib/app-variant';
-import { restoredRideFrom } from '@/lib/rider-active-ride';
+import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
-import { DRIVER_LEFT_SEARCHING_AGAIN, isSearchingAgain, rideAfterCancelled } from '@/lib/ride-cancelled';
+import { DRIVER_LEFT_SEARCHING_AGAIN, isSearchingAgain, rideAfterBidTimeout, rideAfterCancelled } from '@/lib/ride-cancelled';
+import { isForRide, rideAfterMatched } from '@/lib/ride-matched';
 import {
   acceptRefusalText,
+  agreedPriceFor,
   canAcceptOffers,
   CONFIRM_STILL_OPEN_LIMIT,
   droppedOnRefusal,
@@ -152,7 +154,7 @@ type RideSessionContextValue = {
   error: string | null;
   requestRide: (itinerary: RideItinerary, options?: { offerNgn?: number }) => Promise<void>;
   /** Take a driver's bid — this is what actually books the ride. */
-  acceptOffer: (driverId: string) => Promise<void>;
+  acceptOffer: (driverId: string, shownNgn?: number) => Promise<void>;
   /** Counter a specific driver with a different price. */
   counterOffer: (driverId: string, amountNgn: number) => Promise<void>;
   /** Move the rider's own price and re-offer the trip to every driver. */
@@ -428,6 +430,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearRide = useCallback(() => {
+    offersBeforeAcceptRef.current = null;
+    confirmingDriverRef.current = null;
+    confirmChecksRef.current = 0;
     setError(null);
     setRideState(null);
     setChatMessages([]);
@@ -558,7 +563,13 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
       // Newer servers: how many drivers saw the price, and when the search closes.
       if (type === 'ride:search_status') {
-        setRideState((previous) => applySearchStatus(previous, payload));
+        // A server that sends this books by itself (auto-accept): the line saying so shows.
+        setRideState((previous) => {
+          const next = applySearchStatus(previous, payload);
+          return next && payload.rideId === next.rideId && !next.autoAcceptSupported
+            ? { ...next, autoAcceptSupported: true }
+            : next;
+        });
         return;
       }
 
@@ -591,43 +602,29 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
       // Nobody accepted before the window closed.
       if (type === 'ride:bid_timeout') {
-        setRideState((previous) =>
-          previous ? { ...previous, status: 'bidding', bidTimeout: true, offers: [] } : previous,
-        );
+        const ended = rideAfterBidTimeout(currentRideRef.current, payload);
+        if (ended && ended !== currentRideRef.current) {
+          offersBeforeAcceptRef.current = null;
+          confirmingDriverRef.current = null;
+          confirmChecksRef.current = 0;
+        }
+        setRideState((previous) => rideAfterBidTimeout(previous, payload));
         return;
       }
 
       if (type === 'ride:matched') {
+        // Booked while the app had no ride (or after a restart): the server has it.
+        if (!currentRideRef.current) {
+          void restoreActiveRideRef.current();
+          return;
+        }
+        // Another ride's booking is not this one's.
+        if (!isForRide(currentRideRef.current, payload)) return;
         offersBeforeAcceptRef.current = null;
         confirmingDriverRef.current = null;
         confirmChecksRef.current = 0;
         setError(null);
-        setRideState((previous) => {
-          if (!previous) {
-            return previous;
-          }
-
-          return {
-            ...previous,
-            status: 'matched',
-            // Booked: no offer on the table can be accepted any more.
-            offers: [],
-            driver: {
-              driverId: getString(payload.driverId) ?? previous.driver?.driverId ?? '',
-              driverUserId:
-                getString(payload.driverUserId) ?? previous.driver?.driverUserId,
-              driverName: getString(payload.driverName) ?? previous.driver?.driverName,
-              driverRating: getNumber(payload.driverRating) ?? previous.driver?.driverRating,
-              vehiclePlate: getString(payload.vehiclePlate) ?? previous.driver?.vehiclePlate,
-              vehicleModel: getString(payload.vehicleModel) ?? previous.driver?.vehicleModel,
-              etaSeconds: getNumber(payload.etaSeconds) ?? previous.driver?.etaSeconds,
-              lockedFareNgn:
-                getNumber(payload.lockedFareNgn) ?? previous.driver?.lockedFareNgn,
-              driverPhone: getString(payload.driverPhone) ?? previous.driver?.driverPhone,
-            },
-            tripCode: getString(payload.tripCode) ?? previous.tripCode,
-          };
-        });
+        setRideState((previous) => rideAfterMatched(previous, payload));
         return;
       }
 
@@ -751,11 +748,14 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         // note, and the released hold shows in the balance. Otherwise it ends.
         const again =
           isSearchingAgain(payload) &&
-          currentRideRef.current !== null &&
+          isForRide(currentRideRef.current, payload) &&
           rideAfterCancelled(currentRideRef.current, payload)?.status === 'bidding';
-        if (again) {
+        if (isForRide(currentRideRef.current, payload)) {
           offersBeforeAcceptRef.current = null;
           confirmingDriverRef.current = null;
+          confirmChecksRef.current = 0;
+        }
+        if (again) {
           invalidateWalletCache();
           setError(DRIVER_LEFT_SEARCHING_AGAIN);
         }
@@ -795,7 +795,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           return;
         }
         const driverId = getString(payload.driverId);
-        // A late refusal (for an earlier pick, or once Confirming is over) changes nothing.
+        // A late refusal (another ride, an earlier pick, or once Confirming is over) changes nothing.
+        if (!isForRide(currentRideRef.current, payload)) return;
         if (!refusalIsForConfirming(confirmingDriverRef.current, driverId)) return;
         const confirmingId = confirmingDriverRef.current;
         const heldOffers = offersBeforeAcceptRef.current;
@@ -1100,7 +1101,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
    * driver they won.
    */
   const acceptOffer = useCallback(
-    async (driverId: string): Promise<void> => {
+    async (driverId: string, shownNgn?: number): Promise<void> => {
       const ride = currentRideRef.current;
       const offer = ride?.offers?.find((item) => item.driverId === driverId);
 
@@ -1114,11 +1115,14 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         throw new Error('This search is no longer taking offers.');
       }
 
+      // The price the rider saw and said yes to; if the driver has moved it
+      // since, the server refuses ('offer_changed') and the new one is shown.
+      const agreedFareNgn = agreedPriceFor(offer.counterOfferNgn, shownNgn);
       await sendEnvelope('ride:accept_offer', {
         rideId: ride.rideId,
         driverId: offer.driverId,
         driverUserId: offer.driverUserId,
-        agreedFareNgn: offer.counterOfferNgn,
+        agreedFareNgn,
         paymentMethod: 'wallet_balance',
       });
       offersBeforeAcceptRef.current = ride.offers ?? null;
@@ -1135,8 +1139,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
               ...previous,
               status: 'matching',
               offers: [],
+              // This driver alone: nothing of a driver shown before carries over.
               driver: {
-                ...previous.driver,
                 driverId: offer.driverId,
                 driverUserId: offer.driverUserId,
                 driverName: offer.driverName,
@@ -1144,7 +1148,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
                 vehiclePlate: offer.vehiclePlate,
                 vehicleModel: offer.vehicleModel,
                 etaSeconds: offer.etaSeconds,
-                lockedFareNgn: offer.counterOfferNgn,
+                lockedFareNgn: agreedFareNgn,
               },
             }
           : previous,
@@ -1333,7 +1337,11 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isDriverApp) return;
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && !currentRideRef.current) void restoreActiveRideRef.current();
+      if (state !== 'active') return;
+      const status = currentRideRef.current?.status;
+      // Nothing on screen (a scheduled search may have started), or a search
+      // that may have been booked, ended or answered while the app was away.
+      if (!status || status === 'bidding' || status === 'requesting') void restoreActiveRideRef.current();
     });
     return () => subscription.remove();
   }, []);
@@ -1342,25 +1350,41 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     if (isDriverApp || !isBackendConfigured()) return;
     const current = currentRideRef.current;
     // A ride waiting on its driver ("Confirming") is settled by the server too:
-    // the "matched" that ends it may have been lost on the way.
+    // the "matched" that ends it may have been lost on the way. So is a
+    // search: with the socket away, a booking (auto-accept), the end of the
+    // search or the offers may all have been missed.
     const confirming = current?.status === 'matching';
-    if (current && !confirming && (current.status !== 'matched' || current.tripCode)) return;
+    const searching = current?.status === 'bidding' || current?.status === 'requesting';
+    if (current && !confirming && !searching && (current.status !== 'matched' || current.tripCode)) return;
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) return;
-      const restored = restoredRideFrom((await getRiderActiveRide({ accessToken })).ride);
-      // Not for ever: a refusal that never arrived (the server left the offer
-      // open after 'busy') kept Confirming up for the whole search. After two
-      // 20 s checks finding the chosen offer still open, back to the offers.
+      const answer = serverAnswerFrom((await getRiderActiveRide({ accessToken })).ride);
+      const restored = answer.kind === 'ride' ? answer.ride : null;
       const now = currentRideRef.current;
+
+      // A search: take what the server says (booked, its offers, or over).
+      if (now && (now.status === 'bidding' || now.status === 'requesting')) {
+        setRideState((previous) =>
+          previous && (previous.status === 'bidding' || previous.status === 'requesting')
+            ? (reconcileSearch(previous, answer) as RiderRideState)
+            : previous,
+        );
+        return;
+      }
+
+      // Confirming, and the server still has the search with the chosen offer
+      // open (or, an older server, says nothing about the search): the booking
+      // may still be going through. Not for ever: a refusal that never arrived
+      // kept Confirming up for the whole search. After two 20 s checks like
+      // this, back to the offers.
       const chosen = now?.status === 'matching' ? now.driver?.driverId : undefined;
-      if (
+      const stillUnsure =
         now &&
         chosen &&
-        restored &&
-        restored.rideId === now.rideId &&
-        stillOpenForChosen(restored, chosen)
-      ) {
+        ((restored && restored.rideId === now.rideId && stillOpenForChosen(restored, chosen)) ||
+          (answer.kind === 'unknown' && answer.rideId === now.rideId));
+      if (now && chosen && stillUnsure) {
         if (options?.confirmCheck) confirmChecksRef.current += 1;
         if (confirmChecksRef.current < CONFIRM_STILL_OPEN_LIMIT) return;
         const held = offersBeforeAcceptRef.current;
@@ -1369,15 +1393,15 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         confirmChecksRef.current = 0;
         setError('Try again.');
         setRideState((previous) =>
-          previous && previous.status === 'matching' && previous.rideId === restored.rideId && previous.driver?.driverId === chosen
+          previous && previous.status === 'matching' && previous.rideId === now.rideId && previous.driver?.driverId === chosen
             ? {
                 ...previous,
                 status: 'bidding',
                 driver: undefined,
-                bidsCloseAt: restored.bidsCloseAt ?? previous.bidsCloseAt,
+                bidsCloseAt: restored?.bidsCloseAt ?? previous.bidsCloseAt,
                 offers: offersAfterRefusedAccept(
                   offersAfterRefusedAccept(held, previous.offers),
-                  (restored.offers ?? []) as RideOffer[],
+                  (restored?.offers ?? []) as RideOffer[],
                 ),
               }
             : previous,
@@ -1389,7 +1413,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         if (previous.status === 'matching') {
           // The server has no search or trip for it any more: the booking did not go through.
           if (!restored || restored.rideId !== previous.rideId) {
+            offersBeforeAcceptRef.current = null;
             confirmingDriverRef.current = null;
+            confirmChecksRef.current = 0;
             return { ...previous, status: 'cancelled', cancelReason: previous.cancelReason ?? 'driver_unavailable' };
           }
           // Still searching, and the chosen driver's offer is still open: the
@@ -1401,12 +1427,14 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           }
           offersBeforeAcceptRef.current = null;
           confirmingDriverRef.current = null;
+          confirmChecksRef.current = 0;
           return {
             ...previous,
             ...restored,
             restored: previous.restored,
             offers: restored.offers ?? [],
-            driver: restored.driver ? { ...previous.driver, ...restored.driver } : undefined,
+            // Another driver booked: that driver alone, never the fare or phone of the one chosen here.
+            driver: carryDriver(previous.driver, restored.driver),
           } as RiderRideState;
         }
         if (!restored || previous.rideId !== restored.rideId) return previous;

@@ -43,6 +43,9 @@ export type RestoredRide = {
     driverRating?: number;
     vehiclePlate?: string;
     vehicleModel?: string;
+    /** The fare the server agreed with this driver. */
+    lockedFareNgn?: number;
+    driverPhone?: string;
   };
 };
 
@@ -108,6 +111,105 @@ export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined,
       driverRating: ride.driver.rating ?? undefined,
       vehiclePlate: ride.driver.vehiclePlate ?? undefined,
       vehicleModel: vehicle || undefined,
+      ...(typeof ride.agreedFareNgn === 'number' ? { lockedFareNgn: ride.agreedFareNgn } : {}),
+      ...(ride.driver.phone ? { driverPhone: ride.driver.phone } : {}),
     },
   };
+}
+
+/**
+ * What the server says about the rider's ride, for squaring the screen with it:
+ * - ride: a trip with a driver, or a search with its offers;
+ * - unknown: the server has the ride as a search but says nothing more (an
+ *   older server without `search`, or one past its closing time and about to end);
+ * - none: no active ride.
+ */
+export type ServerAnswer =
+  | { kind: 'none' }
+  | { kind: 'unknown'; rideId: string }
+  | { kind: 'ride'; ride: RestoredRide };
+
+export function serverAnswerFrom(ride: RiderActiveRideDetail | null | undefined, now = Date.now()): ServerAnswer {
+  if (!ride) return { kind: 'none' };
+  const restored = restoredRideFrom(ride, now);
+  if (restored) return { kind: 'ride', ride: restored };
+  if (SEARCHING.has(ride.status)) return { kind: 'unknown', rideId: ride.id };
+  return { kind: 'none' };
+}
+
+type DriverLike = { driverId: string } & Record<string, unknown>;
+
+/**
+ * The driver to show after the server named one. The same driver: what the
+ * screen knew, with the server's fields on top. Another driver: that driver
+ * alone; nothing (fare, phone, ETA) of the one shown before carries over.
+ */
+export function carryDriver<D extends DriverLike>(previous: D | undefined, next: D | undefined): D | undefined {
+  if (!next) return undefined;
+  if (!previous || previous.driverId !== next.driverId) return next;
+  const defined = Object.fromEntries(Object.entries(next).filter(([, value]) => value !== undefined));
+  return { ...previous, ...defined } as D;
+}
+
+type SearchLike = {
+  rideId: string;
+  status: string;
+  bidsCloseAt?: string;
+  bidTimeout?: boolean;
+  riderOfferNgn?: number;
+  offers?: { driverId: string; counterOfferNgn: number; riderCounterNgn?: number }[];
+  driver?: DriverLike;
+  tripCode?: string;
+  startedAt?: string;
+  fareEstimateNgn?: number;
+};
+
+/**
+ * A search on screen ('requesting' or 'bidding') squared with the server,
+ * after the socket was away (a reconnect, the app back in front): the trip
+ * if a driver was booked meanwhile, the open offers if it is still a search,
+ * "nobody took it" once its time is over and the server has nothing. Anything
+ * the server cannot say for sure leaves the screen as it is.
+ */
+export function reconcileSearch<T extends SearchLike>(previous: T, answer: ServerAnswer, now = Date.now()): T {
+  if (previous.status !== 'bidding' && previous.status !== 'requesting') return previous;
+  if (answer.kind === 'unknown') return previous;
+  if (answer.kind === 'none') {
+    // Just sent: the server may not have written it yet.
+    if (previous.status !== 'bidding' || previous.bidTimeout) return previous;
+    const closes = previous.bidsCloseAt ? Date.parse(previous.bidsCloseAt) : Number.NaN;
+    if (!Number.isFinite(closes) || closes > now) return previous;
+    return { ...previous, bidTimeout: true, offers: [] };
+  }
+  const ride = answer.ride;
+  if (ride.rideId !== previous.rideId) return previous;
+  if (ride.status === 'bidding') {
+    const shown = previous.offers ?? [];
+    const offers = (ride.offers ?? [])
+      .map((offer) => {
+        const same = shown.find((item) => item.driverId === offer.driverId);
+        return same && same.counterOfferNgn === offer.counterOfferNgn && same.riderCounterNgn !== undefined
+          ? { ...offer, riderCounterNgn: same.riderCounterNgn }
+          : offer;
+      });
+    return {
+      ...previous,
+      status: 'bidding',
+      bidTimeout: false,
+      bidsCloseAt: ride.bidsCloseAt ?? previous.bidsCloseAt,
+      riderOfferNgn: ride.riderOfferNgn ?? previous.riderOfferNgn,
+      offers,
+    } as T;
+  }
+  // Booked while the app was not listening (auto-accept, or an accept that went through).
+  return {
+    ...previous,
+    status: ride.status,
+    bidTimeout: false,
+    offers: [],
+    tripCode: ride.tripCode ?? previous.tripCode,
+    startedAt: ride.startedAt ?? previous.startedAt,
+    fareEstimateNgn: ride.fareEstimateNgn ?? previous.fareEstimateNgn,
+    driver: carryDriver(previous.driver, ride.driver as DriverLike | undefined),
+  } as T;
 }

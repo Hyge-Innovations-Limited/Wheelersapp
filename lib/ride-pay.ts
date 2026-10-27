@@ -94,3 +94,8 @@ export function refusalIsForConfirming(
 
 /** "Confirming your driver" with the chosen offer still open on the server after this many 20 s checks: back to the offers. */
 export const CONFIRM_STILL_OPEN_LIMIT = 2;
+
+/** The price an accept sends: the one the rider was shown, when known; otherwise the offer's own. */
+export function agreedPriceFor(offerNgn: number, shownNgn: number | null | undefined): number {
+  return typeof shownNgn === 'number' && Number.isFinite(shownNgn) && shownNgn > 0 ? Math.round(shownNgn) : offerNgn;
+}

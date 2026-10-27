@@ -18,7 +18,7 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = join(here, '..');
 const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-ride-cancelled-')), 'bundle.cjs');
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/ride-cancelled.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { rideAfterCancelled, isSearchingAgain } = createRequire(import.meta.url)(outFile);
+const { rideAfterCancelled, isSearchingAgain, rideAfterBidTimeout } = createRequire(import.meta.url)(outFile);
 
 const matched = {
   rideId: 'ride-1', status: 'matched', riderOfferNgn: 3000, itinerary: { pickup: 'Yaba', stops: ['Ikeja'] },
@@ -53,8 +53,20 @@ test('a plain cancel still ends the ride', () => {
   assert.equal(rideAfterCancelled(matched, { rideId: 'ride-1', searchingAgain: 'yes' }).status, 'cancelled');
 });
 
-test('searchingAgain for another ride, or a trip already under way: it ends as before', () => {
-  assert.equal(rideAfterCancelled(matched, { rideId: 'ride-2', searchingAgain: true }).status, 'cancelled');
+test('another ride\'s cancel changes nothing; a trip already under way still ends', () => {
+  assert.equal(rideAfterCancelled(matched, { rideId: 'ride-2', searchingAgain: true }), matched);
+  assert.equal(rideAfterCancelled(matched, { rideId: 'ride-2', reason: 'rider_cancelled' }), matched);
   assert.equal(rideAfterCancelled({ ...matched, status: 'active' }, { rideId: 'ride-1', searchingAgain: true }).status, 'cancelled');
   assert.equal(rideAfterCancelled(null, { rideId: 'ride-1', searchingAgain: true }), null);
+});
+
+test('bid_timeout: only for this ride, only while searching or Confirming (no driver stays); a booked trip ignores it', () => {
+  const confirming = { ...matched, status: 'matching' };
+  const t = rideAfterBidTimeout(confirming, { rideId: 'ride-1' });
+  assert.equal(t.status, 'bidding');
+  assert.equal(t.bidTimeout, true);
+  assert.equal(t.driver, undefined);
+  assert.equal(rideAfterBidTimeout(matched, { rideId: 'ride-1' }), matched, 'already booked');
+  assert.equal(rideAfterBidTimeout({ ...matched, status: 'bidding' }, { rideId: 'ride-2' }).status, 'bidding');
+  assert.equal(rideAfterBidTimeout({ ...matched, status: 'bidding' }, { rideId: 'ride-2' }).bidTimeout, undefined);
 });

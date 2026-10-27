@@ -256,6 +256,13 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
         router.navigate("/rider" as Href);
         return;
       }
+      // Booked ("Driver found!"), possibly by auto-accept while the app was
+      // away: the trip screen. Coming to the front squares the ride with the
+      // server, so the trip is there (or arrives) when it opens.
+      if (!isDriverApp && data?.type === "ride:matched") {
+        router.navigate("/rider/active-trip" as Href);
+        return;
+      }
       // Someone is calling: ask for the call on that trip; the call screen opens over whatever is showing.
       if (data?.type === "call:incoming" && typeof data.rideId === "string" && liveCallSupported) {
         requestCurrentCall(data.rideId);

@@ -28,8 +28,10 @@ export function isSearchingAgain(payload: Record<string, unknown>): boolean {
 
 export function rideAfterCancelled<T extends CancellableRide>(previous: T | null, payload: Record<string, unknown>): T | null {
   if (!previous) return previous;
-  const rideId = typeof payload.rideId === 'string' ? payload.rideId : undefined;
-  if (isSearchingAgain(payload) && (!rideId || rideId === previous.rideId) && previous.status !== 'active' && previous.status !== 'completed') {
+  const rideId = typeof payload.rideId === 'string' && payload.rideId ? payload.rideId : undefined;
+  // Another ride (an older search, a ride replaced by a newer one) is not this one.
+  if (rideId && rideId !== previous.rideId) return previous;
+  if (isSearchingAgain(payload) && previous.status !== 'active' && previous.status !== 'completed') {
     const bidsCloseAt =
       typeof payload.bidsCloseAt === 'string' && Number.isFinite(Date.parse(payload.bidsCloseAt))
         ? payload.bidsCloseAt
@@ -55,4 +57,18 @@ export function rideAfterCancelled<T extends CancellableRide>(previous: T | null
     cancelReason: typeof payload.reason === 'string' && payload.reason.trim() ? payload.reason : previous.cancelReason,
     cancelStage: typeof payload.cancelStage === 'string' && payload.cancelStage.trim() ? payload.cancelStage : previous.cancelStage,
   };
+}
+
+/**
+ * `ride:bid_timeout`: nobody was booked before the search closed. Only for
+ * the ride on screen, and only while it is a search (or Confirming, whose
+ * booking then did not happen: no driver stays on it). A late one for a ride
+ * already booked or under way changes nothing.
+ */
+export function rideAfterBidTimeout<T extends CancellableRide>(previous: T | null, payload: Record<string, unknown>): T | null {
+  if (!previous) return previous;
+  const rideId = typeof payload.rideId === 'string' && payload.rideId ? payload.rideId : undefined;
+  if (rideId && rideId !== previous.rideId) return previous;
+  if (previous.status !== 'bidding' && previous.status !== 'requesting' && previous.status !== 'matching') return previous;
+  return { ...previous, status: 'bidding', bidTimeout: true, offers: [], driver: undefined };
 }

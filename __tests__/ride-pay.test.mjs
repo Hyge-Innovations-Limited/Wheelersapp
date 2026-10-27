@@ -96,3 +96,10 @@ test('a refusal counts only for the driver being confirmed', () => {
   assert.equal(refusalIsForConfirming('a', undefined), true, 'older servers name no driver');
   assert.equal(CONFIRM_STILL_OPEN_LIMIT, 2);
 });
+
+test('the accept sends the price the rider was shown', () => {
+  const { agreedPriceFor } = createRequire(import.meta.url)(outFile);
+  assert.equal(agreedPriceFor(3400, 3000), 3000, 'the driver moved to 3,400 after the sheet showed 3,000');
+  assert.equal(agreedPriceFor(3400, undefined), 3400);
+  assert.equal(agreedPriceFor(3400, 0), 3400);
+});

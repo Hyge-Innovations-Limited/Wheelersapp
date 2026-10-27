@@ -289,10 +289,10 @@ export default function MatchingScreen() {
   /* ── actions ───────────────────────────────────────────────────────── */
 
   const handleAccept = useCallback(
-    async (driverId: string) => {
+    async (driverId: string, shownNgn: number) => {
       setIsSubmitting(true);
       try {
-        await acceptOffer(driverId);
+        await acceptOffer(driverId, shownNgn);
       } catch (acceptError) {
         Alert.alert(
           "Could not accept that offer",
@@ -462,7 +462,8 @@ export default function MatchingScreen() {
       return;
     }
     setPayFor(null);
-    void handleAccept(payOffer.driverId);
+    // The price the rider said yes to (equal to the offer's now, checked above).
+    void handleAccept(payOffer.driverId, payFor.fareNgn);
   }, [payFor, payOffer, balanceNgn, status, timedOut, isSubmitting, handleAccept]);
 
   const paySheet = (
@@ -475,9 +476,10 @@ export default function MatchingScreen() {
         router.push({ pathname: "/rider-add-money", params: { depositAmount: String(shortNgn) } });
       }}
       onPay={() => {
-        if (!payOffer) return;
+        if (!payOffer || !payStep) return;
         setPayFor(null);
-        void handleAccept(payOffer.driverId);
+        // The price on the sheet the rider tapped, not a newer one that came in since.
+        void handleAccept(payOffer.driverId, payStep.fareNgn);
       }}
       step={payStep}
     />
@@ -862,7 +864,12 @@ export default function MatchingScreen() {
   const sawLine = status === "bidding" ? driversSawLine(currentRide?.driversNotified) : null;
   // Auto-accept is automatic on the server whenever the wallet covers the price.
   const autoBookLine =
-    status === "bidding" && !requestFailed && riderOfferNgn !== undefined && walletCovers(balanceNgn, riderOfferNgn)
+    status === "bidding" &&
+    !requestFailed &&
+    // Only a server that books by itself says so (it sent a search status or an auto-accept reply).
+    currentRide?.autoAcceptSupported === true &&
+    riderOfferNgn !== undefined &&
+    walletCovers(balanceNgn, riderOfferNgn)
       ? `A driver at ${naira(riderOfferNgn)} is booked for you`
       : null;
   const clockText = status === "bidding" && !requestFailed ? searchClock(currentRide?.bidsCloseAt, nowMs) : null;
