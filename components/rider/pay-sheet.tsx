@@ -17,6 +17,7 @@ const { colors, fonts } = rider;
  */
 export function PaySheet({
   step,
+  autoBook = true,
   busy,
   onPay,
   onBack,
@@ -24,6 +25,8 @@ export function PaySheet({
 }: {
   /** Null hides the sheet. */
   step: PaySheetStep | null;
+  /** The booking goes by itself when the money lands (not after the driver changed the price). */
+  autoBook?: boolean;
   busy?: boolean;
   onPay: () => void;
   onBack: () => void;
@@ -49,7 +52,7 @@ export function PaySheet({
               <RLink onPress={onBack} title="Back" />
             </>
           ) : step?.kind === "add" ? (
-            <AddMoney step={step} onBack={onBack} onOpenAddMoney={onOpenAddMoney} />
+            <AddMoney autoBook={autoBook} step={step} onBack={onBack} onOpenAddMoney={onOpenAddMoney} />
           ) : null}
         </View>
       </View>
@@ -59,10 +62,12 @@ export function PaySheet({
 
 function AddMoney({
   step,
+  autoBook,
   onBack,
   onOpenAddMoney,
 }: {
   step: Extract<PaySheetStep, { kind: "add" }>;
+  autoBook: boolean;
   onBack: () => void;
   onOpenAddMoney: (shortNgn: number) => void;
 }) {
@@ -135,7 +140,7 @@ function AddMoney({
         )}
       </RCard>
 
-      {account ? (
+      {account && autoBook ? (
         <View accessibilityLiveRegion="polite" style={styles.waiting}>
           <ActivityIndicator color={colors.orange} size="small" />
           <RText color={colors.muted} variant="small">

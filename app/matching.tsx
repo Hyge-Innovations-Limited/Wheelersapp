@@ -311,17 +311,21 @@ export default function MatchingScreen() {
    * The offer being paid for on the pay sheet. `checked`: the balance has been
    * fetched fresh since it opened. `waitingForMoney`: the sheet asked for a
    * top-up, so the accept goes by itself when the money lands. Back clears it.
+   * `fareNgn`: the price the rider said yes to. `priceChanged`: the driver
+   * re-bid since, so nothing goes by itself; the rider taps Pay at the new price.
    */
   const [payFor, setPayFor] = useState<{
     driverId: string;
+    fareNgn: number;
     checked: boolean;
     waitingForMoney: boolean;
+    priceChanged: boolean;
   } | null>(null);
 
   const openPay = useCallback(
-    (driverId: string) => {
+    (driverId: string, fareNgn: number) => {
       void Haptics.selectionAsync();
-      setPayFor({ driverId, checked: false, waitingForMoney: false });
+      setPayFor({ driverId, fareNgn, checked: false, waitingForMoney: false, priceChanged: false });
       void refreshWallet()
         .catch(() => undefined)
         .finally(() =>
@@ -416,9 +420,18 @@ export default function MatchingScreen() {
     if (payFor && !payOffer) setPayFor(null);
   }, [payFor, payOffer]);
 
+  // The driver changed their price while the sheet was open: it shows the new
+  // price, and nothing is booked by itself any more; the rider taps Pay.
+  const payOfferNgn = payOffer?.counterOfferNgn;
+  useEffect(() => {
+    if (payFor && payOfferNgn !== undefined && payOfferNgn !== payFor.fareNgn) {
+      setPayFor({ ...payFor, fareNgn: payOfferNgn, waitingForMoney: false, priceChanged: true });
+    }
+  }, [payFor, payOfferNgn]);
+
   // Short on a fresh balance: from here the accept waits on the money.
   useEffect(() => {
-    if (payFor && payFor.checked && !payFor.waitingForMoney && payStepKind === "add") {
+    if (payFor && payFor.checked && !payFor.waitingForMoney && !payFor.priceChanged && payStepKind === "add") {
       setPayFor({ ...payFor, waitingForMoney: true });
     }
   }, [payFor, payStepKind]);
@@ -440,6 +453,9 @@ export default function MatchingScreen() {
         backedOut: false,
         balanceNgn,
         fareNgn: payOffer.counterOfferNgn,
+        agreedFareNgn: payFor.fareNgn,
+        rideStatus: status,
+        searchEnded: timedOut,
         sending: isSubmitting,
       })
     ) {
@@ -447,10 +463,11 @@ export default function MatchingScreen() {
     }
     setPayFor(null);
     void handleAccept(payOffer.driverId);
-  }, [payFor, payOffer, balanceNgn, isSubmitting, handleAccept]);
+  }, [payFor, payOffer, balanceNgn, status, timedOut, isSubmitting, handleAccept]);
 
   const paySheet = (
     <PaySheet
+      autoBook={payFor?.priceChanged !== true}
       busy={isSubmitting}
       onBack={() => setPayFor(null)}
       onOpenAddMoney={(shortNgn) => {
@@ -807,7 +824,7 @@ export default function MatchingScreen() {
               featured={index === 0}
               key={offer.driverId}
               offer={offer}
-              onAccept={() => openPay(offer.driverId)}
+              onAccept={() => openPay(offer.driverId, offer.counterOfferNgn)}
               onDecline={() => dismissOffer(offer.driverId)}
               riderOfferNgn={riderOfferNgn}
             />

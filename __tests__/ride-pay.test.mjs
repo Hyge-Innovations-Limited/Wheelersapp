@@ -18,7 +18,7 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = join(here, '..');
 const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-ride-pay-')), 'bundle.cjs');
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/ride-pay.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { walletShortNgn, paySheetStep, shouldSendAfterTopUp } = createRequire(import.meta.url)(outFile);
+const { walletShortNgn, paySheetStep, shouldSendAfterTopUp, canAcceptOffers } = createRequire(import.meta.url)(outFile);
 
 test('enough in the wallet: pay', () => {
   assert.deepEqual(paySheetStep(5000, 4500), { kind: 'pay', fareNgn: 4500 });
@@ -37,7 +37,7 @@ test('balance not known yet: pay (the server checks again)', () => {
 });
 
 test('the accept goes once the money lands, never after Back, never on an unknown balance', () => {
-  const base = { waitingForMoney: true, backedOut: false, balanceNgn: 5000, fareNgn: 4500, sending: false };
+  const base = { waitingForMoney: true, backedOut: false, balanceNgn: 5000, fareNgn: 4500, agreedFareNgn: 4500, rideStatus: 'bidding', sending: false };
   assert.equal(shouldSendAfterTopUp(base), true);
   assert.equal(shouldSendAfterTopUp({ ...base, balanceNgn: 4000 }), false, 'still short');
   assert.equal(shouldSendAfterTopUp({ ...base, backedOut: true }), false, 'backed out');
@@ -53,4 +53,26 @@ test('the auto-book line needs a known balance that covers the price', async () 
   assert.equal(walletCovers(4000, 4500), false);
   assert.equal(walletCovers(null, 4500), false);
   assert.equal(walletCovers(5000, undefined), false);
+});
+
+test('the driver re-bid while the rider topped up: never booked at the new price by itself', () => {
+  const base = { waitingForMoney: true, backedOut: false, balanceNgn: 3500, fareNgn: 3400, agreedFareNgn: 3000, rideStatus: 'bidding', sending: false };
+  assert.equal(shouldSendAfterTopUp(base), false, '₦3,400 was never agreed');
+  assert.equal(shouldSendAfterTopUp({ ...base, fareNgn: 3000 }), true, 'the agreed price still stands');
+});
+
+test('no accept by itself once the ride is booked, confirming, or the search ended', () => {
+  const base = { waitingForMoney: true, backedOut: false, balanceNgn: 5000, fareNgn: 4500, agreedFareNgn: 4500, rideStatus: 'bidding', sending: false };
+  for (const rideStatus of ['matched', 'matching', 'active', 'cancelled', undefined]) {
+    assert.equal(shouldSendAfterTopUp({ ...base, rideStatus }), false, String(rideStatus));
+  }
+  assert.equal(shouldSendAfterTopUp({ ...base, searchEnded: true }), false);
+});
+
+test('an accept is only sent on an open search', () => {
+  assert.equal(canAcceptOffers({ status: 'bidding' }), true);
+  assert.equal(canAcceptOffers({ status: 'bidding', bidTimeout: true }), false);
+  assert.equal(canAcceptOffers({ status: 'matched' }), false, 'auto-accept booked another driver');
+  assert.equal(canAcceptOffers({ status: 'matching' }), false);
+  assert.equal(canAcceptOffers(null), false);
 });

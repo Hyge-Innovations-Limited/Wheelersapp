@@ -37,6 +37,7 @@ import { isDriverApp } from '@/lib/app-variant';
 import { restoredRideFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
+import { canAcceptOffers } from '@/lib/ride-pay';
 import { applyAutoAcceptReply, autoAcceptFromPayload } from '@/lib/auto-accept';
 
 type RideConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -593,6 +594,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           return {
             ...previous,
             status: 'matched',
+            // Booked: no offer on the table can be accepted any more.
+            offers: [],
             driver: {
               driverId: getString(payload.driverId) ?? previous.driver?.driverId ?? '',
               driverUserId:
@@ -1070,6 +1073,12 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
       if (!ride || !offer) {
         throw new Error('That bid is no longer available.');
+      }
+      // Only an open search takes an accept: once a driver is booked (or one
+      // is being confirmed, or the search ended) a second accept would flip
+      // the booked ride back to "Confirming" with another driver.
+      if (!canAcceptOffers(ride)) {
+        throw new Error('This search is no longer taking offers.');
       }
 
       await sendEnvelope('ride:accept_offer', {

@@ -31,10 +31,18 @@ export function shouldSendAfterTopUp(input: {
   waitingForMoney: boolean;
   backedOut: boolean;
   balanceNgn: number | null | undefined;
+  /** The driver's price now. */
   fareNgn: number | null | undefined;
+  /** The price the rider said yes to at Accept: a re-bid since is never booked by itself. */
+  agreedFareNgn: number;
+  /** Only a search still open takes an accept (a driver may have been booked meanwhile). */
+  rideStatus: string | undefined;
+  searchEnded?: boolean;
   sending: boolean;
 }): boolean {
   if (!input.waitingForMoney || input.backedOut || input.sending) return false;
+  if (input.rideStatus !== 'bidding' || input.searchEnded) return false;
+  if (input.fareNgn !== input.agreedFareNgn) return false;
   if (typeof input.balanceNgn !== 'number' || !Number.isFinite(input.balanceNgn)) return false;
   if (typeof input.fareNgn !== 'number' || !(input.fareNgn > 0)) return false;
   return input.balanceNgn >= input.fareNgn;
@@ -45,4 +53,9 @@ export function walletCovers(balanceNgn: number | null | undefined, fareNgn: num
   if (typeof balanceNgn !== 'number' || !Number.isFinite(balanceNgn)) return false;
   if (typeof fareNgn !== 'number' || !Number.isFinite(fareNgn) || fareNgn <= 0) return false;
   return balanceNgn >= fareNgn;
+}
+
+/** An accept is only sent on a search still open: not once a driver is booked or being confirmed, nor after it ended. */
+export function canAcceptOffers(ride: { status?: string; bidTimeout?: boolean } | null | undefined): boolean {
+  return Boolean(ride) && ride!.status === 'bidding' && ride!.bidTimeout !== true;
 }
