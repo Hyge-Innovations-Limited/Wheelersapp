@@ -97,6 +97,17 @@ test('the rider paying flips the bid to accepted/paid before the match lands', (
   assert.equal(s.currentRide, null, 'no trip yet — ride:matched starts it');
 });
 
+test('a booking that falls through (the server found the driver busy) turns the paid card into lost', () => {
+  let s = reduceDriverSession(bidSent(), 'ride:offer_accepted', {
+    rideId: 'ride-1', riderId: 'rider-1', agreedFareNgn: 6000, paymentMethod: 'WALLET',
+  }, NOW + 120_000);
+  s = reduceDriverSession(s, 'ride:bid_lost', { rideId: 'ride-1' }, NOW + 125_000);
+  const bid = s.pendingBids['ride-1'];
+  assert.equal(bid.outcome, 'lost');
+  assert.equal(bid.acceptedAt, undefined, 'no longer "paid"');
+  assert.equal(bid.riderPaid, false);
+});
+
 test('a cash acceptance is accepted but not paid', () => {
   const s = reduceDriverSession(bidSent(), 'ride:offer_accepted', {
     rideId: 'ride-1', riderId: 'rider-1', agreedFareNgn: 6000, paymentMethod: 'CASH',

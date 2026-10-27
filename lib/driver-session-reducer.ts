@@ -949,9 +949,14 @@ export function reduceDriverSession(
     if (!bid && !hasOffer && prev.currentOffer?.rideId !== rideId) return prev;
 
     const pendingBids = { ...prev.pendingBids };
-    if (bid && !bid.acceptedAt) {
+    // A bid the rider had chosen ("paid") whose booking then fell through (the
+    // server found this driver busy) is lost too, unless the trip is ours.
+    const fellThrough = bid?.acceptedAt && type === 'ride:bid_lost' && prev.currentRide?.rideId !== rideId;
+    if (bid && (!bid.acceptedAt || fellThrough)) {
       pendingBids[rideId] = {
         ...bid,
+        acceptedAt: undefined,
+        riderPaid: false,
         outcome: type === 'ride:bid_lost' ? 'lost' : 'expired',
         resolvedAt: new Date(now).toISOString(),
       };
