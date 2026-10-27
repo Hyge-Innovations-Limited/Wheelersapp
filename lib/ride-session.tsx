@@ -1275,6 +1275,13 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           if (!restored || restored.rideId !== previous.rideId) {
             return { ...previous, status: 'cancelled', cancelReason: previous.cancelReason ?? 'driver_unavailable' };
           }
+          // Still searching, and the chosen driver's offer is still open: the
+          // booking is still going through (a slow moment on the server). Stay
+          // on Confirming; showing the offers again let a second driver be booked.
+          const chosenId = previous.driver?.driverId;
+          if (restored.status === 'bidding' && chosenId && (restored.offers ?? []).some((offer) => offer.driverId === chosenId)) {
+            return previous;
+          }
           offersBeforeAcceptRef.current = null;
           return {
             ...previous,
@@ -1297,8 +1304,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   const confirmingRideId = currentRide?.status === 'matching' ? currentRide.rideId : null;
   useEffect(() => {
     if (isDriverApp || !confirmingRideId) return;
-    const timer = setTimeout(() => void restoreActiveRideRef.current(), CONFIRM_RESYNC_MS);
-    return () => clearTimeout(timer);
+    // Asked again every 20 s for as long as it is confirming.
+    const timer = setInterval(() => void restoreActiveRideRef.current(), CONFIRM_RESYNC_MS);
+    return () => clearInterval(timer);
   }, [confirmingRideId]);
 
   useEffect(() => {
