@@ -164,6 +164,8 @@ type RideSessionContextValue = {
   updateOffer: (amountNgn: number) => Promise<void>;
   /** Decline a driver's bid: off the list, and they are told; they can still re-bid. */
   dismissOffer: (driverId: string) => void;
+  /** The rider's answer to auto-booking for the search on screen (and the price it was for), told to the server. */
+  setAutoBook: (on: boolean, priceNgn?: number) => Promise<void>;
   updateRideRoute: (itinerary: RideItinerary) => Promise<void>;
   cancelRide: (reason?: string) => Promise<void>;
   /** Rate the driver of the ride that just finished. */
@@ -217,6 +219,7 @@ const defaultContext: RideSessionContextValue = {
     throw new Error('Ride session is unavailable.');
   },
   dismissOffer: () => undefined,
+  setAutoBook: async () => undefined,
   updateRideRoute: async () => {
     throw new Error('Ride session is unavailable.');
   },
@@ -1280,6 +1283,29 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     [setRideState, sendEnvelope, noteOfferEvent],
   );
 
+  /**
+   * The rider's answer to "Auto-book a driver at ₦X?" for a search already
+   * open: kept on the ride, and told to the server (ride:auto_accept, with the
+   * price it was given for). Only a server that books by itself hears it;
+   * an older one never auto-books.
+   */
+  const setAutoBook = useCallback(
+    async (on: boolean, priceNgn?: number): Promise<void> => {
+      const ride = currentRideRef.current;
+      if (!ride) return;
+      setRideState((previous) =>
+        previous && previous.rideId === ride.rideId ? { ...previous, autoAcceptChosen: on } : previous,
+      );
+      if (!ride.autoAcceptSupported) return;
+      await sendEnvelope('ride:auto_accept', {
+        rideId: ride.rideId,
+        on,
+        ...(typeof priceNgn === 'number' && priceNgn > 0 ? { priceNgn: Math.round(priceNgn) } : {}),
+      });
+    },
+    [sendEnvelope, setRideState],
+  );
+
   const cancelRide = useCallback(
     async (reason?: string): Promise<void> => {
       const activeRide = currentRideRef.current;
@@ -1551,6 +1577,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       error,
       requestRide,
       dismissOffer,
+      setAutoBook,
       counterOffer,
       updateOffer,
       acceptOffer,
@@ -1563,6 +1590,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       acceptOffer,
+      setAutoBook,
       cancelRide,
       submitRating,
       chatMessages,

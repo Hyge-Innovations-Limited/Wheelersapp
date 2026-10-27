@@ -123,3 +123,18 @@ export function autoBookLineShows(input: {
 export function autoAcceptParam(value: string | string[] | undefined): boolean {
   return (Array.isArray(value) ? value[0] : value) === '1';
 }
+
+/** The "autoAccept" route param as an answer: true, false, or null when the screen was opened without asking (Home, a restart). */
+export function autoAcceptAnswerParam(value: string | string[] | undefined): boolean | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === '1' ? true : raw === '0' ? false : null;
+}
+
+/** A higher price on a search the rider said yes to auto-booking: asked about again before it goes out. */
+export function raiseNeedsAutoBookAnswer(input: {
+  autoAcceptChosen: boolean | undefined;
+  agreedNgn: number | undefined;
+  newNgn: number;
+}): boolean {
+  return input.autoAcceptChosen === true && (typeof input.agreedNgn !== 'number' || input.newNgn > input.agreedNgn);
+}

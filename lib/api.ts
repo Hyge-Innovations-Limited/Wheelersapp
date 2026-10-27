@@ -2202,6 +2202,8 @@ export interface RiderActiveRideDetail {
   tripCode?: string | null;
   /** What the rider is offering. */
   riderOfferNgn?: number | null;
+  /** The rider said yes to auto-booking this search (newer servers). */
+  autoAccept?: boolean;
   /** Present while the ride is still a search: when it closes, and the offers still open. Older servers leave it out. */
   search?: {
     bidsCloseAt: string;

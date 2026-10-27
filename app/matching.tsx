@@ -42,8 +42,10 @@ import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-rout
 import { useRideSession } from "@/lib/ride-session";
 import { driversSawLine, searchClock, shouldNudgeRaise } from "@/lib/ride-search-status";
 import {
+  autoAcceptAnswerParam,
   autoAcceptParam,
   autoBookLineShows,
+  raiseNeedsAutoBookAnswer,
   paySheetStep,
   shouldAskAutoBook,
   shouldSendAfterTopUp,
@@ -129,6 +131,7 @@ export default function MatchingScreen() {
     updateOffer,
     dismissOffer,
     clearRide,
+    setAutoBook,
   } = useRideSession();
   const { overview: wallet, refresh: refreshWallet } = useWalletOverview();
   const { getAccessToken } = useAuth();
@@ -148,6 +151,9 @@ export default function MatchingScreen() {
   /** The price "Auto-book a driver at ₦X?" is asking about before a new search; null while not asking. */
   const [autoBookAsk, setAutoBookAsk] = useState<number | null>(null);
   const [checkingWallet, setCheckingWallet] = useState(false);
+  const checkingWalletRef = useRef(false);
+  /** A higher price waiting on "Auto-book a driver at ₦X?" (the rider said yes at a lower one); null while not asking. */
+  const [raiseAsk, setRaiseAsk] = useState<number | null>(null);
   const [requestSettled, setRequestSettled] = useState(false);
   const requestFiredRef = useRef(false);
   /** A ride that had already ended when this screen opened. */
@@ -195,18 +201,32 @@ export default function MatchingScreen() {
     requestFiredRef.current = true;
 
     // Coming back from "Set your price" with a search still open: the request
-    // is not sent twice, so the price just chosen goes out as a price change.
+    // is not sent twice, so the price just chosen goes out as a price change,
+    // and the answer given there to auto-booking (and the price it was for)
+    // goes to that search. A No is told before a higher price goes out, so
+    // nothing is booked at it; a Yes after it, at the new price.
     const open = rideAtMountRef.current;
-    if (
-      open &&
+    const sameOpenSearch =
+      open !== null &&
       open.status === "bidding" &&
       open.bidTimeout !== true &&
+      serializeRideItinerary(open.itinerary) === serializedItinerary;
+    const repriced =
+      sameOpenSearch &&
       requestedOfferNgn !== undefined &&
       open.riderOfferNgn !== undefined &&
-      open.riderOfferNgn !== requestedOfferNgn &&
-      serializeRideItinerary(open.itinerary) === serializedItinerary
-    ) {
-      void updateOffer(requestedOfferNgn).catch(() => undefined);
+      open.riderOfferNgn !== requestedOfferNgn;
+    const answered = autoAcceptAnswerParam(params.autoAccept);
+    const tellAnswer =
+      sameOpenSearch &&
+      answered !== null &&
+      (answered !== (open.autoAcceptChosen === true) || (answered && repriced));
+    if (repriced || tellAnswer) {
+      void (async () => {
+        if (tellAnswer && answered === false) await setAutoBook(false).catch(() => undefined);
+        if (repriced && requestedOfferNgn !== undefined) await updateOffer(requestedOfferNgn).catch(() => undefined);
+        if (tellAnswer && answered === true) await setAutoBook(true, requestedOfferNgn).catch(() => undefined);
+      })();
     }
 
     // A ride that already ended (cancelled, or finished and never rated) is
@@ -256,9 +276,12 @@ export default function MatchingScreen() {
    */
   const askThenSearchAgain = useCallback(
     async (offerNgn: number | undefined) => {
-      if (checkingWallet) return;
+      // A second tap while the wallet is being checked does nothing.
+      if (checkingWalletRef.current) return;
+      checkingWalletRef.current = true;
       setCheckingWallet(true);
       const balanceNgn = await fetchFreshBalanceNgn(() => getAccessTokenWithRetry(getAccessToken));
+      checkingWalletRef.current = false;
       setCheckingWallet(false);
       if (offerNgn !== undefined && shouldAskAutoBook({ balanceNgn, priceNgn: offerNgn, scheduled: false })) {
         setAutoBookAsk(offerNgn);
@@ -266,7 +289,7 @@ export default function MatchingScreen() {
       }
       searchAgain(offerNgn, false);
     },
-    [checkingWallet, getAccessToken, searchAgain],
+    [getAccessToken, searchAgain],
   );
 
   /* ── follow the ride off this screen ───────────────────────────────── */
@@ -382,6 +405,24 @@ export default function MatchingScreen() {
     offers.forEach((offer) => dismissOffer(offer.driverId));
   }, [offers, dismissOffer]);
 
+  /** The new price to every driver; after a yes to auto-booking at it, that too. */
+  const sendPrice = useCallback(async (priceNgn: number, autoBookYes = false) => {
+    setIsUpdating(true);
+    try {
+      await updateOffer(priceNgn);
+      if (autoBookYes) await setAutoBook(true, priceNgn).catch(() => undefined);
+      setAskedNgn(priceNgn);
+      setDraftNgn(null);
+    } catch (updateError) {
+      Alert.alert(
+        "Could not update your price",
+        updateError instanceof Error ? updateError.message : "Please try again.",
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [updateOffer, setAutoBook]);
+
   /** A new price goes to every driver nearby and the search window starts again. */
   const handleUpdatePrice = useCallback(async () => {
     if (draftNgn === null) return;
@@ -393,20 +434,26 @@ export default function MatchingScreen() {
       setDraftNgn(null);
       return;
     }
-    setIsUpdating(true);
-    try {
-      await updateOffer(draftNgn);
-      setAskedNgn(draftNgn);
-      setDraftNgn(null);
-    } catch (updateError) {
-      Alert.alert(
-        "Could not update your price",
-        updateError instanceof Error ? updateError.message : "Please try again.",
-      );
-    } finally {
+    // Auto-booking was agreed at a lower price: a higher one is asked about
+    // first (when the wallet covers it); nothing is booked at it unasked.
+    if (raiseNeedsAutoBookAnswer({ autoAcceptChosen: currentRide.autoAcceptChosen, agreedNgn: riderOfferNgn, newNgn: draftNgn })) {
+      if (checkingWalletRef.current) return;
+      checkingWalletRef.current = true;
+      setIsUpdating(true);
+      const balanceNgn = await fetchFreshBalanceNgn(() => getAccessTokenWithRetry(getAccessToken));
+      checkingWalletRef.current = false;
       setIsUpdating(false);
+      if (shouldAskAutoBook({ balanceNgn, priceNgn: draftNgn, scheduled: false })) {
+        setRaiseAsk(draftNgn);
+        return;
+      }
+      // The wallet does not cover it (or cannot be had): auto-booking goes off first.
+      await setAutoBook(false).catch(() => undefined);
     }
-  }, [draftNgn, timedOut, currentRide, riderOfferNgn, updateOffer, askThenSearchAgain]);
+    await sendPrice(draftNgn);
+  }, [draftNgn, timedOut, currentRide, riderOfferNgn, askThenSearchAgain, getAccessToken, setAutoBook, sendPrice]);
+
+
 
   // Cancelling asks why first, on the same screen as a cancel once a driver
   // is coming: it cancels the request on the server and takes the rider home.
@@ -527,14 +574,31 @@ export default function MatchingScreen() {
   );
 
   const autoBookSheet = (
-    <AutoBookSheet
-      onAnswer={(autoBook) => {
-        const priceNgn = autoBookAsk;
-        setAutoBookAsk(null);
-        if (priceNgn !== null) searchAgain(priceNgn, autoBook);
-      }}
-      priceNgn={autoBookAsk}
-    />
+    <>
+      <AutoBookSheet
+        onAnswer={(autoBook) => {
+          const priceNgn = autoBookAsk;
+          setAutoBookAsk(null);
+          if (priceNgn !== null) searchAgain(priceNgn, autoBook);
+        }}
+        onDismiss={() => setAutoBookAsk(null)}
+        priceNgn={autoBookAsk}
+      />
+      <AutoBookSheet
+        onAnswer={(autoBook) => {
+          const priceNgn = raiseAsk;
+          setRaiseAsk(null);
+          if (priceNgn === null) return;
+          void (async () => {
+            // No: off first, so nothing is booked at the higher price.
+            if (!autoBook) await setAutoBook(false).catch(() => undefined);
+            await sendPrice(priceNgn, autoBook);
+          })();
+        }}
+        onDismiss={() => setRaiseAsk(null)}
+        priceNgn={raiseAsk}
+      />
+    </>
   );
 
   const errorBanner = error ? (

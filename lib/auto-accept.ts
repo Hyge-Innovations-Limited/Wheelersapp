@@ -12,6 +12,8 @@ type AutoAcceptFields = {
   autoAccept?: boolean;
   /** The server answers auto-accept for this search; the switch shows. */
   autoAcceptSupported?: boolean;
+  /** The rider's yes to auto-booking for this search, as the server now has it. */
+  autoAcceptChosen?: boolean;
 };
 
 export type AutoAcceptReply<T> = { ride: T | null; error: string | null; answered: boolean };
@@ -38,7 +40,7 @@ export function applyAutoAcceptReply<T extends AutoAcceptFields>(
   if (type === 'ride:auto_accept:done') {
     const on = payload.on === true;
     return {
-      ride: { ...ride, autoAccept: on, autoAcceptSupported: true },
+      ride: { ...ride, autoAccept: on, autoAcceptChosen: on, autoAcceptSupported: true },
       // Turned off by the server because the price went past the wallet: the
       // rider is told. Off because it booked a driver ('booked'): nothing to say.
       error: !on && reason === 'insufficient_funds' ? autoAcceptRefusalText(reason, message) : null,
@@ -47,7 +49,7 @@ export function applyAutoAcceptReply<T extends AutoAcceptFields>(
   }
   if (type === 'ride:auto_accept:rejected') {
     return {
-      ride: { ...ride, autoAccept: false, autoAcceptSupported: true },
+      ride: { ...ride, autoAccept: false, autoAcceptChosen: false, autoAcceptSupported: true },
       error: autoAcceptRefusalText(reason, message),
       answered: true,
     };

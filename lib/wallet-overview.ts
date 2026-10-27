@@ -6,6 +6,7 @@ import {
   type WalletOverviewResponse,
 } from "@/lib/api";
 import { invalidateCached, useCachedQuery } from "@/lib/cached-query";
+import { withTimeout } from "@/lib/with-timeout";
 
 type UseWalletOverviewResult = {
   overview: WalletOverviewResponse | null;
@@ -62,14 +63,22 @@ export async function prefetchWalletOverview(
  */
 export async function fetchFreshBalanceNgn(
   getAccessToken: () => Promise<string | null | undefined>,
+  /** No answer by then: null (the search goes out without auto-booking, never hangs). */
+  timeoutMs = 4_000,
 ): Promise<number | null> {
-  try {
-    const accessToken = await getAccessToken();
-    if (!accessToken) return null;
-    const overview = await getWalletOverview({ accessToken });
-    invalidateWalletCache();
-    return typeof overview.balanceNgn === "number" && Number.isFinite(overview.balanceNgn) ? overview.balanceNgn : null;
-  } catch {
-    return null;
-  }
+  return withTimeout(
+    (async () => {
+      try {
+        const accessToken = await getAccessToken();
+        if (!accessToken) return null;
+        const overview = await getWalletOverview({ accessToken });
+        invalidateWalletCache();
+        return typeof overview.balanceNgn === "number" && Number.isFinite(overview.balanceNgn) ? overview.balanceNgn : null;
+      } catch {
+        return null;
+      }
+    })(),
+    timeoutMs,
+    null,
+  );
 }

@@ -126,3 +126,14 @@ test('"A driver at ₦X is booked for you" only after a yes, on a server that bo
   assert.equal(autoAcceptParam('0'), false);
   assert.equal(autoAcceptParam(undefined), false, 'opened from elsewhere (Home, a restart): no auto-booking');
 });
+
+test('the answer from Set your price, and a raise after a yes', () => {
+  const { autoAcceptAnswerParam, raiseNeedsAutoBookAnswer } = createRequire(import.meta.url)(outFile);
+  assert.equal(autoAcceptAnswerParam('1'), true);
+  assert.equal(autoAcceptAnswerParam('0'), false);
+  assert.equal(autoAcceptAnswerParam(undefined), null, 'opened from Home or a restart: no answer, nothing changes');
+  assert.equal(raiseNeedsAutoBookAnswer({ autoAcceptChosen: true, agreedNgn: 3000, newNgn: 3500 }), true);
+  assert.equal(raiseNeedsAutoBookAnswer({ autoAcceptChosen: true, agreedNgn: 3000, newNgn: 2800 }), false, 'a lower price is within the yes');
+  assert.equal(raiseNeedsAutoBookAnswer({ autoAcceptChosen: false, agreedNgn: 3000, newNgn: 3500 }), false);
+  assert.equal(raiseNeedsAutoBookAnswer({ autoAcceptChosen: undefined, agreedNgn: 3000, newNgn: 3500 }), false);
+});

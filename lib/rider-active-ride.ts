@@ -31,6 +31,8 @@ export type RestoredRide = {
   restored: true;
   /** The server gave the search's details: a server that books by itself (auto-accept). */
   autoAcceptSupported?: boolean;
+  /** The rider's yes to auto-booking this search, when the server says (newer servers). */
+  autoAcceptChosen?: boolean;
   /** A search: what the rider is offering, when it closes, and the open offers (cheapest first). */
   riderOfferNgn?: number;
   bidsCloseAt?: string;
@@ -76,6 +78,7 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
     ...(typeof ride.riderOfferNgn === 'number' ? { riderOfferNgn: ride.riderOfferNgn } : {}),
     bidsCloseAt: ride.search.bidsCloseAt,
     autoAcceptSupported: true,
+    ...(typeof ride.autoAccept === 'boolean' ? { autoAcceptChosen: ride.autoAccept } : {}),
     offers: ride.search.offers
       .filter((offer) => offer.counterOfferNgn > 0)
       .map((offer) => ({
@@ -163,6 +166,7 @@ type SearchLike = {
   riderOfferNgn?: number;
   offers?: RideOffer[];
   autoAcceptSupported?: boolean;
+  autoAcceptChosen?: boolean;
   driver?: DriverLike;
   tripCode?: string;
   startedAt?: string;
@@ -201,6 +205,7 @@ export function reconcileSearch<T extends SearchLike>(
       status: 'bidding',
       bidTimeout: false,
       autoAcceptSupported: true,
+      autoAcceptChosen: ride.autoAcceptChosen ?? previous.autoAcceptChosen,
       bidsCloseAt: ride.bidsCloseAt ?? previous.bidsCloseAt,
       riderOfferNgn: ride.riderOfferNgn ?? previous.riderOfferNgn,
       offers,

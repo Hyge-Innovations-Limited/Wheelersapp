@@ -666,6 +666,7 @@ export default function RideSelectionScreen() {
       </View>
 
       <AutoBookSheet
+        onDismiss={() => setAutoBookAsk(null)}
         onAnswer={(autoBook) => {
           const priceNgn = autoBookAsk;
           setAutoBookAsk(null);
@@ -740,7 +741,6 @@ const styles = StyleSheet.create({
     borderRadius: rider.radius.lg,
   },
   infoText: { flex: 1, minWidth: 0 },
-  tabular: { fontVariant: ["tabular-nums"] },
 
   footer: { gap: 10, paddingTop: 8 },
   pressed: { opacity: 0.72 },

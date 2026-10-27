@@ -12,16 +12,19 @@ const { colors } = rider;
 export function AutoBookSheet({
   priceNgn,
   onAnswer,
+  onDismiss,
 }: {
   /** Null hides the sheet. */
   priceNgn: number | null;
   onAnswer: (autoBook: boolean) => void;
+  /** Closed without an answer (Android back): "not now", nothing happens. */
+  onDismiss: () => void;
 }) {
   const insets = useSafeAreaInsets();
   return (
     <Modal
       animationType="slide"
-      onRequestClose={() => onAnswer(false)}
+      onRequestClose={onDismiss}
       transparent
       visible={priceNgn !== null}>
       <View style={styles.backdrop}>
