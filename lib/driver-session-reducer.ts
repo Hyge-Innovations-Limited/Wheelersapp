@@ -158,6 +158,8 @@ export type PendingBid = {
    * outcome, never with disappearance.
    */
   outcome?: 'expired' | 'lost' | 'withdrawn';
+  /** Why the search ended, when the server says (newer servers): "Rider cancelled", "Search ended", "Not chosen". */
+  endReason?: SearchEndReason;
   resolvedAt?: string;
   /** The rider chose this bid and is adding money to pay for it. */
   payingAt?: string;
@@ -190,7 +192,13 @@ export type DriverSessionState = {
   missedOffers: MissedOffer[];
 };
 
-export type MissedOfferReason = 'expired' | 'taken';
+/** The `reason` newer servers put on ride:bid_timeout / ride:bid_lost. */
+export type SearchEndReason = 'rider_cancelled' | 'timed_out' | 'booked_other';
+export function searchEndReasonOf(value: unknown): SearchEndReason | undefined {
+  return value === 'rider_cancelled' || value === 'timed_out' || value === 'booked_other' ? value : undefined;
+}
+
+export type MissedOfferReason = 'expired' | 'taken' | 'cancelled';
 export type MissedOffer = { offer: RideOffer; missedAt: number; reason: MissedOfferReason };
 /** Missed cards are a rear-view mirror, not a backlog — keep the last few. */
 export const MISSED_OFFER_CAP = 5;
@@ -949,6 +957,9 @@ export function reduceDriverSession(
     if (!bid && !hasOffer && prev.currentOffer?.rideId !== rideId) return prev;
 
     const pendingBids = { ...prev.pendingBids };
+    // Newer servers say why: the rider cancelled, the search timed out, or
+    // another driver was booked. Without it the card reads as it always did.
+    const endReason = searchEndReasonOf(payload.reason);
     // A bid the rider had chosen ("paid") whose booking then fell through (the
     // server found this driver busy) is lost too, unless the trip is ours.
     const fellThrough = bid?.acceptedAt && type === 'ride:bid_lost' && prev.currentRide?.rideId !== rideId;
@@ -958,9 +969,18 @@ export function reduceDriverSession(
         acceptedAt: undefined,
         riderPaid: false,
         outcome: type === 'ride:bid_lost' ? 'lost' : 'expired',
+        ...(endReason ? { endReason } : {}),
         resolvedAt: new Date(now).toISOString(),
       };
     }
+    const missedReason: MissedOfferReason =
+      endReason === 'rider_cancelled'
+        ? 'cancelled'
+        : endReason === 'booked_other'
+          ? 'taken'
+          : endReason === 'timed_out'
+            ? 'expired'
+            : type === 'ride:bid_lost' ? 'taken' : 'expired';
     const offers = prev.offers.filter((queued) => queued.rideId !== rideId);
     // A request the driver never answered doesn't vanish when the auction
     // closes — it becomes a missed card saying what happened to it.
@@ -972,7 +992,7 @@ export function reduceDriverSession(
               {
                 offer: droppedOffer,
                 missedAt: now,
-                reason: (type === 'ride:bid_lost' ? 'taken' : 'expired') as MissedOfferReason,
+                reason: missedReason,
               },
               ...prev.missedOffers,
             ] satisfies MissedOffer[]
@@ -1100,7 +1120,30 @@ export function reduceDriverSession(
     const cancelledCurrentRide = !cancelledRideId || prev.currentRide?.rideId === cancelledRideId;
 
     const pendingBids = { ...prev.pendingBids };
-    if (cancelledRideId) delete pendingBids[cancelledRideId];
+    // The rider cancelled a search this driver bid on (the booking of this
+    // driver had not gone through yet): the card stays, "Rider cancelled",
+    // instead of vanishing. Any other cancel clears it as before.
+    const cancelledBid = cancelledRideId ? prev.pendingBids[cancelledRideId] : undefined;
+    const riderCancelledBid =
+      type === 'ride:cancelled' &&
+      cancelledBid !== undefined &&
+      !cancelledCurrentRide &&
+      (payload.reason === 'rider_cancelled' || payload.cancelledBy === 'rider');
+    if (cancelledRideId && cancelledBid && riderCancelledBid) {
+      if (!cancelledBid.outcome) {
+        pendingBids[cancelledRideId] = {
+          ...cancelledBid,
+          acceptedAt: undefined,
+          riderPaid: false,
+          payingAt: undefined,
+          outcome: 'expired',
+          endReason: 'rider_cancelled',
+          resolvedAt: new Date(now).toISOString(),
+        };
+      }
+    } else if (cancelledRideId) {
+      delete pendingBids[cancelledRideId];
+    }
 
     return {
       ...prev,

@@ -12,7 +12,7 @@ import { useAppLocation } from '@/lib/location';
 import { RATE_NUDGES_NGN, bidCeilingFareNgn, bidNudgesNgn, bidsPerKm, driverRatePerKmNgn, fareFromRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { theme } from '@/theme';
-import { bidStage, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
+import { bidStage, outcomeLabel, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
 import { toUserMessage } from '@/lib/error-messages';
 
 
@@ -176,6 +176,17 @@ export default function PendingBidScreen() {
       </View>
 
       {/* Status — the one line the driver opened this page for. */}
+      {bid.outcome ? (
+        <OnLight>
+        <View style={[styles.statusCard, styles.statusEnded]}>
+          <OnLight>
+          <AppText variant="h3" color={theme.colors.muted}>
+            {outcomeLabel(bid.outcome, bid.endReason)}
+          </AppText>
+          </OnLight>
+        </View>
+        </OnLight>
+      ) : (
       <OnLight>
       <View style={[
         styles.statusCard,
@@ -234,6 +245,7 @@ export default function PendingBidScreen() {
         </OnLight>
       </View>
       </OnLight>
+      )}
 
       {/* The trip */}
       <OnLight>
@@ -385,7 +397,7 @@ export default function PendingBidScreen() {
           )
         ) : null}
         <AppButton
-          title={accepted ? 'Back' : 'Close — keep my bid'}
+          title={accepted ? 'Back' : bid.outcome ? 'Close' : 'Close — keep my bid'}
           variant="ghost"
           onPress={() => {
             if (router.canGoBack()) router.back();
@@ -416,6 +428,10 @@ const styles = StyleSheet.create({
   },
   // White while waiting; green accepted; yellow paying; red declined.
   statusWaiting: {
+    borderColor: theme.colors.borderLight,
+  },
+  // Finished (cancelled, ended, not chosen): grey, nothing to do.
+  statusEnded: {
     borderColor: theme.colors.borderLight,
   },
   statusAccepted: {

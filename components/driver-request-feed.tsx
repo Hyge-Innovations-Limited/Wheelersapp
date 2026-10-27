@@ -144,13 +144,17 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
       <OnLight key={`missed-${offer.rideId}`}>
       <Pressable
         key={`missed-${offer.rideId}`}
-        disabled={entry.reason === 'taken'}
+        disabled={entry.reason === 'taken' || entry.reason === 'cancelled'}
         onPress={() => openDetails(offer.rideId)}
         style={({ pressed }) => [styles.card, styles.cardResolved, pressed && styles.pressed]}>
         <OnLight>
         <View style={styles.topRow}>
           <AppText variant="label" color={theme.colors.muted}>
-            {entry.reason === 'taken' ? 'Taken by another driver' : 'Expired — not answered'}
+            {entry.reason === 'taken'
+              ? 'Taken by another driver'
+              : entry.reason === 'cancelled'
+                ? 'Rider cancelled'
+                : 'Expired — not answered'}
           </AppText>
           <Pressable onPress={() => dismissMissedOffer(offer.rideId)} style={styles.cancelChip}>
             <AppText variant="label" color={theme.colors.muted}>✕</AppText>
@@ -159,11 +163,13 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         <AppText variant="bodySmall" color={theme.colors.mutedLight} numberOfLines={1}>
           {offer.pickup.address} → {offer.destination.address} · {formatNgn(ask)}
         </AppText>
-        <AppText variant="caption" color={theme.colors.muted}>
-          {entry.reason === 'taken'
-            ? 'Another driver has this one'
-            : 'Tap to view — you can still try a bid'}
-        </AppText>
+        {entry.reason === 'cancelled' ? null : (
+          <AppText variant="caption" color={theme.colors.muted}>
+            {entry.reason === 'taken'
+              ? 'Another driver has this one'
+              : 'Tap to view — you can still try a bid'}
+          </AppText>
+        )}
         </OnLight>
       </Pressable>
       </OnLight>
@@ -202,7 +208,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           <OnLight>
           <View style={styles.topRow}>
             <AppText variant="label" color={theme.colors.muted}>
-              {outcomeLabel(bid.outcome)}
+              {outcomeLabel(bid.outcome, bid.endReason)}
             </AppText>
             <Pressable onPress={() => dismissBid(offer.rideId)} style={styles.cancelChip}>
               <AppText variant="label" color={theme.colors.muted}>✕</AppText>

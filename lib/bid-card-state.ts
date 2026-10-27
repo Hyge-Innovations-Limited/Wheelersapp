@@ -58,8 +58,17 @@ export function outcomeFromServerStatus(status: string): NonNullable<PendingBid[
   return "withdrawn";
 }
 
-/** The finished line on a card. */
-export function outcomeLabel(outcome: NonNullable<PendingBid["outcome"]>): string {
+/**
+ * The finished line on a card. With the server's reason (newer servers):
+ * "Rider cancelled", "Search ended", "Not chosen"; without it, as before.
+ */
+export function outcomeLabel(
+  outcome: NonNullable<PendingBid["outcome"]>,
+  endReason?: PendingBid["endReason"],
+): string {
+  if (endReason === "rider_cancelled") return "Rider cancelled";
+  if (endReason === "timed_out") return "Search ended";
+  if (endReason === "booked_other") return "Not chosen";
   switch (outcome) {
     case "lost": return "Taken by another driver";
     case "withdrawn": return "Offer withdrawn";
