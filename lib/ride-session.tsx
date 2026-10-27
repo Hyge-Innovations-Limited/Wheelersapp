@@ -743,7 +743,15 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       }
 
       if (type === 'ride:driver_rejected') {
-        setError('A driver skipped this request. Reassigning another nearby driver.');
+        // The driver withdrew their offer (or went offline): it leaves the list, quietly.
+        const rideId = getString(payload.rideId);
+        const driverId = getString(payload.driverId);
+        if (!driverId) return;
+        setRideState((previous) =>
+          previous && previous.status === 'bidding' && (!rideId || previous.rideId === rideId)
+            ? { ...previous, offers: dismissOfferFrom(previous.offers ?? [], driverId) }
+            : previous,
+        );
         return;
       }
 
