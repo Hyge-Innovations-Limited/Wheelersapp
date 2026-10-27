@@ -314,9 +314,11 @@ test('a timed-out bid becomes a terminal card that says why — never vanishes',
   const lost = reduceDriverSession(bidSent('ride-2'), 'ride:bid_lost', { rideId: 'ride-2' }, NOW);
   assert.equal(lost.pendingBids['ride-2'].outcome, 'lost');
 
-  // A dead bid never absorbs a fresh broadcast for its old rideId.
+  // A dead bid never absorbs a fresh broadcast for its old rideId: the old
+  // card goes and the request is live again, on its own.
   const revived = reduceDriverSession(s, 'ride:offer', offerPayload('ride-1'), NOW);
-  assert.equal(revived.pendingBids['ride-1'].outcome, 'expired', 'terminal stays terminal');
+  assert.equal(revived.pendingBids['ride-1'], undefined, 'the ended card makes way');
+  assert.ok(revived.offers.some((o) => o.rideId === 'ride-1'), 'the request shows again');
 
   // The driver can swipe the story away.
   assert.deepEqual(dismissBid(s, 'ride-1').pendingBids, {});

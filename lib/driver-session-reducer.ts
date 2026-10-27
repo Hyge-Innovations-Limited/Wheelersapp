@@ -482,6 +482,8 @@ export function hydrateBidRecords(
         agreedFareNgn: rec.ride.agreedFareNgn ?? rec.amountNgn,
       };
     } else if (TERMINAL.has(rec.status)) {
+      // The request is live again (re-sent): its old ended bid is not brought back over it.
+      if (prev.offers.some((offer) => offer.rideId === rec.rideId)) continue;
       const resolvedMs = rec.resolvedAt ? Date.parse(rec.resolvedAt) : createdMs;
       if (now - resolvedMs > RESOLVED_BID_LINGER_MS) continue;
       bid = {
@@ -788,6 +790,14 @@ export function reduceDriverSession(
       };
     }
 
+    // A request whose old bid card has already ended (expired, lost, the
+    // rider cancelled) is live again: the old card goes, so the request shows
+    // (and its alert fires) instead of hiding behind a finished story.
+    const pendingAfterRevival =
+      existingBid && existingBid.outcome
+        ? Object.fromEntries(Object.entries(prev.pendingBids).filter(([rideId]) => rideId !== incoming.rideId))
+        : prev.pendingBids;
+
     // Same rideId means a re-priced version of a request already in the
     // queue, so it replaces that entry rather than adding a duplicate.
     const harvested = harvestOffers(prev, now);
@@ -809,6 +819,7 @@ export function reduceDriverSession(
       status: prev.currentRide ? prev.status : 'offered',
       offers,
       missedOffers,
+      pendingBids: pendingAfterRevival,
       currentOffer: keepsCurrent ? prev.currentOffer : incoming,
     };
   }

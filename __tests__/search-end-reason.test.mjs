@@ -123,3 +123,15 @@ test('a reconnect does not wipe a "Rider cancelled" card the server marks CANCEL
   const waiting = hydrateBidRecords(withBid('ride-2'), [rec('ride-2')], NOW + 1_000);
   assert.equal(waiting.pendingBids['ride-2'], undefined, 'a live-looking card of a cancelled ride still goes');
 });
+
+test('a request re-sent for a ride whose card ended shows again; the sync does not bring the old card back over it', () => {
+  const ended = reduceDriverSession(withBid(), 'ride:bid_timeout', { rideId: 'ride-1', reason: 'rider_cancelled' }, NOW);
+  const resent = reduceDriverSession(ended, 'ride:offer', offerPayload('ride-1'), NOW + 5_000);
+  assert.equal(resent.pendingBids['ride-1'], undefined);
+  assert.ok(resent.offers.some((o) => o.rideId === 'ride-1'));
+  const synced = hydrateBidRecords(resent, [{
+    rideId: 'ride-1', riderId: 'rider-1', status: 'EXPIRED', amountNgn: 3500, createdAt: new Date(NOW).toISOString(), resolvedAt: new Date(NOW).toISOString(),
+    ride: { pickupAddress: 'Akoka', destAddress: 'Yaba', fareEstimateNgn: 3000, riderOfferNgn: 3000, agreedFareNgn: null },
+  }], NOW + 6_000);
+  assert.equal(synced.pendingBids['ride-1'], undefined);
+});
