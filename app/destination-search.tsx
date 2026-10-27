@@ -45,6 +45,8 @@ import {
   type RideItinerary,
 } from "@/lib/ride-route";
 import { useSearchAgainRedirect } from "@/hooks/use-search-again-redirect";
+import { RouteChangeSheet } from "@/components/rider/route-change-sheet";
+import { routeQuoteNeedsAsk, type RouteQuote } from "@/lib/route-quote";
 import { useRideSession } from "@/lib/ride-session";
 
 const { colors, fonts, radius } = rider;
@@ -135,7 +137,10 @@ const placeIcons: Record<PlaceSuggestion["icon"], keyof typeof Ionicons.glyphMap
 export default function DestinationSearchScreen() {
   const router = useRouter();
   const { getAccessToken } = useAuth();
-  const { updateRideRoute } = useRideSession();
+  const { updateRideRoute, quoteRideRoute } = useRideSession();
+  /** A route change that moves money, waiting on the rider's yes: the route and its fare. */
+  const [routeAsk, setRouteAsk] = useState<{ itinerary: RideItinerary; quote: RouteQuote } | null>(null);
+  const [isUpdatingRoute, setIsUpdatingRoute] = useState(false);
   const params = useLocalSearchParams<{
     flowMode?: string | string[];
     itinerary?: string | string[];
@@ -546,12 +551,19 @@ export default function DestinationSearchScreen() {
       const itinerary: RideItinerary = { pickup: route.pickup, stops: route.stops };
       setIsSubmittingRoute(true);
       try {
-        await updateRideRoute(itinerary);
-        // Back to the trip screen this came from, with the new route: not a second trip screen on top.
-        router.dismissTo({
-          pathname: "/rider/active-trip",
-          params: { itinerary: serializeRideItinerary(itinerary) },
-        });
+        // Priced first: when the fare changes, the rider says yes before any
+        // money moves. A server that does not quote: as before.
+        const quote = await quoteRideRoute(itinerary);
+        if (quote && routeQuoteNeedsAsk(quote)) {
+          setRouteAsk({ itinerary, quote });
+          return;
+        }
+        const result = await updateRideRoute(itinerary, quote?.fareNgn);
+        if (result.kind === "price_changed") {
+          setRouteAsk({ itinerary, quote: result.quote });
+          return;
+        }
+        backToTrip(itinerary);
       } catch (error) {
         const message =
           error instanceof Error
@@ -565,6 +577,41 @@ export default function DestinationSearchScreen() {
     }
 
     continueToPrice(route);
+  };
+
+  /** Back to the trip screen this came from, with the route: not a second trip screen on top. */
+  const backToTrip = (itinerary: RideItinerary) => {
+    router.dismissTo({
+      pathname: "/rider/active-trip",
+      params: { itinerary: serializeRideItinerary(itinerary) },
+    });
+  };
+
+  /** "Update route" on the sheet: at the fare shown; a newer one is asked about again. */
+  const confirmRouteChange = async () => {
+    if (!routeAsk || isUpdatingRoute) return;
+    setIsUpdatingRoute(true);
+    try {
+      const result = await updateRideRoute(routeAsk.itinerary, routeAsk.quote.fareNgn);
+      if (result.kind === "price_changed") {
+        setRouteAsk({ itinerary: routeAsk.itinerary, quote: result.quote });
+        return;
+      }
+      const itinerary = routeAsk.itinerary;
+      setRouteAsk(null);
+      backToTrip(itinerary);
+    } catch (error) {
+      setRouteAsk(null);
+      Alert.alert("Route update failed", error instanceof Error ? error.message : "Could not update the ride route.");
+    } finally {
+      setIsUpdatingRoute(false);
+    }
+  };
+
+  /** "Keep my trip": nothing changes; back to the trip as it was. */
+  const keepTrip = () => {
+    setRouteAsk(null);
+    if (router.canGoBack()) router.back();
   };
 
   /* ── choosing a place ───────────────────────────────────────────────── */
@@ -911,6 +958,13 @@ export default function DestinationSearchScreen() {
           title={flowMode === "trip-edit" ? "Update trip route" : "Continue"}
         />
       </View>
+
+      <RouteChangeSheet
+        busy={isUpdatingRoute}
+        onKeep={keepTrip}
+        onUpdate={() => void confirmRouteChange()}
+        quote={routeAsk?.quote ?? null}
+      />
     </RScreen>
   );
 }

@@ -42,6 +42,7 @@ import { isDriverApp } from '@/lib/app-variant';
 import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
+import { routeQuoteFrom, type RouteQuote, type RouteUpdateResult } from '@/lib/route-quote';
 import { DRIVER_LEFT_SEARCHING_AGAIN, isSearchingAgain, rideAfterBidTimeout, rideAfterCancelled } from '@/lib/ride-cancelled';
 import { isForRide, rideAfterMatched } from '@/lib/ride-matched';
 import {
@@ -166,7 +167,14 @@ type RideSessionContextValue = {
   dismissOffer: (driverId: string) => void;
   /** The rider's answer to auto-booking for the search on screen (and the price it was for), told to the server. */
   setAutoBook: (on: boolean, priceNgn?: number) => Promise<void>;
-  updateRideRoute: (itinerary: RideItinerary) => Promise<void>;
+  /**
+   * Change where the booked trip goes. With `acceptedFareNgn` (the fare the
+   * rider said yes to), it goes ahead only at that price: a newer one comes
+   * back as 'price_changed' to be asked about again.
+   */
+  updateRideRoute: (itinerary: RideItinerary, acceptedFareNgn?: number) => Promise<RouteUpdateResult>;
+  /** What the route change would cost before it is made; null from a server that does not quote (behave as before). */
+  quoteRideRoute: (itinerary: RideItinerary) => Promise<RouteQuote | null>;
   cancelRide: (reason?: string) => Promise<void>;
   /** Rate the driver of the ride that just finished. */
   submitRating: (input: { rating: number; comment?: string }) => Promise<void>;
@@ -223,6 +231,7 @@ const defaultContext: RideSessionContextValue = {
   updateRideRoute: async () => {
     throw new Error('Ride session is unavailable.');
   },
+  quoteRideRoute: async () => null,
   cancelRide: async () => {
     throw new Error('Ride session is unavailable.');
   },
@@ -372,6 +381,11 @@ async function resolveRideRoute(
   };
 }
 
+/** A route quote not answered in this long: the server does not quote; the change goes as before. */
+const ROUTE_QUOTE_WAIT_MS = 5_000;
+/** A priced route change not answered in this long is taken as made (as an unpriced one always was). */
+const ROUTE_UPDATE_WAIT_MS = 8_000;
+
 /** How long "Confirming your driver" waits before asking the server where the booking stands. */
 const CONFIRM_RESYNC_MS = 20_000;
 
@@ -414,6 +428,29 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   const confirmChecksRef = useRef(0);
   /** The driver whose accept went out and is being confirmed; set the moment it is sent. */
   const confirmingDriverRef = useRef<string | null>(null);
+  /** Replies being waited for, by type (and ride); a timeout gives up on each. */
+  const replyWaitersRef = useRef<
+    { types: string[]; rideId?: string; resolve: (reply: { type: string; payload: Record<string, unknown> } | null) => void }[]
+  >([]);
+  const waitForReply = useCallback(
+    (types: string[], rideId: string | undefined, timeoutMs: number) =>
+      new Promise<{ type: string; payload: Record<string, unknown> } | null>((resolve) => {
+        const waiter = {
+          types,
+          rideId,
+          resolve: (reply: { type: string; payload: Record<string, unknown> } | null) => {
+            clearTimeout(timer);
+            resolve(reply);
+          },
+        };
+        const timer = setTimeout(() => {
+          replyWaitersRef.current = replyWaitersRef.current.filter((item) => item !== waiter);
+          resolve(null);
+        }, timeoutMs);
+        replyWaitersRef.current = [...replyWaitersRef.current, waiter];
+      }),
+    [],
+  );
   /** Offers that came or went on the socket lately, replayed over a server list fetched meanwhile. */
   const offerEventsRef = useRef<OfferEvent[]>([]);
   const noteOfferEvent = useCallback((event: OfferEvent) => {
@@ -462,6 +499,20 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       if (!type) {
         return;
       }
+
+      // A reply something is waiting for (a route quote, a priced route change).
+      let waitedFor = false;
+      for (const waiter of [...replyWaitersRef.current]) {
+        if (waiter.types.includes(type) && (!waiter.rideId || !getString(payload.rideId) || getString(payload.rideId) === waiter.rideId)) {
+          replyWaitersRef.current = replyWaitersRef.current.filter((item) => item !== waiter);
+          waiter.resolve({ type, payload });
+          waitedFor = true;
+        }
+      }
+      // The quote's own answers, and an error that answered a quote (an older
+      // server that does not know it): nothing else is done with them.
+      if (type === 'ride:route:quote:result' || type === 'ride:route:update:rejected') return;
+      if (type === 'error' && waitedFor) return;
 
       // Anything about a Live call goes to the call screen, and only there. In
       // the driver app the driver session's socket carries calls; a message
@@ -1088,8 +1139,32 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     [sendEnvelope, setRideState, user],
   );
 
+  /**
+   * What the route change would cost, before it is made (nothing moves). A
+   * server that does not quote (no answer within 5 s, or an error for it):
+   * null, and the change goes as it always did.
+   */
+  const quoteRideRoute = useCallback(
+    async (itinerary: RideItinerary): Promise<RouteQuote | null> => {
+      const activeRide = currentRideRef.current;
+      if (!activeRide?.rideId) {
+        throw new Error('There is no live ride route to update yet.');
+      }
+      const resolvedRoute = await resolveRideRoute(itinerary);
+      const reply = waitForReply(['ride:route:quote:result', 'error'], activeRide.rideId, ROUTE_QUOTE_WAIT_MS);
+      await sendEnvelope('ride:route:quote', {
+        rideId: activeRide.rideId,
+        destination: resolvedRoute.destination,
+        stops: resolvedRoute.stops,
+      });
+      const answer = await reply;
+      return answer && answer.type === 'ride:route:quote:result' ? routeQuoteFrom(answer.payload) : null;
+    },
+    [sendEnvelope, waitForReply],
+  );
+
   const updateRideRoute = useCallback(
-    async (itinerary: RideItinerary): Promise<void> => {
+    async (itinerary: RideItinerary, acceptedFareNgn?: number): Promise<RouteUpdateResult> => {
       const activeRide = currentRideRef.current;
       if (!activeRide?.rideId) {
         throw new Error('There is no live ride route to update yet.');
@@ -1098,12 +1173,34 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       const resolvedRoute = await resolveRideRoute(itinerary);
       setError(null);
 
+      // At the price the rider said yes to: the server goes ahead only at it,
+      // or answers with the price now.
+      const priced = typeof acceptedFareNgn === 'number' && acceptedFareNgn > 0;
+      const reply = priced
+        ? waitForReply(
+            ['ride:route:update:accepted', 'ride:route:updated', 'ride:route:update:rejected', 'error'],
+            activeRide.rideId,
+            ROUTE_UPDATE_WAIT_MS,
+          )
+        : null;
       await sendEnvelope('ride:route:update', {
         rideId: activeRide.rideId,
         driverId: activeRide.driver?.driverId,
         destination: resolvedRoute.destination,
         stops: resolvedRoute.stops,
+        ...(priced ? { acceptedFareNgn: Math.round(acceptedFareNgn) } : {}),
       });
+      if (reply) {
+        const answer = await reply;
+        if (answer?.type === 'ride:route:update:rejected') {
+          const quote = routeQuoteFrom(answer.payload);
+          if (getString(answer.payload.reason) === 'PRICE_CHANGED' && quote) return { kind: 'price_changed', quote };
+          throw new Error(getString(answer.payload.message) ?? 'Could not update the ride route.');
+        }
+        if (answer?.type === 'error') {
+          throw new Error(getString(answer.payload.message) ?? 'Could not update the ride route.');
+        }
+      }
 
       setRideState((previous) => {
         if (!previous) {
@@ -1115,8 +1212,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           itinerary,
         };
       });
+      return { kind: 'done' };
     },
-    [sendEnvelope, setRideState],
+    [sendEnvelope, setRideState, waitForReply],
   );
 
   /**
@@ -1582,6 +1680,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       updateOffer,
       acceptOffer,
       updateRideRoute,
+      quoteRideRoute,
       cancelRide,
       submitRating,
       sendChatMessage,
@@ -1605,6 +1704,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       sendChatMessage,
       sendCallMessage,
       updateRideRoute,
+      quoteRideRoute,
     ],
   );
 
