@@ -427,7 +427,9 @@ export function hydrateBidRecords(
     // to show. An ACCEPTED row of a finished trip used to come back as a green
     // "Starting your trip…" on the Active tab.
     if (rec.status === 'CANCELLED' || rec.ride?.status === 'COMPLETED' || rec.ride?.status === 'CANCELLED') {
-      if (local) {
+      // A card that already says how it ended ("Rider cancelled", "Not chosen")
+      // stays until it expires like any ended card; a reconnect made it vanish.
+      if (local && !local.outcome) {
         if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
         delete pendingBids[rec.rideId];
       }

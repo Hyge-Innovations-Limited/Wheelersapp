@@ -24,7 +24,7 @@ export * from '${join(projectRoot, 'lib/bid-card-state.ts')}';
 `);
 const outFile = join(dir, 'bundle.cjs');
 execFileSync('npx', ['esbuild', entry, '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { reduceDriverSession, recordBid, defaultDriverSession, bidStage, outcomeLabel } = createRequire(import.meta.url)(outFile);
+const { reduceDriverSession, recordBid, defaultDriverSession, bidStage, outcomeLabel, hydrateBidRecords } = createRequire(import.meta.url)(outFile);
 
 const NOW = Date.parse('2026-10-27T10:00:00Z');
 const offer = (rideId = 'ride-1') => ({
@@ -108,4 +108,18 @@ test('ride:cancelled for the trip itself still ends the trip', () => {
   s = reduceDriverSession(s, 'ride:cancelled', { rideId: 'ride-1', reason: 'rider_cancelled', cancelledBy: 'rider' }, NOW);
   assert.equal(s.currentRide, null);
   assert.equal(s.pendingBids['ride-1'], undefined);
+});
+
+test('a reconnect does not wipe a "Rider cancelled" card the server marks CANCELLED; a card still waiting is cleared as before', () => {
+  const rec = (rideId) => ({
+    rideId, riderId: 'rider-1', status: 'CANCELLED', amountNgn: 3500, createdAt: new Date(NOW).toISOString(), resolvedAt: new Date(NOW).toISOString(),
+    ride: { status: 'CANCELLED', pickupAddress: 'Akoka', destAddress: 'Yaba', fareEstimateNgn: 3000, riderOfferNgn: 3000, agreedFareNgn: null },
+  });
+  const ended = reduceDriverSession(withBid(), 'ride:bid_timeout', { rideId: 'ride-1', reason: 'rider_cancelled' }, NOW);
+  const synced = hydrateBidRecords(ended, [rec('ride-1')], NOW + 1_000);
+  assert.ok(synced.pendingBids['ride-1'], 'kept');
+  assert.equal(labelOf(synced), 'Rider cancelled');
+
+  const waiting = hydrateBidRecords(withBid('ride-2'), [rec('ride-2')], NOW + 1_000);
+  assert.equal(waiting.pendingBids['ride-2'], undefined, 'a live-looking card of a cancelled ride still goes');
 });
