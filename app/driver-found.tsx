@@ -18,6 +18,7 @@ import {
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { useGoHome } from "@/hooks/use-go-home";
+import { useSearchAgainRedirect } from "@/hooks/use-search-again-redirect";
 
 const { colors, fonts } = rider;
 
@@ -50,22 +51,8 @@ export default function DriverFoundScreen() {
     }, [hasRide, goHome]),
   );
 
-  // The driver pulled out and the search goes on (searchingAgain): back to the offers.
-  const searchingAgain = status === "bidding";
-  const riderOfferNgn = currentRide?.riderOfferNgn;
-  const serializedItinerary = serializeRideItinerary(itinerary);
-  useFocusEffect(
-    useCallback(() => {
-      if (!searchingAgain) return;
-      router.replace({
-        pathname: "/matching",
-        params:
-          typeof riderOfferNgn === "number"
-            ? { itinerary: serializedItinerary, offer: String(riderOfferNgn) }
-            : { itinerary: serializedItinerary },
-      });
-    }, [searchingAgain, riderOfferNgn, serializedItinerary, router]),
-  );
+  // The driver pulled out and the search goes on (searchingAgain): back to Finding drivers.
+  useSearchAgainRedirect("replace");
 
   if (!hasRide) {
     return <RScreen>{null}</RScreen>;

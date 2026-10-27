@@ -44,6 +44,7 @@ import {
   serializeRideItinerary,
   type RideItinerary,
 } from "@/lib/ride-route";
+import { useSearchAgainRedirect } from "@/hooks/use-search-again-redirect";
 import { useRideSession } from "@/lib/ride-session";
 
 const { colors, fonts, radius } = rider;
@@ -157,6 +158,9 @@ export default function DestinationSearchScreen() {
   );
   const flowMode: FlowMode =
     firstParam(params.flowMode) === "trip-edit" ? "trip-edit" : "booking";
+  // Changing a stop on a booked trip, and the driver pulled out (the search
+  // goes on): back to the trip screen, which goes on to Finding drivers.
+  useSearchAgainRedirect("back", flowMode === "trip-edit");
   const destinationParam = firstParam(params.destination);
   const scheduledAt = firstParam(params.scheduledAt);
   const seededItinerary = useMemo(() => {

@@ -21,6 +21,7 @@ import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getRideChatMessages, type ChatMessageResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { estimateEtaMinutes } from "@/lib/geo";
+import { useSearchAgainRedirect } from "@/hooks/use-search-again-redirect";
 import { useRideSession } from "@/lib/ride-session";
 import {
   markTripChatSeen,
@@ -81,6 +82,10 @@ export default function RiderChatScreen() {
     if (router.canGoBack()) router.back();
     else router.replace("/rider");
   }, [over, router]);
+
+  // The driver pulled out and the search goes on (searchingAgain): back to the
+  // trip screen, which goes on to Finding drivers (or there directly).
+  useSearchAgainRedirect("back");
 
   // On screen: its pushes show no banner, and what is here counts as read.
   useEffect(() => {

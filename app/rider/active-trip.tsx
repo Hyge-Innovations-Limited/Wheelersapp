@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -28,6 +28,7 @@ import {
 import { useRideSession } from "@/lib/ride-session";
 import { isTripChatOpen, useTripChatOpenRequests, useTripChatUnread } from "@/lib/trip-chat";
 import { useGoHome } from "@/hooks/use-go-home";
+import { useSearchAgainRedirect } from "@/hooks/use-search-again-redirect";
 
 const { colors, fonts } = rider;
 
@@ -107,24 +108,17 @@ export default function RiderActiveTripScreen() {
       goHome();
       return;
     }
-    // The driver pulled out and the search goes on (searchingAgain): back to the offers.
-    if (status === "bidding") {
-      const offerNgn = currentRide?.riderOfferNgn;
-      router.replace({
-        pathname: "/matching",
-        params:
-          typeof offerNgn === "number"
-            ? { itinerary: serializedItinerary, offer: String(offerNgn) }
-            : { itinerary: serializedItinerary },
-      } as Href);
-      return;
-    }
+    // The driver pulled out and the search goes on: useSearchAgainRedirect moves on.
+    if (status === "bidding") return;
     if (!hasRide) {
       // After a restart the trip is fetched again once the connection is up: give it a moment.
       const timer = setTimeout(() => goHome(), 3000);
       return () => clearTimeout(timer);
     }
-  }, [hasRide, isFocused, router, status, goHome, currentRide?.riderOfferNgn, serializedItinerary]);
+  }, [hasRide, isFocused, router, status, goHome]);
+
+  // The driver pulled out and the search goes on (searchingAgain): back to Finding drivers.
+  useSearchAgainRedirect("replace");
 
   const destination = itinerary.stops[itinerary.stops.length - 1] ?? "";
   const firstName = driver?.driverName?.trim().split(/\s+/)[0];
