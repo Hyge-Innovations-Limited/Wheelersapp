@@ -651,11 +651,6 @@ export default function RideSelectionScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {scheduledAt ? null : (
-          <RText variant="small" color={colors.muted} style={styles.footnote}>
-            This is the total price. No extra charges.
-          </RText>
-        )}
         <RButton
           // Until the server's price for this route is in, the figure is a
           // guess that may be under the minimum: nothing is sent at a guess.
@@ -737,6 +732,5 @@ const styles = StyleSheet.create({
   tabular: { fontVariant: ["tabular-nums"] },
 
   footer: { gap: 10, paddingTop: 8 },
-  footnote: { textAlign: "center" },
   pressed: { opacity: 0.72 },
 });
