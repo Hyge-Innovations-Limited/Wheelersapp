@@ -36,6 +36,7 @@ import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { isDriverApp } from '@/lib/app-variant';
 import { restoredRideFrom } from '@/lib/rider-active-ride';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
+import { applySearchStatus } from '@/lib/ride-search-status';
 
 type RideConnectionState = 'disconnected' | 'connecting' | 'connected';
 type RideStatus =
@@ -102,6 +103,8 @@ export type RiderRideState = {
   suggestedFareNgn?: number;
   /** When the bidding window closes; drivers stop being offered the ride. */
   bidsCloseAt?: string;
+  /** How many drivers the request went to (ride:search_status, newer servers). */
+  driversNotified?: number | null;
   /** Set when the window closed with nobody accepting. */
   bidTimeout?: boolean;
   startedAt?: string;
@@ -523,6 +526,12 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         if (bidsCloseAt) {
           setRideState((previous) => (previous ? { ...previous, bidsCloseAt } : previous));
         }
+        return;
+      }
+
+      // Newer servers: how many drivers saw the price, and when the search closes.
+      if (type === 'ride:search_status') {
+        setRideState((previous) => applySearchStatus(previous, payload));
         return;
       }
 

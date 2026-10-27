@@ -38,6 +38,7 @@ import { PulseCircle } from "@/components/static-map";
 import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
+import { driversSawLine, searchClock, shouldNudgeRaise } from "@/lib/ride-search-status";
 import { useWalletOverview } from "@/lib/wallet-overview";
 import { useGoHome } from "@/hooks/use-go-home";
 
@@ -252,8 +253,26 @@ export default function MatchingScreen() {
     }
   }, [status, router, serializedItinerary, currentRide?.rideId, navigation, goHome]);
 
-  // No "Search stays open for 4:32": a ticking clock makes riders anxious and
-  // pushes them to give up early. The search ends by itself, and they are told then.
+  /* ── the waiting screen's clock and raise nudge ─────────────────────── */
+
+  // When the price now on offer went out: the raise nudge counts from here,
+  // and a new price starts it again.
+  const [pricedAtMs, setPricedAtMs] = useState<number | null>(null);
+  const priceKey =
+    status === "bidding" && currentRide ? `${currentRide.rideId}:${riderOfferNgn ?? ""}` : null;
+  useEffect(() => {
+    setPricedAtMs(priceKey ? Date.now() : null);
+  }, [priceKey]);
+
+  // One tick a second, only while drivers are being waited on.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const waitingForOffers = status === "bidding" && !timedOut && offers.length === 0;
+  useEffect(() => {
+    if (!waitingForOffers) return;
+    setNowMs(Date.now());
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [waitingForOffers]);
 
   /* ── a new offer deserves to be felt, not just seen ────────────────── */
 
@@ -732,6 +751,10 @@ export default function MatchingScreen() {
 
   const mapHeight = Math.round(Math.min(330, windowHeight * 0.39));
   const canReprice = status === "bidding";
+  const sawLine = status === "bidding" ? driversSawLine(currentRide?.driversNotified) : null;
+  const clockText = status === "bidding" && !requestFailed ? searchClock(currentRide?.bidsCloseAt, nowMs) : null;
+  const nudgeRaise =
+    canReprice && shouldNudgeRaise({ pricedAtMs, nowMs, offerCount: offers.length });
 
   return (
     <RScreen
@@ -764,13 +787,28 @@ export default function MatchingScreen() {
         <RStepBar active={2} working={!requestFailed} />
 
         <View style={styles.titleBlock}>
-          <RText variant="title">Finding drivers</RText>
+          <View style={styles.titleRow}>
+            <RText variant="title" style={styles.flex}>
+              Finding drivers
+            </RText>
+            {clockText ? (
+              <RText
+                accessibilityLabel={`Search ends in ${clockText}`}
+                variant="figure"
+                color={colors.muted}
+                style={styles.clock}>
+                {clockText}
+              </RText>
+            ) : null}
+          </View>
           <RText accessibilityLiveRegion="polite" variant="small" color={colors.muted}>
             {requestFailed
               ? "We could not send your request. Check your connection and try again."
-              : status === "bidding"
-                ? "Your offer has been sent to drivers near you."
-                : "Sending your offer to drivers near you."}
+              : sawLine
+                ? sawLine
+                : status === "bidding"
+                  ? "Your offer has been sent to drivers near you."
+                  : "Sending your offer to drivers near you."}
           </RText>
         </View>
 
@@ -805,7 +843,12 @@ export default function MatchingScreen() {
 
         {canReprice ? (
           <View style={styles.raise}>
-            <RText variant="label">WANT A FASTER ANSWER? RAISE YOUR OFFER</RText>
+            <RText
+              accessibilityLiveRegion="polite"
+              variant="label"
+              color={nudgeRaise ? colors.orangeText : undefined}>
+              {nudgeRaise ? "NO OFFERS YET · RAISE YOUR PRICE" : "WANT A FASTER ANSWER? RAISE YOUR OFFER"}
+            </RText>
             <View style={styles.footerRow}>
               <RButton
                 accessibilityLabel="Raise your offer by 200 naira"
@@ -821,7 +864,7 @@ export default function MatchingScreen() {
                 size="md"
                 style={styles.flex}
                 title="+ ₦500"
-                variant="ghost"
+                variant={nudgeRaise ? "primary" : "ghost"}
               />
               <RButton
                 accessibilityLabel="Set another price"
@@ -879,6 +922,8 @@ const styles = StyleSheet.create({
   footer: { gap: 6 },
   footerRow: { flexDirection: "row", gap: 10 },
   titleBlock: { gap: 4 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  clock: { fontSize: 22, lineHeight: 28 },
 
   chipRow: { flexDirection: "row", gap: 8 },
   askedCard: { gap: 8, paddingVertical: 14, borderRadius: rider.radius.lg },
