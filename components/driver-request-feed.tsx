@@ -23,7 +23,7 @@ import { haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
 import { stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
-import { bidStage, outcomeLabel, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
+import { bidStage, PAYING_LABEL, outcomeLabel, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
 import { toUserMessage } from '@/lib/error-messages';
 
 function formatNgn(amount: number): string {
@@ -235,11 +235,11 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         ]}>
         <OnLight>
         <View style={styles.topRow}>
-          <AppText variant="h3" color={accepted ? theme.colors.green : paying ? theme.colors.warning : theme.colors.black}>
+          <AppText variant="h3" style={{ flexShrink: 1 }} color={accepted ? theme.colors.green : paying ? theme.colors.blue : theme.colors.black}>
             {accepted
               ? bid.riderPaid ? 'Rider paid' : 'Accepted'
               : paying
-                ? 'Rider is paying…'
+                ? PAYING_LABEL
                 : countered
                   ? `Rider offers ${formatNgn(riderAsk)}`
                   : tookPrice
@@ -262,7 +262,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
           <AppText variant="bodySmall" color={theme.colors.muted}>Starting your trip…</AppText>
         ) : paying ? (
           <AppText variant="bodySmall" color={theme.colors.muted}>
-            They chose you for {formatNgn(bid.amountNgn)} and are adding money. Keep this trip in mind.
+            {formatNgn(bid.amountNgn)} · starts once they pay
           </AppText>
         ) : countered ? (
           <View style={styles.actionsBlock}>
@@ -508,14 +508,14 @@ const styles = StyleSheet.create({
   cardRequest: {
     borderColor: theme.colors.orange,
   },
-  // White while waiting; green accepted; yellow paying; red declined.
+  // White while waiting; green accepted; blue paying; red declined.
   cardBid: {
     borderColor: theme.colors.borderLight,
     backgroundColor: theme.colors.white,
   },
   cardPaying: {
-    borderColor: theme.colors.warning,
-    backgroundColor: '#FFF8E6',
+    borderColor: theme.colors.blue,
+    backgroundColor: theme.colors.blueLight,
   },
   // Glows red: the rider said no to this price, the trip is still there.
   cardDeclined: {

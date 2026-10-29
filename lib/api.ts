@@ -2031,6 +2031,10 @@ export interface DriverBidRecord {
   status: DriverBidStatus;
   createdAt: string;
   resolvedAt: string | null;
+  /** Newer servers: the rider is paying for this bid right now (PENDING only). */
+  payingSince?: string;
+  payingUntil?: string;
+  payingRemainingMs?: number;
   ride: {
     status: string;
     pickupAddress: string;

@@ -1,5 +1,5 @@
 /**
- * A driver's bid card: white while waiting, yellow while the rider pays,
+ * A driver's bid card: white while waiting, blue while the rider pays,
  * green when accepted, red when the rider declined every offer. No "Change
  * bid" once the driver took the rider's own price.
  *
@@ -136,4 +136,185 @@ test('declined, then the rider names a new price: live again ("New price"), red 
 
   s = reduceDriverSession(s, 'ride:bid_declined', { rideId: 'ride-1' }, NOW + 120_000);
   assert.equal(repricedAfterDecline(s.pendingBids['ride-1']), false, 'declined again: red again');
+});
+
+// ---- "Rider accepted · paying now" (blue) ----
+const { pruneExpiredBids, PAYING_LABEL } = (() => ({ ...createRequire(import.meta.url)(outFile) }))();
+const SINCE = new Date(NOW).toISOString();
+const UNTIL = new Date(NOW + 120_000).toISOString();
+const paying = (s, at = NOW, extra = { payingSince: SINCE, payingUntil: UNTIL }) =>
+  reduceDriverSession(s, 'ride:rider_paying', { rideId: 'ride-1', ...extra }, at);
+const ended = (s, reason, at = NOW + 1000) => reduceDriverSession(s, 'ride:rider_paying_ended', { rideId: 'ride-1', reason }, at);
+const counteredBid = () => {
+  const s = withBid(3500, 3000);
+  const b = s.pendingBids['ride-1'];
+  return { ...s, pendingBids: { 'ride-1': { ...b, counteredAt: new Date(NOW).toISOString(), offer: { ...b.offer, riderOfferNgn: 4000 } } } };
+};
+
+test('paying label is the blue line', () => {
+  assert.equal(PAYING_LABEL, 'Rider accepted · paying now');
+});
+
+for (const [name, start] of [['waiting', () => withBid(3500)], ['countered', counteredBid]]) {
+  test(`${name} -> paying -> accepted`, () => {
+    let s = paying(start());
+    assert.equal(stageOf(s), 'paying');
+    s = reduceDriverSession(s, 'ride:offer_accepted', { rideId: 'ride-1', agreedFareNgn: 3500, paymentMethod: 'WALLET' }, NOW + 5000);
+    assert.equal(stageOf(s), 'accepted');
+  });
+  test(`${name} -> paying -> declined`, () => {
+    const s = reduceDriverSession(paying(start()), 'ride:bid_declined', { rideId: 'ride-1' }, NOW + 2000);
+    assert.equal(stageOf(s), 'declined');
+    assert.equal(s.pendingBids['ride-1'].payingAt, undefined);
+  });
+  test(`${name} -> paying -> lost`, () => {
+    assert.equal(stageOf(reduceDriverSession(paying(start()), 'ride:bid_lost', { rideId: 'ride-1' }, NOW + 2000)), 'lost');
+  });
+  test(`${name} -> paying -> ended returns to ${name}`, () => {
+    for (const reason of ['closed', 'switched', 'failed', 'something_new']) {
+      const s = ended(paying(start()), reason);
+      assert.equal(stageOf(s), name, reason);
+      assert.equal(s.pendingBids['ride-1'].payingForMs, undefined);
+    }
+  });
+}
+
+test('paying ended: other_chosen is lost, cancelled and search_ended are the finished cards the app already has', () => {
+  let s = ended(paying(withBid(3500)), 'other_chosen');
+  assert.equal(stageOf(s), 'lost');
+  assert.equal(s.pendingBids['ride-1'].endReason, 'booked_other');
+  s = ended(paying(withBid(3500)), 'cancelled');
+  assert.equal(stageOf(s), 'expired');
+  assert.equal(s.pendingBids['ride-1'].endReason, 'rider_cancelled');
+  s = ended(paying(withBid(3500)), 'search_ended');
+  assert.equal(stageOf(s), 'expired');
+  assert.equal(s.pendingBids['ride-1'].endReason, 'timed_out');
+});
+
+test('paying ended never touches an accepted, finished, unknown or not-paying bid', () => {
+  const accepted = reduceDriverSession(paying(withBid(3500)), 'ride:offer_accepted', { rideId: 'ride-1', agreedFareNgn: 3500 }, NOW + 2000);
+  assert.equal(ended(accepted, 'closed'), accepted);
+  const waiting = withBid(3500);
+  assert.equal(ended(waiting, 'other_chosen'), waiting);
+  assert.equal(reduceDriverSession(waiting, 'ride:rider_paying_ended', { rideId: 'nope', reason: 'closed' }, NOW), waiting);
+});
+
+test('paying -> expired: the auction clock still ends a paying card of an older server', () => {
+  const s = paying(withBid(3500), NOW, {});
+  const later = pruneExpiredBids(s, NOW + 6 * 3_600_000);
+  assert.equal(stageOf(later), 'expired');
+});
+
+test('local expiry runs on receipt time + (payingUntil - payingSince), not the phone clock', () => {
+  // The phone's clock is an hour wrong: payingUntil looks long gone, yet the card holds for its 120 s.
+  const skew = 3_600_000;
+  const at = NOW + skew;
+  const base = withBid(3500);
+  const live = { ...base, pendingBids: { 'ride-1': { ...base.pendingBids['ride-1'], sentAt: new Date(at).toISOString(), offer: { ...base.pendingBids['ride-1'].offer, expiresAt: new Date(at + 600_000).toISOString() } } } };
+  const s = paying(live, at);
+  assert.equal(s.pendingBids['ride-1'].payingForMs, 120_000);
+  assert.equal(stageOf(pruneExpiredBids(s, at + 119_000)), 'paying');
+  assert.equal(stageOf(pruneExpiredBids(s, at + 121_000)), 'waiting');
+});
+
+test('a re-sent paying with a later end keeps the start; a longer spell lasts longer', () => {
+  let s = paying(withBid(3500), NOW);
+  s = paying(s, NOW + 60_000, { payingSince: SINCE, payingUntil: new Date(NOW + 240_000).toISOString() });
+  assert.equal(s.pendingBids['ride-1'].payingAt, new Date(NOW).toISOString());
+  assert.equal(stageOf(pruneExpiredBids(s, NOW + 200_000)), 'paying');
+  assert.equal(stageOf(pruneExpiredBids(s, NOW + 241_000)), 'waiting');
+});
+
+test('an older server (no payingUntil): paying stays as today, no local expiry', () => {
+  const s = paying(withBid(3500), NOW, {});
+  assert.equal(s.pendingBids['ride-1'].payingForMs, undefined);
+  assert.equal(stageOf(pruneExpiredBids(s, NOW + 30_000)), 'paying');
+});
+
+test('rehydrate: a PENDING record with payingSince/payingUntil shows blue; not-paying stays; bad times ignored', () => {
+  const rec = (extra) => ({
+    rideId: 'ride-1', riderId: 'rider-1', amountNgn: 3500, status: 'PENDING', createdAt: new Date(NOW - 5000).toISOString(), resolvedAt: null,
+    ride: { status: 'REQUESTED', pickupAddress: 'A', destAddress: 'B', riderOfferNgn: 3000, agreedFareNgn: null, fareEstimateNgn: 3000 },
+    ...extra,
+  });
+  const paid = { payingSince: SINCE, payingUntil: UNTIL };
+  // no local card yet
+  let s = hydrateBidRecords({ ...defaultDriverSession }, [rec(paid)], NOW);
+  assert.equal(stageOf(s), 'paying');
+  assert.equal(s.pendingBids['ride-1'].payingForMs, 120_000);
+  assert.equal(stageOf(hydrateBidRecords({ ...defaultDriverSession }, [rec({})], NOW)), 'waiting');
+  assert.equal(stageOf(hydrateBidRecords({ ...defaultDriverSession }, [rec({ payingSince: UNTIL, payingUntil: SINCE })], NOW)), 'waiting');
+  // a local waiting card (missed the socket)
+  s = hydrateBidRecords(withBid(3500), [rec(paid)], NOW);
+  assert.equal(stageOf(s), 'paying');
+  // an accepted local card is not turned back
+  const acc = reduceDriverSession(withBid(3500), 'ride:offer_accepted', { rideId: 'ride-1', agreedFareNgn: 3500 }, NOW);
+  assert.equal(stageOf(hydrateBidRecords(acc, [rec(paid)], NOW)), 'accepted');
+});
+
+test('feed card and bid screen read the same stage and the same words', async () => {
+  const { readFileSync } = await import('node:fs');
+  const feed = readFileSync(join(projectRoot, 'components/driver-request-feed.tsx'), 'utf8');
+  const screen = readFileSync(join(projectRoot, 'app/driver/pending-bid.tsx'), 'utf8');
+  for (const src of [feed, screen]) {
+    assert.match(src, /bidStage\(/);
+    assert.match(src, /PAYING_LABEL/);
+    assert.match(src, /theme\.colors\.blue/);
+    assert.doesNotMatch(src, /Rider is paying/);
+    assert.doesNotMatch(src, /theme\.colors\.warning/);
+  }
+});
+
+test('ended {declined} is the red declined card', () => {
+  const s = ended(paying(withBid(3500)), 'declined');
+  assert.equal(stageOf(s), 'declined');
+  assert.equal(s.pendingBids['ride-1'].payingAt, undefined);
+});
+
+test('payingRemainingMs: lapses at receipt + remaining on socket, re-send and hydrate; 0 is not blue', () => {
+  const at = NOW + 3_600_000; // wrong phone clock on purpose
+  const base = withBid(3500);
+  const live = { ...base, pendingBids: { 'ride-1': { ...base.pendingBids['ride-1'], sentAt: new Date(at).toISOString(), offer: { ...base.pendingBids['ride-1'].offer, expiresAt: new Date(at + 600_000).toISOString() } } } };
+  let s = paying(live, at, { payingSince: SINCE, payingUntil: UNTIL, payingRemainingMs: 30_000 });
+  assert.equal(stageOf(pruneExpiredBids(s, at + 29_000)), 'paying');
+  assert.equal(stageOf(pruneExpiredBids(s, at + 31_000)), 'waiting');
+  s = paying(s, at + 10_000, { payingSince: SINCE, payingUntil: UNTIL, payingRemainingMs: 50_000 });
+  assert.equal(stageOf(pruneExpiredBids(s, at + 59_000)), 'paying');
+  assert.equal(stageOf(pruneExpiredBids(s, at + 61_000)), 'waiting');
+  assert.equal(stageOf(paying(live, at, { payingSince: SINCE, payingUntil: UNTIL, payingRemainingMs: 0 })), 'waiting');
+  const rec = (extra) => ({ rideId: 'ride-1', riderId: 'rider-1', amountNgn: 3500, status: 'PENDING', createdAt: new Date(NOW - 5000).toISOString(), resolvedAt: null,
+    ride: { status: 'REQUESTED', pickupAddress: 'A', destAddress: 'B', riderOfferNgn: 3000, agreedFareNgn: null, fareEstimateNgn: 3000 }, ...extra });
+  s = hydrateBidRecords({ ...defaultDriverSession }, [rec({ payingRemainingMs: 20_000 })], NOW);
+  assert.equal(stageOf(s), 'paying');
+  assert.equal(s.pendingBids['ride-1'].payingForMs, 20_000);
+  assert.equal(stageOf(hydrateBidRecords({ ...defaultDriverSession }, [rec({ payingRemainingMs: 0 })], NOW)), 'waiting');
+  // no remainingMs: min(until - since, until - now); until already past = no blue
+  s = hydrateBidRecords({ ...defaultDriverSession }, [rec({ payingSince: SINCE, payingUntil: UNTIL })], NOW + 100_000);
+  assert.equal(s.pendingBids['ride-1'].payingForMs, 20_000);
+  assert.equal(stageOf(hydrateBidRecords({ ...defaultDriverSession }, [rec({ payingSince: SINCE, payingUntil: UNTIL })], NOW + 130_000)), 'waiting');
+});
+
+test('hydrate drops a stale blue when the server has no payment open (older than 10 s only)', () => {
+  const rec = { rideId: 'ride-1', riderId: 'rider-1', amountNgn: 3500, status: 'PENDING', createdAt: new Date(NOW - 5000).toISOString(), resolvedAt: null,
+    ride: { status: 'REQUESTED', pickupAddress: 'A', destAddress: 'B', riderOfferNgn: 3000, agreedFareNgn: null, fareEstimateNgn: 3000 } };
+  const s = paying(withBid(3500), NOW);
+  assert.equal(stageOf(hydrateBidRecords(s, [rec], NOW + 5_000)), 'paying');
+  assert.equal(stageOf(hydrateBidRecords(s, [rec], NOW + 11_000)), 'waiting');
+  // an old server's card (no window) is not touched
+  const old = paying(withBid(3500), NOW, {});
+  assert.equal(stageOf(hydrateBidRecords(old, [rec], NOW + 30_000)), 'paying');
+});
+
+test('paying with a past auction deadline stays paying until its time is up, then expired', () => {
+  const base = withBid(3500);
+  const bid = base.pendingBids['ride-1'];
+  const past = { ...base, pendingBids: { 'ride-1': { ...bid, sentAt: new Date(NOW - 7_200_000).toISOString(), offer: { ...bid.offer, expiresAt: new Date(NOW - 7_000_000).toISOString() } } } };
+  const s = paying(past, NOW);
+  assert.equal(stageOf(pruneExpiredBids(s, NOW + 60_000)), 'paying');
+  assert.equal(stageOf(pruneExpiredBids(s, NOW + 121_000)), 'expired');
+});
+
+test('the bid screen hides the red search countdown while paying', async () => {
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync(join(projectRoot, 'app/driver/pending-bid.tsx'), 'utf8'), /\{!accepted && stage !== 'paying' \? \(\(\) => \{/);
 });

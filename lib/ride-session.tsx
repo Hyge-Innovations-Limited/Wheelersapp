@@ -1,4 +1,5 @@
 import { AppState } from 'react-native';
+import { isPaySheetError } from '@/lib/pay-sheet-signal';
 import * as Crypto from 'expo-crypto';
 import {
   applyRiderCounter,
@@ -188,6 +189,8 @@ type RideSessionContextValue = {
   /** One Live call message (call:start, call:signal…) on this session's socket. */
   sendCallMessage: (type: string, payload: Record<string, unknown>) => Promise<void>;
   clearRide: () => void;
+  /** The pay sheet opened or closed for one driver. Fire and forget; never throws, never shows anything. */
+  notifyPaySheet: (driverId: string, open: boolean) => void;
 };
 
 type GatewayMessage = {
@@ -251,6 +254,7 @@ const defaultContext: RideSessionContextValue = {
   },
   sendCallMessage: async () => { throw new Error('Not connected.'); },
   clearRide: () => undefined,
+  notifyPaySheet: () => undefined,
 };
 
 const RideSessionContext = createContext<RideSessionContextValue>(defaultContext);
@@ -537,6 +541,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       // server that does not know it): nothing else is done with them.
       if (type === 'ride:route:quote:result' || type === 'ride:route:update:rejected') return;
       if (type === 'error' && waitedFor) return;
+      // The pay-sheet message's own replies: the rider sees nothing, nothing retries.
+      if (type === 'ride:pay_sheet:ok' || isPaySheetError(type, payload)) return;
 
       // Anything about a Live call goes to the call screen, and only there. In
       // the driver app the driver session's socket carries calls; a message
@@ -1494,6 +1500,16 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     [sendEnvelope],
   );
 
+  const notifyPaySheet = useCallback(
+    (driverId: string, open: boolean): void => {
+      const rideId = currentRideRef.current?.rideId;
+      if (!rideId) return;
+      // Fire and forget. Its replies (ok, or an error) are dropped in handleGatewayMessage.
+      void sendEnvelope('ride:pay_sheet', { rideId, driverId, open }).catch(() => undefined);
+    },
+    [sendEnvelope],
+  );
+
   const sendCallMessage = useCallback(
     async (type: string, payload: Record<string, unknown>): Promise<void> => {
       await sendEnvelope(type, payload);
@@ -1716,6 +1732,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       sendChatMessage,
       sendCallMessage,
       clearRide,
+      notifyPaySheet,
     }),
     [
       acceptOffer,
@@ -1733,6 +1750,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       requestRide,
       sendChatMessage,
       sendCallMessage,
+      notifyPaySheet,
       updateRideRoute,
       quoteRideRoute,
     ],

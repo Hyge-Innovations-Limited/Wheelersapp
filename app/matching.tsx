@@ -39,6 +39,7 @@ import {
 import { PulseCircle } from "@/components/static-map";
 import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
+import { addMoneyStep, payingDriverId, releaseAccepting, trackPaySheet } from "@/lib/pay-sheet-signal";
 import { useRideSession } from "@/lib/ride-session";
 import { driversSawLine, searchClock, shouldNudgeRaise } from "@/lib/ride-search-status";
 import {
@@ -132,6 +133,7 @@ export default function MatchingScreen() {
     dismissOffer,
     clearRide,
     setAutoBook,
+    notifyPaySheet,
   } = useRideSession();
   const { overview: wallet, refresh: refreshWallet } = useWalletOverview();
   const { getAccessToken } = useAuth();
@@ -549,10 +551,38 @@ export default function MatchingScreen() {
     ) {
       return;
     }
+    setAcceptingFor(payFor.driverId);
     setPayFor(null);
     // The price the rider said yes to (equal to the offer's now, checked above).
     void handleAccept(payOffer.driverId, payFor.fareNgn);
   }, [payFor, payOffer, balanceNgn, status, timedOut, isSubmitting, handleAccept]);
+
+  // The driver sees "paying now" while the rider is on this sheet, through the accept, and
+  // through the add-money screen. One open, one close on every exit. A close lost while the
+  // socket is down is covered by the server's 10-minute TTL.
+  const [acceptingFor, setAcceptingFor] = useState<string | null>(null);
+  const [addMoneyFor, setAddMoneyFor] = useState<string | null>(null);
+  const wentToAddMoneyRef = useRef(false);
+  useEffect(() => {
+    if (releaseAccepting({ acceptingFor, isSubmitting, status })) setAcceptingFor(null);
+  }, [acceptingFor, isSubmitting, status]);
+  // Back from the add-money screen: held until the sheet shows again or this screen is focused again.
+  useEffect(() => {
+    const step = addMoneyStep({ addMoneyFor, wentAway: wentToAddMoneyRef.current, isFocused });
+    wentToAddMoneyRef.current = step.wentAway;
+    if (step.release) setAddMoneyFor(null);
+  }, [addMoneyFor, isFocused]);
+  // Keep in step with the screen() helper in __tests__/pay-sheet-signal.test.mjs.
+  const payDriverId = payingDriverId({
+    sheetDriverId: payStep && payFor ? payFor.driverId : null,
+    acceptingFor,
+    addMoneyFor,
+  });
+  useEffect(() => {
+    if (!payDriverId) return;
+    const tracker = trackPaySheet(notifyPaySheet, payDriverId);
+    return () => tracker.dispose();
+  }, [payDriverId, notifyPaySheet]);
 
   const paySheet = (
     <PaySheet
@@ -560,11 +590,14 @@ export default function MatchingScreen() {
       busy={isSubmitting}
       onBack={() => setPayFor(null)}
       onOpenAddMoney={(shortNgn) => {
+        wentToAddMoneyRef.current = false;
+        if (payFor) setAddMoneyFor(payFor.driverId);
         setPayFor(null);
         router.push({ pathname: "/rider-add-money", params: { depositAmount: String(shortNgn) } });
       }}
       onPay={() => {
         if (!payOffer || !payStep) return;
+        setAcceptingFor(payOffer.driverId);
         setPayFor(null);
         // The price on the sheet the rider tapped, not a newer one that came in since.
         void handleAccept(payOffer.driverId, payStep.fareNgn);

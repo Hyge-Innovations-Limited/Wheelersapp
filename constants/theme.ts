@@ -18,6 +18,9 @@ const colors = {
   danger: '#CC3333',
   dangerLight: '#FFF0F0',
   warning: '#F59E0B',
+  // Driver card while the rider is paying: "Rider accepted · paying now".
+  blue: '#1A5FC4',
+  blueLight: '#E8F1FE',
   successLight: '#E8FFF7',
   darkSurface: '#202020',
   darkSurfaceSoft: '#2A2A2A',

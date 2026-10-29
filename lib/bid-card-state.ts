@@ -6,7 +6,7 @@ import type { PendingBid } from "@/lib/driver-session-reducer";
  *
  *   waiting    white   sent, the rider has not answered
  *   countered  orange  the rider came back with another price
- *   paying     yellow  the rider chose this driver and is adding money
+ *   paying     blue    the rider chose this driver and is adding money
  *   accepted   green   the rider accepted (and paid, on wallet rides)
  *   declined   red     the rider declined every offer — still live: the
  *                      driver can send a new bid, which makes it white again.
@@ -23,6 +23,9 @@ export type BidStage =
   | "lost"
   | "expired"
   | "withdrawn";
+
+/** The one line both the feed card and the bid screen show while the rider pays. */
+export const PAYING_LABEL = "Rider accepted · paying now";
 
 export function bidStage(bid: PendingBid): BidStage {
   if (bid.acceptedAt) return "accepted";

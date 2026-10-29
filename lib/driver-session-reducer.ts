@@ -164,6 +164,15 @@ export type PendingBid = {
   /** The rider chose this bid and is adding money to pay for it. */
   payingAt?: string;
   /**
+   * Newer servers: when the server says the payment started, and how long it
+   * may last. `payingAt` is when THIS PHONE heard it; the card lapses at
+   * payingAt + payingForMs. The phone's clock is never compared to the
+   * server's end time, except the hydrate fallback when the server sends no
+   * payingRemainingMs. Missing = an older server: nothing to expire on.
+   */
+  payingSince?: string;
+  payingForMs?: number;
+  /**
    * The rider declined every offer on the table, this one included. Not an
    * end: the search goes on, the card stays (red), the rider's next price
    * still lands on it, and a new bid from the driver makes it live again.
@@ -196,6 +205,66 @@ export type DriverSessionState = {
 export type SearchEndReason = 'rider_cancelled' | 'timed_out' | 'booked_other';
 export function searchEndReasonOf(value: unknown): SearchEndReason | undefined {
   return value === 'rider_cancelled' || value === 'timed_out' || value === 'booked_other' ? value : undefined;
+}
+
+/** The longest a "paying now" card may last on this phone, whatever the server sends. */
+const PAYING_MAX_MS = 15 * 60_000;
+
+/** How long the payment may last, from the server's own two timestamps (never against this phone's clock). */
+export function payingDurationMs(since: unknown, until: unknown): number | undefined {
+  if (typeof since !== 'string' || typeof until !== 'string') return undefined;
+  const ms = Date.parse(until) - Date.parse(since);
+  if (!Number.isFinite(ms) || ms <= 0) return undefined;
+  return Math.min(ms, PAYING_MAX_MS);
+}
+
+type PayingInfo = { payingSince?: unknown; payingUntil?: unknown; payingRemainingMs?: unknown };
+
+/**
+ * How long the card may stay blue from receipt time `now`.
+ * null = do not show blue; undefined = an older server gave no window (no local expiry, as before).
+ * Newer servers send `payingRemainingMs`, counted on the server's clock when sent; 0 = already over.
+ * Without it: since/until give the length; hydrate paths (a list read some time after the event)
+ * also take until - now, whichever is shorter, and skip blue when nothing is left.
+ */
+function payingWindow(info: PayingInfo, now: number, hydrate: boolean): number | null | undefined {
+  const rem = info.payingRemainingMs;
+  if (typeof rem === 'number' && Number.isFinite(rem)) return rem <= 0 ? null : Math.min(rem, PAYING_MAX_MS);
+  const dur = payingDurationMs(info.payingSince, info.payingUntil);
+  if (!hydrate) return dur;
+  if (!dur) return null;
+  const left = Date.parse(info.payingUntil as string) - now;
+  const w = Math.min(dur, left);
+  return Number.isFinite(w) && w > 0 ? w : null;
+}
+
+/** A bid's paying fields after hearing the rider is paying, at receipt time `now`. */
+function withPaying(bid: PendingBid, info: PayingInfo, now: number, hydrate = false): PendingBid {
+  const win = payingWindow(info, now, hydrate);
+  if (win === null) return withoutPaying(bid);
+  const hasRemaining = typeof info.payingRemainingMs === 'number';
+  const since = typeof info.payingSince === 'string' ? info.payingSince : undefined;
+  // Without remainingMs: re-sent with a moved end, the spell began when we first heard it.
+  const sameSpell = !hasRemaining && bid.payingAt && since && bid.payingSince === since;
+  return {
+    ...bid,
+    payingAt: sameSpell ? bid.payingAt : new Date(now).toISOString(),
+    payingSince: win && since ? since : undefined,
+    payingForMs: win,
+  };
+}
+
+/** The card stops saying "paying" (back to waiting). */
+function withoutPaying(bid: PendingBid): PendingBid {
+  return { ...bid, payingAt: undefined, payingSince: undefined, payingForMs: undefined };
+}
+
+/** The server's reason a payment ended, as how the card ends (undefined = back to waiting). */
+function payingEndOutcome(reason: unknown): { outcome: 'lost' | 'expired'; endReason: SearchEndReason } | undefined {
+  if (reason === 'other_chosen') return { outcome: 'lost', endReason: 'booked_other' };
+  if (reason === 'cancelled') return { outcome: 'expired', endReason: 'rider_cancelled' };
+  if (reason === 'search_ended') return { outcome: 'expired', endReason: 'timed_out' };
+  return undefined;
 }
 
 export type MissedOfferReason = 'expired' | 'taken' | 'cancelled';
@@ -402,6 +471,11 @@ export function hydrateBidRecords(
     status: string;
     createdAt: string;
     resolvedAt: string | null;
+    /** Newer servers: the rider is paying for this bid right now. */
+    payingSince?: string;
+    payingUntil?: string;
+    /** Newer servers: paying time left by the server's clock when sent (0 = over). */
+    payingRemainingMs?: number;
     ride: {
       /** The ride's own status: a finished trip leaves nothing on the Active tab. */
       status?: string;
@@ -448,7 +522,22 @@ export function hydrateBidRecords(
       } else if (!local.outcome && !local.declinedAt && !local.acceptedAt && rec.status === 'DECLINED') {
         // Missed the socket's "declined": the card still turns red.
         if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
-        pendingBids[rec.rideId] = { ...local, payingAt: undefined, declinedAt: rec.resolvedAt ?? new Date(now).toISOString() };
+        pendingBids[rec.rideId] = { ...withoutPaying(local), declinedAt: rec.resolvedAt ?? new Date(now).toISOString() };
+      } else if (
+        !local.outcome && !local.declinedAt && !local.acceptedAt && local.payingAt && local.payingForMs &&
+        rec.status === 'PENDING' && !payingWindow(rec, now, true) &&
+        now - Date.parse(local.payingAt) > 10_000
+      ) {
+        // The server has no payment open any more (the ended event was missed): drop the blue.
+        if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
+        pendingBids[rec.rideId] = withoutPaying(local);
+      } else if (
+        !local.outcome && !local.declinedAt && !local.acceptedAt && !local.payingAt &&
+        rec.status === 'PENDING' && payingWindow(rec, now, true)
+      ) {
+        // Missed the socket's "paying": the card still turns blue.
+        if (pendingBids === prev.pendingBids) pendingBids = { ...pendingBids };
+        pendingBids[rec.rideId] = withPaying(local, rec, now, true);
       }
       continue;
     }
@@ -471,6 +560,7 @@ export function hydrateBidRecords(
     let bid: PendingBid | null = null;
     if (rec.status === 'PENDING') {
       bid = { offer, amountNgn: rec.amountNgn, sentAt: rec.createdAt };
+      if (payingWindow(rec, now, true)) bid = withPaying(bid, rec, now, true);
     } else if (rec.status === 'DECLINED') {
       bid = { offer, amountNgn: rec.amountNgn, sentAt: rec.createdAt, declinedAt: rec.resolvedAt ?? rec.createdAt };
     } else if (rec.status === 'ACCEPTED') {
@@ -633,9 +723,21 @@ export function pruneExpiredBids(prev: DriverSessionState, now: number = Date.no
       next[rideId] = bid;
       continue;
     }
+    if (bid.payingAt && bid.payingForMs) {
+      // Newer servers: the card lapses on its own clock, receipt time + the length the server gave.
+      // Until then the payment, not the auction clock, decides how long it stays.
+      if (now - Date.parse(bid.payingAt) >= bid.payingForMs) {
+        changed = true;
+        next[rideId] = withoutPaying(bid);
+        if (now >= bidDeadlineMs(bid)) next[rideId] = { ...next[rideId], outcome: 'expired', resolvedAt: new Date(now).toISOString() };
+        continue;
+      }
+      next[rideId] = bid;
+      continue;
+    }
     if (now >= bidDeadlineMs(bid)) {
       changed = true;
-      next[rideId] = { ...bid, outcome: 'expired', resolvedAt: new Date(now).toISOString() };
+      next[rideId] = { ...withoutPaying(bid), outcome: 'expired', resolvedAt: new Date(now).toISOString() };
       continue;
     }
     next[rideId] = bid;
@@ -1033,18 +1135,41 @@ export function reduceDriverSession(
     if (!rideId || !bid || bid.acceptedAt || bid.outcome) return prev;
     return {
       ...prev,
-      pendingBids: { ...prev.pendingBids, [rideId]: { ...bid, payingAt: undefined, declinedAt: new Date(now).toISOString() } },
+      pendingBids: { ...prev.pendingBids, [rideId]: { ...withoutPaying(bid), declinedAt: new Date(now).toISOString() } },
     };
   }
 
   if (type === 'ride:rider_paying') {
-    // The rider chose this bid and is adding money: "Rider is paying…".
+    // The rider chose this bid and is adding money: "Rider accepted · paying now".
     const rideId = getString(payload.rideId);
     const bid = rideId ? prev.pendingBids[rideId] : undefined;
     if (!rideId || !bid || bid.acceptedAt || bid.outcome) return prev;
     return {
       ...prev,
-      pendingBids: { ...prev.pendingBids, [rideId]: { ...bid, payingAt: new Date(now).toISOString() } },
+      pendingBids: { ...prev.pendingBids, [rideId]: withPaying(bid, payload as PayingInfo, now) },
+    };
+  }
+
+  if (type === 'ride:rider_paying_ended') {
+    // The payment stopped. Back to waiting, unless the reason says the search is over for this driver.
+    const rideId = getString(payload.rideId);
+    const bid = rideId ? prev.pendingBids[rideId] : undefined;
+    if (!rideId || !bid || bid.acceptedAt || bid.outcome || !bid.payingAt) return prev;
+    if (payload.reason === 'declined') {
+      return {
+        ...prev,
+        pendingBids: { ...prev.pendingBids, [rideId]: { ...withoutPaying(bid), declinedAt: new Date(now).toISOString() } },
+      };
+    }
+    const ending = payingEndOutcome(payload.reason);
+    return {
+      ...prev,
+      pendingBids: {
+        ...prev.pendingBids,
+        [rideId]: ending
+          ? { ...withoutPaying(bid), outcome: ending.outcome, endReason: ending.endReason, resolvedAt: new Date(now).toISOString() }
+          : withoutPaying(bid),
+      },
     };
   }
 
@@ -1149,6 +1274,8 @@ export function reduceDriverSession(
           acceptedAt: undefined,
           riderPaid: false,
           payingAt: undefined,
+          payingSince: undefined,
+          payingForMs: undefined,
           outcome: 'expired',
           endReason: 'rider_cancelled',
           resolvedAt: new Date(now).toISOString(),
