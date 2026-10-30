@@ -15,7 +15,21 @@ export function walletShortNgn(balanceNgn: number | null | undefined, fareNgn: n
 }
 
 /** What the pay sheet shows: pay now, or add money first. */
-export type PaySheetStep = { kind: 'pay'; fareNgn: number } | { kind: 'add'; fareNgn: number; shortNgn: number };
+export type PaySheetStep =
+  | { kind: 'pay'; fareNgn: number }
+  /** `feeIncluded`: shortNgn is already what to send (the server worked out the deposit charges). */
+  | { kind: 'add'; fareNgn: number; shortNgn: number; feeIncluded?: boolean };
+
+/**
+ * The figure on "Add ₦X": what to SEND, so the shortfall lands after the
+ * deposit charges. The server's answer when there is one; the bare shortfall
+ * otherwise (an older server), never less than the shortfall.
+ */
+export function addAmountNgn(shortNgn: number, previewSendNgn: number | null | undefined): number {
+  return typeof previewSendNgn === 'number' && Number.isFinite(previewSendNgn) && previewSendNgn >= shortNgn
+    ? Math.ceil(previewSendNgn)
+    : shortNgn;
+}
 
 export function paySheetStep(balanceNgn: number | null | undefined, fareNgn: number): PaySheetStep {
   const shortNgn = walletShortNgn(balanceNgn, fareNgn);

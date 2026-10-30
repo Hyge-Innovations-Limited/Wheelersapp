@@ -1117,7 +1117,7 @@ export default function DestinationSearchScreen() {
         onPay={() => undefined}
         step={
           routeShort && !routeShort.hidden && !routeShort.queued
-            ? { kind: "add", fareNgn: routeShort.quote.fareNgn, shortNgn: routeShort.sendNgn }
+            ? { kind: "add", fareNgn: routeShort.quote.fareNgn, shortNgn: routeShort.sendNgn, feeIncluded: true }
             : null
         }
         waitingNote={ROUTE_WAITING_LINE}

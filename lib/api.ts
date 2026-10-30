@@ -980,6 +980,26 @@ export async function getWalletDepositInfo(input: {
   });
 }
 
+export interface WalletDepositPreviewResponse {
+  walletGetsNgn: number;
+  /** What to send so `walletGetsNgn` lands after the deposit charges. */
+  sendNgn: number;
+}
+
+/** What to send so `amountNgn` lands in the wallet. An older server answers 404. */
+export async function getWalletDepositPreview(input: {
+  accessToken: string;
+  amountNgn: number;
+}): Promise<WalletDepositPreviewResponse> {
+  return getJson<WalletDepositPreviewResponse>(
+    `/wallet/deposit-preview?amount=${encodeURIComponent(String(Math.ceil(input.amountNgn)))}`,
+    {
+      accessToken: input.accessToken,
+      fallbackError: "Could not work out the amount.",
+    },
+  );
+}
+
 export async function provisionVirtualAccount(input: {
   accessToken: string;
 }): Promise<ProvisionVirtualAccountResponse> {

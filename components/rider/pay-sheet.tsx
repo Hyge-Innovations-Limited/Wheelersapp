@@ -6,7 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDepositAccount } from "@/components/rider/deposit-account";
 import { RButton, RCard, RLink, RText, naira, rider } from "@/components/rider/kit";
 import { groupAccountNumber } from "@/components/rider/wallet-format";
-import type { PaySheetStep } from "@/lib/ride-pay";
+import { getAccessTokenWithRetry } from "@/lib/access-token";
+import { getWalletDepositPreview } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { addAmountNgn, type PaySheetStep } from "@/lib/ride-pay";
 
 const { colors, fonts } = rider;
 
@@ -66,6 +69,37 @@ export function PaySheet({
   );
 }
 
+/**
+ * What to send for this shortfall, deposit charges included. The server
+ * works it out; until it answers (or on an older server) the shortfall.
+ */
+function useSendAmount(step: Extract<PaySheetStep, { kind: "add" }>): number {
+  const { getAccessToken } = useAuth();
+  const [previewNgn, setPreviewNgn] = useState<number | null>(null);
+  const { shortNgn, feeIncluded } = step;
+
+  useEffect(() => {
+    setPreviewNgn(null);
+    if (feeIncluded || !(shortNgn > 0)) return;
+    let live = true;
+    void (async () => {
+      try {
+        const accessToken = await getAccessTokenWithRetry(getAccessToken);
+        if (!accessToken) return;
+        const preview = await getWalletDepositPreview({ accessToken, amountNgn: shortNgn });
+        if (live) setPreviewNgn(preview.sendNgn);
+      } catch {
+        // An older server, or no answer: the shortfall stands.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [feeIncluded, getAccessToken, shortNgn]);
+
+  return feeIncluded ? shortNgn : addAmountNgn(shortNgn, previewNgn);
+}
+
 function AddMoney({
   step,
   autoBook,
@@ -84,6 +118,7 @@ function AddMoney({
   const deposit = useDepositAccount({ provision: true });
   const account = deposit.status === "ready" ? deposit.account : null;
   const [copied, setCopied] = useState(false);
+  const sendNgn = useSendAmount(step);
 
   useEffect(() => {
     if (!copied) return;
@@ -95,7 +130,7 @@ function AddMoney({
     <>
       <View style={styles.copy}>
         <RText accessibilityRole="header" variant="heading">
-          {`Add ${naira(step.shortNgn)}`}
+          {`Add ${naira(sendNgn)}`}
         </RText>
         <RText color={colors.muted} variant="small" style={styles.tabular}>
           {addSubtitle ?? `To pay ${naira(step.fareNgn)}`}
@@ -141,7 +176,7 @@ function AddMoney({
               </RText>
             ) : null}
             <RButton
-              onPress={() => onOpenAddMoney(step.shortNgn)}
+              onPress={() => onOpenAddMoney(sendNgn)}
               size="md"
               title="Add money"
               variant="onInk"

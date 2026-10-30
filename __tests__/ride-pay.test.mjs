@@ -18,7 +18,16 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = join(here, '..');
 const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-ride-pay-')), 'bundle.cjs');
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/ride-pay.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { walletShortNgn, paySheetStep, shouldSendAfterTopUp, canAcceptOffers } = createRequire(import.meta.url)(outFile);
+const { walletShortNgn, paySheetStep, shouldSendAfterTopUp, canAcceptOffers, addAmountNgn } = createRequire(import.meta.url)(outFile);
+
+test('"Add ₦X" is what to send: the server figure with the deposit charges, else the shortfall', () => {
+  assert.equal(addAmountNgn(1500, 1546), 1546, 'the server worked out the charges');
+  assert.equal(addAmountNgn(1500, 1545.2), 1546, 'rounded up');
+  assert.equal(addAmountNgn(1500, null), 1500, 'no answer yet, or an older server');
+  assert.equal(addAmountNgn(1500, undefined), 1500);
+  assert.equal(addAmountNgn(1500, Number.NaN), 1500);
+  assert.equal(addAmountNgn(1500, 900), 1500, 'never less than the shortfall');
+});
 
 test('enough in the wallet: pay', () => {
   assert.deepEqual(paySheetStep(5000, 4500), { kind: 'pay', fareNgn: 4500 });
