@@ -233,7 +233,7 @@ export default function RiderActiveTripScreen() {
 
         {driver ? (
           <View style={styles.driver}>
-            <RAvatar name={driver.driverName} size={56} />
+            <RAvatar name={driver.driverName} photoKey={driver.driverPhotoKey} size={56} uri={driver.driverPhotoUrl} />
             <View style={styles.driverText}>
               <RText numberOfLines={1} style={styles.driverName}>
                 {nameLine}

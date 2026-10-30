@@ -12,6 +12,7 @@ import {
   withOfferPrice,
   type RideOffer,
 } from '@/lib/ride-offers';
+import { carryProfile, profileFrom, type DriverProfile } from '@/lib/driver-photo';
 import { useAuth } from '@/lib/auth';
 import { useAppLocation } from '@/lib/location';
 import {
@@ -45,8 +46,17 @@ import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
 import {
   ROUTE_NOT_PRICED,
+  pendingCancelAnswerFrom,
+  pendingCancelWaitMatches,
+  routeInProgressFailure,
+  routeInProgressWaitMatches,
+  routeUpdateAnswerFrom,
+  routeUpdateWaitMatches,
+  ROUTE_UPDATE_WAIT_TYPES,
+  routeOutcomeFrom,
   routeQuoteAnswerFrom,
-  routeQuoteFrom,
+  routeUpdatedFareFrom,
+  type RouteOutcome,
   type RouteQuoteAnswer,
   type RouteUpdateResult,
 } from '@/lib/route-quote';
@@ -74,7 +84,7 @@ type RideStatus =
   | 'completed'
   | 'cancelled';
 
-type RideDriver = {
+type RideDriver = DriverProfile & {
   driverId: string;
   /** The driver's *user* id — what a rating is addressed to. */
   driverUserId?: string;
@@ -182,6 +192,14 @@ type RideSessionContextValue = {
   updateRideRoute: (itinerary: RideItinerary, acceptedFareNgn?: number) => Promise<RouteUpdateResult>;
   /** What the route change would cost before it is made; null from a server that does not quote (behave as before). */
   quoteRideRoute: (itinerary: RideItinerary) => Promise<RouteQuoteAnswer>;
+  /**
+   * How a route change that waited on money ended by itself: 'applied' (the
+   * deposit landed and the server made the change) or 'dropped' (the trip
+   * changed meanwhile). `seq` rises with each, so a screen reacts once.
+   */
+  routeOutcome: (RouteOutcome & { seq: number }) | null;
+  /** Back out of a route change waiting on money. true: taken off, the trip stays as it was; false: a deposit already applied it. */
+  cancelPendingRoute: () => Promise<boolean>;
   cancelRide: (reason?: string) => Promise<void>;
   /** Rate the driver of the ride that just finished. */
   submitRating: (input: { rating: number; comment?: string }) => Promise<void>;
@@ -243,6 +261,8 @@ const defaultContext: RideSessionContextValue = {
   quoteRideRoute: async () => {
     throw new Error('Ride session is unavailable.');
   },
+  routeOutcome: null,
+  cancelPendingRoute: async () => true,
   cancelRide: async () => {
     throw new Error('Ride session is unavailable.');
   },
@@ -450,6 +470,10 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       resolve: (reply: { type: string; payload: Record<string, unknown> } | null) => void;
     }[]
   >([]);
+  const [routeOutcome, setRouteOutcome] = useState<(RouteOutcome & { seq: number }) | null>(null);
+  const routeOutcomeSeqRef = useRef(0);
+  /** The route a change waiting on money is for; set on the itinerary when the deposit applies it. */
+  const pendingRouteItineraryRef = useRef<RideItinerary | null>(null);
   const waitForReply = useCallback(
     (
       types: string[],
@@ -539,7 +563,26 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       }
       // The quote's own answers, and an error that answered a quote (an older
       // server that does not know it): nothing else is done with them.
-      if (type === 'ride:route:quote:result' || type === 'ride:route:update:rejected') return;
+      // A route change that waited on money has ended by itself (or the rider backed out). Another ride's
+      // message is ignored.
+      if (
+        type === 'ride:route:update:accepted' ||
+        type === 'ride:route:update:dropped' ||
+        type === 'ride:route:update:rejected' ||
+        type === 'ride:route:pending:cancelled'
+      ) {
+        const outcome = routeOutcomeFrom(type, payload, currentRideRef.current?.rideId);
+        if (outcome) {
+          const pendingItinerary = pendingRouteItineraryRef.current;
+          pendingRouteItineraryRef.current = null;
+          if (outcome.kind === 'applied' && pendingItinerary) {
+            setRideState((previous) => (previous ? { ...previous, itinerary: pendingItinerary } : previous));
+          }
+          routeOutcomeSeqRef.current += 1;
+          setRouteOutcome({ ...outcome, seq: routeOutcomeSeqRef.current });
+        }
+        return;
+      }
       if (type === 'error' && waitedFor) return;
       // The pay-sheet message's own replies: the rider sees nothing, nothing retries.
       if (type === 'ride:pay_sheet:ok' || isPaySheetError(type, payload)) return;
@@ -629,6 +672,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           etaSeconds: getNumber(payload.etaSeconds) ?? 0,
           distanceKm: getNumber(payload.distanceKm),
           receivedAt: new Date().toISOString(),
+          ...profileFrom(payload),
         };
         if (isForRide(currentRideRef.current, payload)) noteOfferEvent({ at: Date.now(), kind: 'add', offer });
 
@@ -756,6 +800,15 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
             plannedDurationSeconds:
               getNumber(payload.plannedDurationSeconds) ?? previous.plannedDurationSeconds,
             fareEstimateNgn: getNumber(payload.fareEstimateNgn) ?? previous.fareEstimateNgn,
+            // The trip's new fare, where the trip fare is shown (older servers send none).
+            ...(routeUpdatedFareFrom(payload) !== null
+              ? {
+                  fareEstimateNgn: routeUpdatedFareFrom(payload) ?? undefined,
+                  driver: previous.driver
+                    ? { ...previous.driver, lockedFareNgn: routeUpdatedFareFrom(payload) ?? undefined }
+                    : previous.driver,
+                }
+              : {}),
             route:
               pickup && updatedDestination && updatedStops && updatedRoute
                 ? {
@@ -965,6 +1018,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
               vehicleModel: getString(payload.vehicleModel) ?? previous.driver?.vehicleModel,
               etaSeconds: getNumber(payload.etaSeconds) ?? previous.driver?.etaSeconds,
               driverPhone: getString(payload.driverPhone) ?? previous.driver?.driverPhone,
+              ...carryProfile(payload, previous.driver?.driverId === getString(payload.driverId) ? previous.driver : undefined),
             },
           };
         });
@@ -1197,6 +1251,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       const answer = await reply;
       const result = answer ? routeQuoteAnswerFrom(answer.type, answer.payload, rideId) : null;
       if (!result) throw new Error(ROUTE_NOT_PRICED);
+      if (result.kind === 'refused') throw new Error(result.message);
       return result;
     },
     [sendEnvelope, waitForReply],
@@ -1216,11 +1271,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       // or answers with the price now.
       const priced = typeof acceptedFareNgn === 'number' && acceptedFareNgn > 0;
       const reply = priced
-        ? waitForReply(
-            ['ride:route:update:accepted', 'ride:route:updated', 'ride:route:update:rejected'],
-            activeRide.rideId,
-            ROUTE_UPDATE_WAIT_MS,
-          )
+        ? waitForReply(ROUTE_UPDATE_WAIT_TYPES, activeRide.rideId, ROUTE_UPDATE_WAIT_MS, routeUpdateWaitMatches)
         : null;
       await sendEnvelope('ride:route:update', {
         rideId: activeRide.rideId,
@@ -1230,11 +1281,26 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         ...(priced ? { acceptedFareNgn: Math.round(acceptedFareNgn) } : {}),
       });
       if (reply) {
-        const answer = await reply;
-        if (answer?.type === 'ride:route:update:rejected') {
-          const quote = routeQuoteFrom(answer.payload);
-          if (getString(answer.payload.reason) === 'PRICE_CHANGED' && quote) return { kind: 'price_changed', quote };
-          throw new Error(getString(answer.payload.message) ?? 'Could not update the ride route.');
+        // No answer in time is a failure, not a success: the itinerary stays as it was.
+        const outcome = routeUpdateAnswerFrom(await reply);
+        if (outcome.kind === 'price_changed') return outcome;
+        if (outcome.kind === 'wallet_short') {
+          const { kind, ...short } = outcome;
+          pendingRouteItineraryRef.current = itinerary;
+          return { kind, ...short };
+        }
+        if (outcome.kind === 'refused') throw new Error(outcome.message);
+        // The change is being made: ride:route:updated is the success; without it, it failed.
+        if (outcome.inProgress) {
+          const failure = routeInProgressFailure(
+            await waitForReply(
+              ['ride:route:updated', 'error'],
+              activeRide.rideId,
+              ROUTE_UPDATE_WAIT_MS,
+              (type, payload) => routeInProgressWaitMatches(type, payload, resolvedRoute),
+            ),
+          );
+          if (failure) throw new Error(failure);
         }
       }
 
@@ -1252,6 +1318,23 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     },
     [sendEnvelope, setRideState, waitForReply],
   );
+
+  const cancelPendingRoute = useCallback(async (): Promise<boolean> => {
+    const activeRide = currentRideRef.current;
+    if (!activeRide?.rideId) return true;
+    const reply = waitForReply(
+      ['ride:route:pending:cancelled', 'error'],
+      activeRide.rideId,
+      ROUTE_QUOTE_WAIT_MS,
+      pendingCancelWaitMatches,
+    );
+    await sendEnvelope('ride:route:pending:cancel', { rideId: activeRide.rideId });
+    const answer = pendingCancelAnswerFrom(await reply);
+    // An error, or no answer: not cancelled as far as we know. The caller keeps the sheet up.
+    if (answer.kind === 'failed') throw new Error(answer.message);
+    if (answer.cancelled) pendingRouteItineraryRef.current = null;
+    return answer.cancelled;
+  }, [sendEnvelope, waitForReply]);
 
   /**
    * Take a driver's bid. This is the moment the ride is actually booked: the
@@ -1307,6 +1390,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
                 vehicleModel: offer.vehicleModel,
                 etaSeconds: offer.etaSeconds,
                 lockedFareNgn: agreedFareNgn,
+                ...profileFrom(offer),
               },
             }
           : previous,
@@ -1727,6 +1811,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       acceptOffer,
       updateRideRoute,
       quoteRideRoute,
+      routeOutcome,
+      cancelPendingRoute,
       cancelRide,
       submitRating,
       sendChatMessage,
@@ -1753,6 +1839,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       notifyPaySheet,
       updateRideRoute,
       quoteRideRoute,
+      routeOutcome,
+      cancelPendingRoute,
     ],
   );
 

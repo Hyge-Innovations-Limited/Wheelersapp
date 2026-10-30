@@ -235,7 +235,7 @@ export default function RiderChatScreen() {
 
       <View style={styles.header}>
         <RBack />
-        <RAvatar name={driver?.driverName} size={44} />
+        <RAvatar name={driver?.driverName} photoKey={driver?.driverPhotoKey} size={44} uri={driver?.driverPhotoUrl} />
         <View style={styles.headerText}>
           <RText accessibilityRole="header" numberOfLines={1} style={styles.name} variant="heading">
             {driverName}

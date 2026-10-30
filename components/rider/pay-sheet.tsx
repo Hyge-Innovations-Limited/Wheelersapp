@@ -22,6 +22,8 @@ export function PaySheet({
   onPay,
   onBack,
   onOpenAddMoney,
+  addSubtitle,
+  waitingNote,
 }: {
   /** Null hides the sheet. */
   step: PaySheetStep | null;
@@ -32,6 +34,10 @@ export function PaySheet({
   onBack: () => void;
   /** The account number cannot be shown here: the full Add money screen. */
   onOpenAddMoney: (shortNgn: number) => void;
+  /** Replaces "To pay ₦X" under "Add ₦Y" (e.g. a route change). */
+  addSubtitle?: string;
+  /** Replaces "Books when the money lands". */
+  waitingNote?: string;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -52,7 +58,7 @@ export function PaySheet({
               <RLink onPress={onBack} title="Back" />
             </>
           ) : step?.kind === "add" ? (
-            <AddMoney autoBook={autoBook} step={step} onBack={onBack} onOpenAddMoney={onOpenAddMoney} />
+            <AddMoney addSubtitle={addSubtitle} autoBook={autoBook} step={step} waitingNote={waitingNote} onBack={onBack} onOpenAddMoney={onOpenAddMoney} />
           ) : null}
         </View>
       </View>
@@ -65,9 +71,13 @@ function AddMoney({
   autoBook,
   onBack,
   onOpenAddMoney,
+  addSubtitle,
+  waitingNote,
 }: {
   step: Extract<PaySheetStep, { kind: "add" }>;
   autoBook: boolean;
+  addSubtitle?: string;
+  waitingNote?: string;
   onBack: () => void;
   onOpenAddMoney: (shortNgn: number) => void;
 }) {
@@ -88,7 +98,7 @@ function AddMoney({
           {`Add ${naira(step.shortNgn)}`}
         </RText>
         <RText color={colors.muted} variant="small" style={styles.tabular}>
-          {`To pay ${naira(step.fareNgn)}`}
+          {addSubtitle ?? `To pay ${naira(step.fareNgn)}`}
         </RText>
       </View>
 
@@ -144,7 +154,7 @@ function AddMoney({
         <View accessibilityLiveRegion="polite" style={styles.waiting}>
           <ActivityIndicator color={colors.orange} size="small" />
           <RText color={colors.muted} variant="small">
-            Books when the money lands
+            {waitingNote ?? "Books when the money lands"}
           </RText>
         </View>
       ) : null}

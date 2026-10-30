@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { RAvatar } from "@/components/rider/kit";
+import { avatarCachePolicy, reputationLine } from "@/lib/driver-photo";
 import { naira, rider } from "@/constants/rider-theme";
 import type { RideOffer } from "@/lib/ride-offers";
 
@@ -30,8 +31,8 @@ export function OfferCard({
 }) {
   const name = offer.driverName || "Driver";
   const minutes = offer.etaSeconds > 0 ? Math.max(1, Math.ceil(offer.etaSeconds / 60)) : null;
+  const reputation = reputationLine(offer.driverRating, offer.driverRidesCompleted);
   const details = [
-    offer.driverRating > 0 ? `${offer.driverRating.toFixed(1)} rating` : null,
     offer.vehicleModel || null,
     minutes !== null ? `${minutes} min away` : null,
   ].filter(Boolean);
@@ -48,11 +49,16 @@ export function OfferCard({
   return (
     <View style={[styles.card, featured ? styles.cardInk : styles.cardPlain]}>
       <View style={styles.head}>
-        <RAvatar name={name} size={52} />
+        <RAvatar cache={avatarCachePolicy(true)} name={name} photoKey={offer.driverPhotoKey} size={52} uri={offer.driverPhotoUrl} />
         <View style={styles.who}>
           <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={[styles.name, { color: strong }]}>
             {name}
           </Text>
+          {reputation ? (
+            <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={[styles.details, { color: quiet }]}>
+              {reputation}
+            </Text>
+          ) : null}
           {details.length > 0 ? (
             <Text maxFontSizeMultiplier={1.2} numberOfLines={2} style={[styles.details, { color: quiet }]}>
               {details.join(" · ")}

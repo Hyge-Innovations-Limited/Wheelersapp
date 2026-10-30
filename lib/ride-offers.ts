@@ -8,7 +8,9 @@
  * poor place to keep logic you want to prove.
  */
 
-export type RideOffer = {
+import { carryProfile, type DriverProfile } from '@/lib/driver-photo';
+
+export type RideOffer = DriverProfile & {
   driverId: string;
   driverUserId: string;
   counterOfferNgn: number;
@@ -37,7 +39,8 @@ export type RideOffer = {
 export function mergeOffer(offers: RideOffer[], incoming: RideOffer): RideOffer[] {
   const others = offers.filter((offer) => offer.driverId !== incoming.driverId);
 
-  return [...others, { ...incoming, riderCounterNgn: undefined }].sort(
+  const existing = offers.find((offer) => offer.driverId === incoming.driverId);
+  return [...others, { ...incoming, ...carryProfile(incoming, existing), riderCounterNgn: undefined }].sort(
     (a, b) =>
       a.counterOfferNgn - b.counterOfferNgn || a.etaSeconds - b.etaSeconds,
   );

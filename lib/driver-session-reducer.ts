@@ -128,6 +128,8 @@ export type DriverRide = {
   /** Start trip asks for the rider's 4-digit trip code. The code itself never comes to the driver. */
   tripCodeRequired?: boolean;
   liveDistanceKm?: number;
+  /** The rider's last change to the route (final for the driver). Absent on older servers. */
+  routeChange?: { change?: string; fareNgn?: number; key: string; at?: number };
 };
 
 /**
@@ -1312,20 +1314,81 @@ export function reduceDriverSession(
 
   if (type === 'ride:route:updated') {
     if (!prev.currentRide) return prev;
+    const payloadRideId = getString(payload.rideId);
+    if (payloadRideId && payloadRideId !== prev.currentRide.rideId) return prev;
     const destination = parseWaypoint(payload.destination);
+    const newFare = getNumber(payload.fareNgn);
+    const change = getString(payload.change);
+    const key = routeChangeKey(payload);
+    // Same change again (redelivery): nothing to redo.
+    if (change && prev.currentRide.routeChange?.key === key) return prev;
     return {
       ...prev,
       currentRide: {
         ...prev.currentRide,
         destination: destination ?? prev.currentRide.destination,
-        stops: parseWaypointList(payload.stops) ?? prev.currentRide.stops,
+        stops: Array.isArray(payload.stops) ? parseWaypointList(payload.stops) : prev.currentRide.stops,
         plannedDistanceKm: getNumber(payload.plannedDistanceKm) ?? prev.currentRide.plannedDistanceKm,
         plannedDurationSeconds:
           getNumber(payload.plannedDurationSeconds) ?? prev.currentRide.plannedDurationSeconds,
         route: (payload.route as RideRouteGeometry | undefined) ?? prev.currentRide.route,
+        fareNgn: newFare !== undefined && newFare > 0 ? newFare : prev.currentRide.fareNgn,
+        // The line is for a named change only; any other update clears it.
+        routeChange: change ? { change, fareNgn: newFare, key, at: now } : undefined,
       },
     };
   }
 
   return null;
+}
+
+/** Identifies one route change, so a redelivered event is told apart from a new one. */
+export function routeChangeKey(payload: Record<string, unknown>): string {
+  const dest = parseWaypoint(payload.destination);
+  const stops = parseWaypointList(payload.stops);
+  return [
+    getString(payload.rideId) ?? '',
+    getString(payload.change) ?? '',
+    getNumber(payload.fareNgn) ?? '',
+    dest ? `${dest.lat},${dest.lng}` : '',
+    stops.map((w) => `${w.lat},${w.lng}`).join(';'),
+  ].join('|');
+}
+
+/** One short line for the driver, e.g. "Stop added · ₦3,500". */
+export function routeChangeLine(
+  rc: { change?: string; fareNgn?: number; at?: number } | undefined,
+  now: number = Date.now(),
+): string | null {
+  if (!rc || !rc.change) return null;
+  if (rc.at !== undefined && now - rc.at > ROUTE_LINE_MS) return null;
+  const words: Record<string, string> = {
+    stop_added: 'Stop added',
+    stop_removed: 'Stop removed',
+    destination_changed: 'Destination changed',
+    route_changed: 'Route changed',
+  };
+  const head = (rc.change && words[rc.change]) || 'Route changed';
+  return rc.fareNgn !== undefined && rc.fareNgn > 0
+    ? `${head} · ₦${Math.round(rc.fareNgn).toLocaleString('en-NG')}`
+    : head;
+}
+
+export const ROUTE_LINE_MS = 60_000;
+
+/**
+ * The chime once per rider change: only for a named change, not the driver's own,
+ * for this trip, and not on a redelivery of the last change.
+ */
+export function nextRouteChime(
+  lastKey: string | null,
+  payload: Record<string, unknown>,
+  currentRideId?: string,
+): { chime: boolean; key: string | null } {
+  const rideId = getString(payload.rideId);
+  if (!getString(payload.change) || payload.updatedBy === 'driver' || (rideId && currentRideId && rideId !== currentRideId)) {
+    return { chime: false, key: lastKey };
+  }
+  const key = routeChangeKey(payload);
+  return { chime: key !== lastKey, key };
 }

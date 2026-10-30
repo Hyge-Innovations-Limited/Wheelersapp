@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +14,7 @@ import {
   View,
 } from "react-native";
 
-import { RBack, RButton, rider, RScreen, RText } from "@/components/rider/kit";
+import { naira, RBack, RButton, rider, RScreen, RText } from "@/components/rider/kit";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getRideEstimate, isBackendConfigured } from "@/lib/api";
 import type { RideEstimateResponse } from "@/lib/api";
@@ -46,7 +47,16 @@ import {
 } from "@/lib/ride-route";
 import { useSearchAgainRedirect } from "@/hooks/use-search-again-redirect";
 import { RouteChangeSheet } from "@/components/rider/route-change-sheet";
-import { routeQuoteNeedsAsk, type RouteQuote } from "@/lib/route-quote";
+import { PaySheet } from "@/components/rider/pay-sheet";
+import {
+  ROUTE_NOT_CHANGED,
+  ROUTE_WAITING_LINE,
+  routePendingExpired,
+  routeQuoteNeedsAsk,
+  type RouteQuote,
+  type RouteUpdateResult,
+  type RouteWalletShort,
+} from "@/lib/route-quote";
 import { useRideSession } from "@/lib/ride-session";
 
 const { colors, fonts, radius } = rider;
@@ -137,10 +147,22 @@ const placeIcons: Record<PlaceSuggestion["icon"], keyof typeof Ionicons.glyphMap
 export default function DestinationSearchScreen() {
   const router = useRouter();
   const { getAccessToken } = useAuth();
-  const { updateRideRoute, quoteRideRoute } = useRideSession();
+  const { updateRideRoute, quoteRideRoute, routeOutcome, cancelPendingRoute } = useRideSession();
   /** A route change that moves money, waiting on the rider's yes: the route and its fare. */
   const [routeAsk, setRouteAsk] = useState<{ itinerary: RideItinerary; quote: RouteQuote } | null>(null);
   const [isUpdatingRoute, setIsUpdatingRoute] = useState(false);
+  /** A route change waiting on money (the wallet is short): the server keeps it, the driver is not told yet. */
+  type RouteShort = {
+    itinerary: RideItinerary;
+    seenSeq: number;
+    hidden: boolean;
+    backingOut: boolean;
+    /** Waiting for the route sheet to finish leaving (iOS) before this one opens. */
+    queued: boolean;
+  } & RouteWalletShort;
+  const [routeShort, setRouteShort] = useState<RouteShort | null>(null);
+  const routeShortRef = useRef<RouteShort | null>(null);
+  const appliedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const params = useLocalSearchParams<{
     flowMode?: string | string[];
     itinerary?: string | string[];
@@ -561,10 +583,7 @@ export default function DestinationSearchScreen() {
         }
         // Unpriced only for a server that does not know route prices at all.
         const result = await updateRideRoute(itinerary, quote?.fareNgn);
-        if (result.kind === "price_changed") {
-          setRouteAsk({ itinerary, quote: result.quote });
-          return;
-        }
+        if (settleRouteResult(itinerary, result)) return;
         backToTrip(itinerary);
       } catch (error) {
         const message =
@@ -589,17 +608,135 @@ export default function DestinationSearchScreen() {
     });
   };
 
+  /** Keeps the ref in step with the state: the ref says whether a change is still waiting on money. */
+  const putRouteShort = (next: RouteShort | null) => {
+    routeShortRef.current = next;
+    setRouteShort(next);
+  };
+  const patchRouteShort = (patch: Partial<RouteShort>) => {
+    if (!routeShortRef.current) return;
+    putRouteShort({ ...routeShortRef.current, ...patch });
+  };
+  const cancelPendingRef = useRef(cancelPendingRoute);
+  cancelPendingRef.current = cancelPendingRoute;
+  const routeOutcomeSeqRef = useRef(0);
+  routeOutcomeSeqRef.current = routeOutcome?.seq ?? 0;
+
+  /** A new price asks again; a short wallet opens the add-money sheet. True when the answer was one of those. */
+  const settleRouteResult = (itinerary: RideItinerary, result: RouteUpdateResult): boolean => {
+    if (result.kind === "price_changed") {
+      setRouteAsk({ itinerary, quote: result.quote });
+      return true;
+    }
+    if (result.kind === "wallet_short") {
+      // On iOS the sheet being closed must finish leaving before another opens (onDismiss below).
+      const swapping = Platform.OS === "ios" && routeAsk !== null;
+      putRouteShort({
+        ...result,
+        itinerary,
+        seenSeq: routeOutcomeSeqRef.current,
+        hidden: false,
+        backingOut: false,
+        queued: swapping,
+      });
+      if (swapping) setTimeout(() => patchRouteShort({ queued: false }), 800);
+      return true;
+    }
+    return false;
+  };
+
+  // The money landed and the server made the change, or the trip changed and the waiting change was dropped.
+  useEffect(() => {
+    const waiting = routeShortRef.current;
+    if (!waiting || !routeOutcome || routeOutcome.seq <= waiting.seenSeq) return;
+    putRouteShort(null);
+    if (routeOutcome.kind === "applied") {
+      backToTrip(waiting.itinerary);
+    } else if (routeOutcome.kind === "price_changed") {
+      // The car moved on and the price moved too far: asked again at the new price (after the sheet has left on iOS).
+      const ask = { itinerary: waiting.itinerary, quote: routeOutcome.quote };
+      setTimeout(() => setRouteAsk(ask), Platform.OS === "ios" ? 500 : 0);
+    } else {
+      Alert.alert(ROUTE_NOT_CHANGED);
+      router.dismissTo("/rider/active-trip");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeOutcome]);
+
+  // The server stops keeping the change at pendingUntil: take it off here too.
+  const shortUntil = routeShort?.pendingUntil ?? null;
+  useEffect(() => {
+    if (!shortUntil) return;
+    const at = Date.parse(shortUntil);
+    if (!Number.isFinite(at)) return;
+    const timeout = setTimeout(() => {
+      if (!routeShortRef.current || !routePendingExpired(shortUntil, Date.now())) return;
+      putRouteShort(null);
+      void cancelPendingRef.current().catch(() => undefined);
+      Alert.alert(ROUTE_NOT_CHANGED);
+      router.dismissTo("/rider/active-trip");
+    }, Math.max(0, at - Date.now()) + 500);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shortUntil]);
+
+  // Leaving this screen with a change still waiting backs it out: the trip stays as it was.
+  useEffect(
+    () => () => {
+      if (appliedTimerRef.current) clearTimeout(appliedTimerRef.current);
+      if (routeShortRef.current) {
+        routeShortRef.current = null;
+        void cancelPendingRef.current().catch(() => undefined);
+      }
+    },
+    [],
+  );
+
+  // Back from the full Add money screen: the sheet shows again.
+  useFocusEffect(
+    useCallback(() => {
+      if (routeShortRef.current?.hidden) {
+        routeShortRef.current = { ...routeShortRef.current, hidden: false };
+        setRouteShort(routeShortRef.current);
+      }
+    }, []),
+  );
+
+  /** Backing out of the add-money sheet: the trip stays as it was, unless a deposit already made the change. */
+  const backOutOfShort = async () => {
+    const waiting = routeShortRef.current;
+    if (!waiting || waiting.backingOut) return;
+    patchRouteShort({ backingOut: true });
+    try {
+      const cancelled = await cancelPendingRoute();
+      if (cancelled) {
+        putRouteShort(null);
+        if (router.canGoBack()) router.back();
+        return;
+      }
+      // A deposit got there first: the new route is made. The outcome message closes this;
+      // if it never comes, the trip is shown after a moment.
+      appliedTimerRef.current = setTimeout(() => {
+        const still = routeShortRef.current;
+        if (!still) return;
+        putRouteShort(null);
+        backToTrip(still.itinerary);
+      }, 8000);
+    } catch (error) {
+      patchRouteShort({ backingOut: false });
+      Alert.alert("Route update failed", error instanceof Error ? error.message : "Could not go back. Try again.");
+    }
+  };
+
   /** "Update route" on the sheet: at the fare shown; a newer one is asked about again. */
   const confirmRouteChange = async () => {
     if (!routeAsk || isUpdatingRoute) return;
     setIsUpdatingRoute(true);
     try {
       const result = await updateRideRoute(routeAsk.itinerary, routeAsk.quote.fareNgn);
-      if (result.kind === "price_changed") {
-        setRouteAsk({ itinerary: routeAsk.itinerary, quote: result.quote });
-        return;
-      }
       const itinerary = routeAsk.itinerary;
+      if (result.kind === "wallet_short") setRouteAsk(null);
+      if (settleRouteResult(itinerary, result)) return;
       setRouteAsk(null);
       backToTrip(itinerary);
     } catch (error) {
@@ -963,9 +1100,27 @@ export default function DestinationSearchScreen() {
 
       <RouteChangeSheet
         busy={isUpdatingRoute}
+        onDismiss={() => patchRouteShort({ queued: false })}
         onKeep={keepTrip}
         onUpdate={() => void confirmRouteChange()}
         quote={routeAsk?.quote ?? null}
+      />
+
+      <PaySheet
+        addSubtitle={routeShort ? `New fare ${naira(routeShort.quote.fareNgn)}` : undefined}
+        autoBook
+        onBack={() => void backOutOfShort()}
+        onOpenAddMoney={(shortNgn) => {
+          patchRouteShort({ hidden: true });
+          router.push({ pathname: "/rider-add-money", params: { depositAmount: String(shortNgn) } });
+        }}
+        onPay={() => undefined}
+        step={
+          routeShort && !routeShort.hidden && !routeShort.queued
+            ? { kind: "add", fareNgn: routeShort.quote.fareNgn, shortNgn: routeShort.sendNgn }
+            : null
+        }
+        waitingNote={ROUTE_WAITING_LINE}
       />
     </RScreen>
   );

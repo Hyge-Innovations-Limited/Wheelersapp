@@ -14,6 +14,7 @@ import { EmergencyButton } from '@/components/emergency-button';
 import { GoogleMapView } from '@/components/GoogleMapView';
 import { TripChatButton } from '@/components/TripChatButton';
 import { TripProgressBar } from '@/components/TripProgressBar';
+import { DriverRouteChangeLine } from '@/components/DriverRouteChangeLine';
 import { useDriverSession } from '@/lib/driver-session';
 import { toUserMessage } from '@/lib/error-messages';
 import { haversineKm } from '@/lib/geo';
@@ -255,6 +256,7 @@ export default function DriverActiveTripScreen() {
           },
         ]}>
         <OnLight>
+        <DriverRouteChangeLine change={ride.routeChange} />
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <AppText variant="mono" color={theme.colors.orange} adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1}>

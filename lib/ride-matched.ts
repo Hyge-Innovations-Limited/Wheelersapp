@@ -3,7 +3,9 @@
  * so the session and the tests read the same rules.
  */
 
-type MatchedDriver = {
+import { carryProfile, type DriverProfile } from '@/lib/driver-photo';
+
+type MatchedDriver = DriverProfile & {
   driverId: string;
   driverUserId?: string;
   driverName?: string;
@@ -62,6 +64,7 @@ export function rideAfterMatched<T extends MatchableRide>(previous: T | null, pa
       etaSeconds: num(payload.etaSeconds) ?? known?.etaSeconds,
       lockedFareNgn: num(payload.lockedFareNgn) ?? known?.lockedFareNgn ?? num(payload.agreedFareNgn),
       driverPhone: str(payload.driverPhone) ?? known?.driverPhone,
+      ...carryProfile(payload, known),
     },
     tripCode: str(payload.tripCode) ?? previous.tripCode,
   };

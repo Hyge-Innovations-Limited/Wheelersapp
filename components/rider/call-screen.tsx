@@ -126,7 +126,7 @@ export function RiderCallScreen() {
         <View style={styles.who}>
           <View style={styles.rings}>
             {ringing ? <Rings /> : null}
-            <RAvatar name={name} ring={colors.orange} size={132} />
+            <RAvatar name={name} photoKey={call.otherRole === "DRIVER" ? driver?.driverPhotoKey : undefined} ring={colors.orange} size={132} uri={call.otherRole === "DRIVER" ? driver?.driverPhotoUrl : undefined} />
           </View>
           <RText color={colors.cream} numberOfLines={1} style={styles.name}>
             {name}

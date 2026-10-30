@@ -167,7 +167,7 @@ export default function TripRatingScreen() {
 
       <RCard style={styles.rate}>
         <View style={styles.rateHead}>
-          <RAvatar name={driver?.driverName} size={48} />
+          <RAvatar name={driver?.driverName} photoKey={driver?.driverPhotoKey} size={48} uri={driver?.driverPhotoUrl} />
           <View style={styles.rateText}>
             <RText style={styles.rateTitle}>Rate your driver</RText>
             <RText color={colors.muted} numberOfLines={1} variant="small">

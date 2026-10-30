@@ -1,4 +1,5 @@
 import type { RiderActiveRideDetail } from '@/lib/api';
+import { profileFrom, type DriverProfile } from '@/lib/driver-photo';
 import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ride-offers';
 
 /**
@@ -11,7 +12,7 @@ import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ri
 
 const MATCHED = new Set(['DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'ARRIVED']);
 
-export type RestoredOffer = {
+export type RestoredOffer = DriverProfile & {
   driverId: string;
   driverUserId: string;
   counterOfferNgn: number;
@@ -41,7 +42,7 @@ export type RestoredRide = {
   itinerary: { pickup: string; stops: string[] };
   fareEstimateNgn?: number;
   startedAt?: string;
-  driver?: {
+  driver?: DriverProfile & {
     driverId: string;
     driverUserId?: string;
     driverName?: string;
@@ -92,6 +93,7 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
         etaSeconds: offer.etaSeconds,
         ...(typeof offer.distanceKm === 'number' ? { distanceKm: offer.distanceKm } : {}),
         receivedAt: offer.receivedAt,
+        ...profileFrom(offer),
       }))
       .sort((a, b) => a.counterOfferNgn - b.counterOfferNgn || a.etaSeconds - b.etaSeconds),
   };
@@ -120,6 +122,7 @@ export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined,
       vehicleModel: vehicle || undefined,
       ...(typeof ride.agreedFareNgn === 'number' ? { lockedFareNgn: ride.agreedFareNgn } : {}),
       ...(ride.driver.phone ? { driverPhone: ride.driver.phone } : {}),
+      ...profileFrom(ride.driver),
     },
   };
 }

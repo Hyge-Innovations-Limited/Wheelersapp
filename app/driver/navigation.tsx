@@ -14,6 +14,7 @@ import { GoogleMapView } from '@/components/GoogleMapView';
 import { StatusPill } from '@/components/StatusPill';
 import { TripCallButton } from '@/components/TripCallButton';
 import { TripChatButton } from '@/components/TripChatButton';
+import { DriverRouteChangeLine } from '@/components/DriverRouteChangeLine';
 import { useDriverSession } from '@/lib/driver-session';
 import { estimateEtaMinutes, haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
@@ -215,6 +216,7 @@ export default function DriverNavigationScreen() {
           )}
         </View>
 
+        <DriverRouteChangeLine change={ride.routeChange} />
         {/* Stats */}
         <View style={styles.statsRow}>
           <OnLight>

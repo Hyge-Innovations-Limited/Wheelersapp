@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { requireOptionalNativeModule } from 'expo';
+
 let Audio: any = null;
 try {
-  Audio = require('expo-av').Audio;
+  // Only load the package when this build has its native part (an OTA reaches older builds).
+  if (requireOptionalNativeModule('ExponentAV')) Audio = require('expo-av').Audio;
 } catch {
   // Native module not available (e.g. missing prebuild) — sound disabled
 }

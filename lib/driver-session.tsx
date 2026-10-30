@@ -39,10 +39,12 @@ import {
   selectOfferState,
   recordBid,
   reduceDriverSession,
+  nextRouteChime,
   ringDeadlineMs,
   type DriverSessionState,
   type GroupSeat,
 } from '@/lib/driver-session-reducer';
+import { playBidAlertChime } from '@/lib/sounds';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { estimateEtaSeconds, haversineKm } from '@/lib/geo';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
@@ -209,6 +211,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   const lastOnlineCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const userRef = useRef(user);
   const sessionRef = useRef(session);
+  const lastRouteChangeKeyRef = useRef<string | null>(null);
   const connectRef = useRef<(() => Promise<WebSocket>) | null>(null);
   const recentlyEndedRef = useRef<Map<string, number>>(new Map());
 
@@ -358,6 +361,17 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         type === 'ride:completed'
       ) {
         markRideEnded(getString(payload.rideId) ?? sessionRef.current.currentRide?.rideId);
+      }
+
+      // The rider changed the route: one chime per change, not on a redelivery.
+      if (type === 'ride:route:updated' && sessionRef.current.currentRide) {
+        const { chime, key } = nextRouteChime(
+          lastRouteChangeKeyRef.current,
+          payload,
+          sessionRef.current.currentRide.rideId,
+        );
+        lastRouteChangeKeyRef.current = key;
+        if (chime) void playBidAlertChime();
       }
 
       // Everything else is a session transition — see driver-session-reducer.

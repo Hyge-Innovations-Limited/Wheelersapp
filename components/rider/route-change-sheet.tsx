@@ -12,17 +12,20 @@ export function RouteChangeSheet({
   busy,
   onUpdate,
   onKeep,
+  onDismiss,
 }: {
   /** Null hides the sheet. */
   quote: RouteQuote | null;
   busy?: boolean;
   onUpdate: () => void;
   onKeep: () => void;
+  /** The sheet has finished leaving (iOS only). */
+  onDismiss?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const line = quote ? routeQuoteLine(quote) : null;
   return (
-    <Modal animationType="slide" onRequestClose={onKeep} transparent visible={quote !== null}>
+    <Modal animationType="slide" onDismiss={onDismiss} onRequestClose={onKeep} transparent visible={quote !== null}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           {quote ? (

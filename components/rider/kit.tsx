@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
+import { avatarLook } from "@/lib/driver-photo";
 import { forwardRef, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AccessibilityInfo,
@@ -300,18 +301,25 @@ function initialsOf(name: string | null | undefined): string {
   return (parts[0]![0]! + (parts.length > 1 ? parts[parts.length - 1]![0]! : "")).toUpperCase();
 }
 
-/** A person's photo when we have one; their initials when we do not. */
+/** A person's photo when we have one; their initials when we do not, while it loads, or if it fails. */
 export function RAvatar({
   name,
   uri,
+  photoKey,
+  cache = "disk",
   size = 56,
   ring,
 }: {
   name?: string | null;
   uri?: string | null;
+  /** Stable cache key for the photo; changes when the photo changes. */
+  photoKey?: string | null;
+  /** "memory" for offer avatars (every bidder), "disk" for the booked driver. */
+  cache?: "memory" | "disk";
   size?: number;
   ring?: string;
 }) {
+  const [failedUri, setFailedUri] = useState<string | null>(null);
   const frame = {
     width: size,
     height: size,
@@ -319,21 +327,23 @@ export function RAvatar({
     borderWidth: ring ? 3 : 0,
     borderColor: ring,
   };
-  if (uri) {
-    return (
-      <Image
-        accessibilityLabel={name ? `Photo of ${name}` : "Photo"}
-        contentFit="cover"
-        source={{ uri }}
-        style={[styles.avatar, frame]}
-      />
-    );
-  }
+  const showPhoto = avatarLook(uri, failedUri) === "photo";
   return (
     <View accessibilityLabel={name ?? undefined} style={[styles.avatar, styles.avatarInitials, frame]}>
       <Text maxFontSizeMultiplier={1} style={[styles.avatarText, { fontSize: Math.round(size * 0.36) }]}>
         {initialsOf(name)}
       </Text>
+      {showPhoto ? (
+        <Image
+          accessibilityLabel={name ? `Photo of ${name}` : "Photo"}
+          cachePolicy={cache}
+          contentFit="cover"
+          recyclingKey={photoKey ?? uri ?? undefined}
+          onError={() => setFailedUri(uri ?? null)}
+          source={photoKey ? { uri: uri!, cacheKey: photoKey } : { uri: uri! }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
     </View>
   );
 }
@@ -539,7 +549,7 @@ const styles = StyleSheet.create({
   fieldError: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.danger },
 
   avatar: { backgroundColor: colors.tint },
-  avatarInitials: { backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
+  avatarInitials: { overflow: "hidden", backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
   avatarText: { fontFamily: fonts.displayBold, color: colors.orange },
 
   steps: { flexDirection: "row", gap: 6 },

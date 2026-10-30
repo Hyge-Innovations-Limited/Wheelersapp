@@ -15,6 +15,7 @@ import {
   naira,
   rider,
 } from "@/components/rider/kit";
+import { reputationLine } from "@/lib/driver-photo";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { useGoHome } from "@/hooks/use-go-home";
@@ -65,10 +66,7 @@ export default function DriverFoundScreen() {
   const hasFare = typeof agreedNgn === "number" && Number.isFinite(agreedNgn);
   const driverName = liveDriver?.driverName?.trim() || null;
   const firstName = driverName ? driverName.split(/\s+/)[0] : null;
-  const rating =
-    typeof liveDriver?.driverRating === "number" && liveDriver.driverRating > 0
-      ? `${liveDriver.driverRating.toFixed(1)} rating`
-      : null;
+  const rating = reputationLine(liveDriver?.driverRating, liveDriver?.driverRidesCompleted);
 
   const rows: { label: string; value: string; plate?: boolean }[] = [];
   if (liveDriver?.vehicleModel) rows.push({ label: "Car", value: liveDriver.vehicleModel });
@@ -100,7 +98,7 @@ export default function DriverFoundScreen() {
         style={styles.scroll}>
         <View style={styles.hero}>
           <RPill icon="checkmark" label="Driver confirmed" />
-          <RAvatar name={driverName} ring={colors.ink} size={112} />
+          <RAvatar name={driverName} photoKey={liveDriver?.driverPhotoKey} ring={colors.ink} size={112} uri={liveDriver?.driverPhotoUrl} />
           <RText variant="display" style={styles.title}>
             {firstName ? `${firstName} is your driver` : "Your driver is confirmed"}
           </RText>

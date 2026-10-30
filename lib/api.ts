@@ -2201,6 +2201,10 @@ export interface RiderActiveRideDetail {
     vehicleMake: string | null;
     vehicleModel: string | null;
     vehiclePlate: string | null;
+    /** Signed https photo URL and its cache key (newer servers, flag on). */
+    driverPhotoUrl?: string | null;
+    driverPhotoKey?: string | null;
+    driverRidesCompleted?: number | null;
   } | null;
   /** The rider's own trip code, until the driver has used it. */
   tripCode?: string | null;
@@ -2222,6 +2226,9 @@ export interface RiderActiveRideDetail {
       etaSeconds: number;
       distanceKm: number | null;
       receivedAt: string;
+      driverPhotoUrl?: string | null;
+      driverPhotoKey?: string | null;
+      driverRidesCompleted?: number | null;
     }>;
   } | null;
 }

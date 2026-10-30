@@ -38,6 +38,8 @@ const {
   MISSED_OFFER_CAP,
   RESOLVED_BID_LINGER_MS,
   defaultDriverSession,
+  routeChangeLine,
+  nextRouteChime,
 } = createRequire(import.meta.url)(outFile);
 
 const PICKUP = { lat: 6.6018, lng: 3.3515, address: '102 Opebi Rd, Ikeja' };
@@ -555,4 +557,77 @@ test('hydrateBidRecords rebuilds bid cards from server records, socket truth fir
   assert.equal(s.pendingBids['ride-lost'].outcome, 'lost');
   assert.equal(s.pendingBids['ride-old'], undefined); // too old to resurrect
   assert.equal(s.pendingBids['ride-gone'], undefined); // withdrawn stays gone
+});
+
+
+// ── the rider changed the route mid-trip ─────────────────────────
+const STOP = { lat: 6.55, lng: 3.35, address: 'Maryland, Ikeja' };
+function onTrip() {
+  return reduceDriverSession(online(), 'ride:matched', {
+    rideId: 'ride-5', riderId: 'rider-5', pickup: PICKUP, destination: DEST,
+    stops: [], agreedFareNgn: 4000, rideStatus: 'IN_PROGRESS',
+  }, NOW);
+}
+
+test('ride:route:updated with fareNgn updates the stops and the fare', () => {
+  const s = reduceDriverSession(onTrip(), 'ride:route:updated', {
+    rideId: 'ride-5', destination: DEST, stops: [STOP], fareNgn: 5500, change: 'stop_added',
+  }, NOW);
+  assert.equal(s.currentRide.stops.length, 1);
+  assert.equal(s.currentRide.stops[0].address, STOP.address);
+  assert.equal(s.currentRide.fareNgn, 5500);
+  assert.equal(routeChangeLine(s.currentRide.routeChange, NOW), 'Stop added · ₦5,500');
+});
+
+test('ride:route:updated without fareNgn leaves the fare alone and shows no line', () => {
+  const s = reduceDriverSession(onTrip(), 'ride:route:updated', {
+    rideId: 'ride-5', destination: DEST, stops: [STOP],
+  }, NOW);
+  assert.equal(s.currentRide.fareNgn, 4000);
+  assert.equal(s.currentRide.stops.length, 1);
+  assert.equal(routeChangeLine(s.currentRide.routeChange), null);
+});
+
+test('a fare-only payload updates the fare silently', () => {
+  const withStop = reduceDriverSession(onTrip(), 'ride:route:updated', { rideId: 'ride-5', stops: [STOP], change: 'stop_added', fareNgn: 5500 }, NOW);
+  const s = reduceDriverSession(withStop, 'ride:route:updated', { rideId: 'ride-5', fareNgn: 3000 }, NOW);
+  assert.equal(s.currentRide.fareNgn, 3000);
+  assert.equal(s.currentRide.routeChange, undefined);
+  assert.equal(s.currentRide.stops.length, 1, 'no stops key keeps the stops');
+});
+
+test('a payload for another ride is ignored', () => {
+  const t = onTrip();
+  assert.equal(reduceDriverSession(t, 'ride:route:updated', { rideId: 'other', fareNgn: 9, change: 'route_changed' }, NOW), t);
+});
+
+test('route change line text', () => {
+  assert.equal(routeChangeLine({ change: 'route_changed', fareNgn: 7000 }), 'Route changed · ₦7,000');
+  assert.equal(routeChangeLine({ change: 'stop_removed' }), 'Stop removed');
+  assert.equal(routeChangeLine({ fareNgn: 7000 }), null);
+});
+
+test('the line clears on a no-change payload and after 60 s', () => {
+  const p = { rideId: 'ride-5', destination: DEST, stops: [STOP], fareNgn: 5500, change: 'stop_added' };
+  const s1 = reduceDriverSession(onTrip(), 'ride:route:updated', p, NOW);
+  assert.equal(routeChangeLine(s1.currentRide.routeChange, NOW + 59_000), 'Stop added · ₦5,500');
+  assert.equal(routeChangeLine(s1.currentRide.routeChange, NOW + 61_000), null);
+  const s2 = reduceDriverSession(s1, 'ride:route:updated', { rideId: 'ride-5', stops: [STOP] }, NOW + 1000);
+  assert.equal(s2.currentRide.routeChange, undefined);
+});
+
+test('chime: only for a named rider change, once, and not on a redelivery after an unrelated event', () => {
+  const p = { rideId: 'ride-5', destination: DEST, stops: [STOP], fareNgn: 5500, change: 'stop_added' };
+  assert.equal(nextRouteChime(null, { ...p, change: undefined }, 'ride-5').chime, false, 'no change');
+  assert.equal(nextRouteChime(null, { ...p, updatedBy: 'driver' }, 'ride-5').chime, false, 'driver own');
+  assert.equal(nextRouteChime(null, { ...p, rideId: 'x' }, 'ride-5').chime, false, 'wrong ride');
+  const a = nextRouteChime(null, p, 'ride-5');
+  assert.equal(a.chime, true);
+  assert.equal(nextRouteChime(a.key, { ...p }, 'ride-5').chime, false, 'redelivery');
+  const mid = nextRouteChime(a.key, { rideId: 'ride-5', fareNgn: 4000 }, 'ride-5');
+  assert.equal(mid.chime, false);
+  assert.equal(nextRouteChime(mid.key, { ...p }, 'ride-5').chime, false, 'redelivery after an unrelated event');
+  assert.equal(nextRouteChime(a.key, { ...p, stops: [], change: 'stop_removed' }, 'ride-5').chime, true, 'a new change');
+  const s1 = reduceDriverSession(onTrip(), 'ride:route:updated', p, NOW);
+  assert.equal(reduceDriverSession(s1, 'ride:route:updated', p, NOW), s1);
 });

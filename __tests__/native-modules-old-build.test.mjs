@@ -29,6 +29,8 @@ function build(file) {
     `--alias:expo-secure-store=${join(here, 'stubs/secure-store.cjs')}`,
     `--alias:react-native=${join(here, 'stubs/react-native-platform.cjs')}`,
     `--alias:expo-local-authentication=${join(here, 'stubs/native-package-throws.cjs')}`,
+    `--alias:expo-av=${join(here, 'stubs/native-package-throws.cjs')}`,
+    `--alias:@/assets/sounds/ride-request.wav=${join(here, 'stubs/native-package-throws.cjs')}`,
     `--alias:react-native-passkeys=${join(here, 'stubs/native-package-throws.cjs')}`,
     `--outfile=${outFile}`,
   ], { cwd: projectRoot, stdio: 'pipe' });
@@ -48,4 +50,23 @@ test('passkeys on a build without them: not available, and their package is neve
   const passkeys = req(build('lib/passkeys.ts'));
   assert.equal(passkeys.passkeysAvailable(), false);
   assert.equal(globalThis.__WHEELERS_TEST_NATIVE_LOADS__, 0);
+});
+
+test('sounds on a build without expo-av: silent, and its package is never loaded', async () => {
+  globalThis.__WHEELERS_TEST_NATIVE_LOADS__ = 0;
+  const sounds = req(build('lib/sounds.ts'));
+  await sounds.playBidAlertChime();
+  await sounds.playRideRequestSound();
+  assert.equal(globalThis.__WHEELERS_TEST_NATIVE_LOADS__, 0);
+});
+
+test('sounds on a build with expo-av: its package is loaded once', () => {
+  globalThis.__WHEELERS_TEST_NATIVE_LOADS__ = 0;
+  globalThis.__WHEELERS_TEST_EXPO_MODULES__ = { ExponentAV: {} };
+  try {
+    req(build('lib/sounds.ts'));
+  } finally {
+    globalThis.__WHEELERS_TEST_EXPO_MODULES__ = {};
+  }
+  assert.equal(globalThis.__WHEELERS_TEST_NATIVE_LOADS__, 1);
 });
