@@ -1,4 +1,6 @@
 const appJson = require("./app.json");
+const fs = require("fs");
+const path = require("path");
 const { withAndroidManifest } = require("expo/config-plugins");
 
 const rawVariant =
@@ -140,6 +142,11 @@ module.exports = () => ({
       package: isDriverApp
         ? "com.timmy133.wheelers.driver"
         : "com.timmy133.wheelers",
+      // Firebase for Android pushes (FCM): used once google-services.json is in
+      // the project root; one file covers the driver and rider packages.
+      ...(fs.existsSync(path.join(__dirname, "google-services.json"))
+        ? { googleServicesFile: "./google-services.json" }
+        : {}),
       config: {
         ...appJson.expo.android?.config,
         googleMaps: googleMapsApiKey
