@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "744224040356",
+    "project_id": "wheelers-push",
+    "storage_bucket": "wheelers-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:744224040356:android:f65a78da6dc7b40049cd31",
+        "android_client_info": {
+          "package_name": "com.timmy133.wheelers"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1sEakcSNk7WjKEcl5iTZCuBqgoSJ5aYg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:744224040356:android:e90b5fc4286d68a649cd31",
+        "android_client_info": {
+          "package_name": "com.timmy133.wheelers.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1sEakcSNk7WjKEcl5iTZCuBqgoSJ5aYg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
