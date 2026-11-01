@@ -39,8 +39,6 @@ export type RestoredRide = {
   bidsCloseAt?: string;
   offers?: RestoredOffer[];
   tripCode?: string;
-  /** The driver's phone is recording the trip. */
-  recording?: boolean;
   itinerary: { pickup: string; stops: string[] };
   fareEstimateNgn?: number;
   startedAt?: string;
@@ -112,7 +110,6 @@ export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined,
     status,
     restored: true,
     ...(ride.tripCode && status === 'matched' ? { tripCode: ride.tripCode } : {}),
-    ...(ride.recording === true ? { recording: true } : {}),
     itinerary: itineraryOf(ride),
     fareEstimateNgn: ride.agreedFareNgn ?? ride.fareEstimateNgn ?? undefined,
     ...(ride.startedAt ? { startedAt: ride.startedAt } : {}),
@@ -175,7 +172,6 @@ type SearchLike = {
   autoAcceptChosen?: boolean;
   driver?: DriverLike;
   tripCode?: string;
-  recording?: boolean;
   startedAt?: string;
   fareEstimateNgn?: number;
 };
@@ -225,7 +221,6 @@ export function reconcileSearch<T extends SearchLike>(
     bidTimeout: false,
     offers: [],
     tripCode: ride.tripCode ?? previous.tripCode,
-    recording: ride.recording || previous.recording,
     startedAt: ride.startedAt ?? previous.startedAt,
     fareEstimateNgn: ride.fareEstimateNgn ?? previous.fareEstimateNgn,
     driver: carryDriver(previous.driver, ride.driver as DriverLike | undefined),

@@ -979,7 +979,7 @@ export async function getTripRecordingSetting(input: { accessToken: string }): P
   });
 }
 
-/** The trip is running: the rider is told it is recorded, then the phone may record. Gives the next piece number. */
+/** The trip is running: the server marks it as recorded, then the phone may record. Gives the next piece number. */
 export async function startTripRecordingOnServer(input: { accessToken: string; rideId: string }): Promise<{ ok: boolean; nextSegmentIndex: number }> {
   return postJson("/drivers/me/trip-recordings/start", { rideId: input.rideId }, {
     accessToken: input.accessToken,
@@ -2270,8 +2270,6 @@ export interface RiderActiveRideDetail {
   } | null;
   /** The rider's own trip code, until the driver has used it. */
   tripCode?: string | null;
-  /** The driver's phone is recording the trip (an older server never sends it). */
-  recording?: boolean;
   /** What the rider is offering. */
   riderOfferNgn?: number | null;
   /** The rider said yes to auto-booking this search (newer servers). */

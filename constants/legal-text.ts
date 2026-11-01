@@ -107,6 +107,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       "Your wallet: the money you add, the rides you pay for and your withdrawals, including the bank account you withdraw to.",
       "Messages you send to your driver and to Wheelers support, and calls made through the app.",
       "For drivers: the identity, licence and vehicle documents you upload, your photo, and your location while you are online.",
+      "For safety, the driver's phone records the sound inside the car during a trip. It can include the rider's voice. Only Wheelers support can listen, and recordings are deleted after 30 days.",
     ],
   },
   {
@@ -129,6 +130,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     title: "Your choices",
     body: [
       "You can change your details in the app, turn off location when you are not booking, and ask us to delete your account through Help and support.",
+      "Drivers can turn off Record trips in Settings.",
     ],
   },
 ];

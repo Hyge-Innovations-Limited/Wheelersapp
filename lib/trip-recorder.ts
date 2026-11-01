@@ -19,7 +19,7 @@ import { setRecordingTrip } from '@/lib/recording-state';
  * microphone is allowed, and this build has the recorder in it (an OTA
  * reaches older builds: there, nothing happens and nothing is announced).
  *
- * Nothing records until the server has told the rider (the start call):
+ * Nothing records until the server has marked the trip as recorded (the start call):
  * no answer, no recording, and the driver session tries again a minute later.
  *
  * 5-minute AAC segments, mono, 32 kbps (about 14 MB an hour). Each finished
@@ -280,7 +280,7 @@ export async function startTripRecording(rideId: string, deps: Deps): Promise<bo
       await finishSegmentOf(old, deps);
     }
     if (wanted !== rideId) return false;
-    // The rider is told first; without the server's yes nothing records.
+    // The server marks the trip first; without its yes nothing records.
     const started = await startTripRecordingOnServer({ accessToken: await token(deps), rideId });
     if (!started?.ok || wanted !== rideId) return false;
     const serverNext = Number.isInteger(started.nextSegmentIndex) && started.nextSegmentIndex >= 0 ? started.nextSegmentIndex : 0;

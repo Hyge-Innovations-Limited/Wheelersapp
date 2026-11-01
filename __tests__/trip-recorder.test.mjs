@@ -49,13 +49,13 @@ async function queued() {
   return (raw ? JSON.parse(raw) : []).map((item) => `${item.rideId}:${item.segmentIndex}`);
 }
 
-test('a trip records from start to end, the rider is told once, and the piece is queued', async () => {
+test('a trip records from start to end, the server marks it first, and the piece is queued', async () => {
   const recorder = freshRecorder();
   assert.equal(await recorder.startTripRecording('ride-1', deps), true);
   assert.equal(live().length, 1);
   assert.equal(await recorder.startTripRecording('ride-1', deps), true);
   assert.equal(recorders().length, 1);
-  assert.deepEqual(announced(), ['ride-1'], 'the rider is told before anything records');
+  assert.deepEqual(announced(), ['ride-1'], 'the server marks the trip before anything records');
   await recorder.stopTripRecording(deps);
   assert.equal(live().length, 0);
   assert.equal(recorder.recordingRideId(), null);

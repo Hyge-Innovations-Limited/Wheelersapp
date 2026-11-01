@@ -252,16 +252,6 @@ export default function RiderActiveTripScreen() {
           </View>
         ) : null}
 
-        {/* The driver's phone is recording the trip (an older server never says so). */}
-        {currentRide.recording ? (
-          <View accessible accessibilityLabel="This ride is being recorded" style={styles.recording}>
-            <View style={styles.recordingDot} />
-            <RText color={colors.muted} variant="caption">
-              This ride is being recorded
-            </RText>
-          </View>
-        ) : null}
-
         {/* The trip code, until the trip starts: the driver cannot start without it. */}
         {currentRide.tripCode && matched ? (
           <View
@@ -456,8 +446,6 @@ const styles = StyleSheet.create({
   },
   codeText: { flex: 1, gap: 4 },
   codeNote: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
-  recording: { flexDirection: "row", alignItems: "center", gap: 8 },
-  recordingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#D93025" },
   codeDigits: {
     fontFamily: fonts.display,
     fontSize: 42,
