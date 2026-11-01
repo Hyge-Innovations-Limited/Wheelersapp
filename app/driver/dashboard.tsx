@@ -1,7 +1,7 @@
 import { Href, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { AppCard } from '@/components/app-card';
@@ -19,6 +19,7 @@ import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
 import { useAppNotifications } from '@/lib/notifications';
 import { useResponsive } from '@/lib/responsive';
+import { askMicrophoneOnce } from '@/lib/trip-recorder';
 import { useWalletOverview } from '@/lib/wallet-overview';
 import { theme } from '@/theme';
 
@@ -36,6 +37,8 @@ export default function DriverDashboardScreen() {
   const { permissionGranted, requestNotificationAccess } = useAppNotifications();
   const responsive = useResponsive();
   const notificationPromptedRef = useRef(false);
+  const notificationAskRef = useRef<Promise<unknown> | null>(null);
+  const micAskedRef = useRef(false);
 
   const [stats, setStats] = useState<DriverStatsResponse | null>(null);
   const [todayEarnings, setTodayEarnings] = useState<number>(0);
@@ -53,8 +56,31 @@ export default function DriverDashboardScreen() {
     // both used to fire on mount and stack their dialogs on top of each other.
     if (permissionState === 'idle') return;
     notificationPromptedRef.current = true;
-    void requestNotificationAccess();
+    notificationAskRef.current = Promise.resolve(requestNotificationAccess()).catch(() => undefined);
   }, [permissionGranted, permissionState, requestNotificationAccess]);
+
+  // Then the microphone, for trip recording: once the notifications ask has
+  // closed, and only when this driver's trips are recorded.
+  useEffect(() => {
+    if (micAskedRef.current || permissionState === 'idle') return;
+    if (!permissionGranted && !notificationPromptedRef.current) return;
+    micAskedRef.current = true;
+    void (async () => {
+      await notificationAskRef.current;
+      await askMicrophoneOnce({
+        getAccessToken: () => getAccessTokenWithRetry(getAccessToken),
+        explain: () =>
+          new Promise<boolean>((resolve) =>
+            Alert.alert(
+              'Trips are recorded',
+              'For safety, Wheelers records the sound of each trip. Only Wheelers support can listen. Recordings are deleted after 30 days. You can turn this off in Settings.',
+              [{ text: 'Continue', onPress: () => resolve(true) }],
+              { cancelable: false },
+            ),
+          ),
+      });
+    })().catch(() => undefined);
+  }, [permissionGranted, permissionState, getAccessToken]);
 
   useEffect(() => {
     void (async () => {

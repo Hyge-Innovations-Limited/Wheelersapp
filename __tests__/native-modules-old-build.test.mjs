@@ -70,3 +70,36 @@ test('sounds on a build with expo-av: its package is loaded once', () => {
   }
   assert.equal(globalThis.__WHEELERS_TEST_NATIVE_LOADS__, 1);
 });
+
+function buildRecorder() {
+  const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-old-build-')), 'out.cjs');
+  execFileSync('npx', [
+    'esbuild', join(projectRoot, 'lib/trip-recorder.ts'),
+    '--bundle', '--platform=node', '--format=cjs',
+    `--alias:expo=${join(here, 'stubs/expo-optional-modules.cjs')}`,
+    `--alias:@react-native-async-storage/async-storage=${join(here, 'stubs/async-storage.cjs')}`,
+    `--alias:@/lib/api=${join(here, 'stubs/trip-recording-api.cjs')}`,
+    `--alias:expo-audio=${join(here, 'stubs/native-package-throws.cjs')}`,
+    `--alias:expo-file-system/legacy=${join(here, 'stubs/native-package-throws.cjs')}`,
+    `--outfile=${outFile}`,
+  ], { cwd: projectRoot, stdio: 'pipe' });
+  return outFile;
+}
+
+test('trip recording on a build without expo-audio: nothing records, nothing is announced, its package is never loaded', async () => {
+  globalThis.__WHEELERS_TEST_NATIVE_LOADS__ = 0;
+  const recorder = req(buildRecorder());
+  const sent = [];
+  const deps = { getAccessToken: async () => 'token', send: async (type) => { sent.push(type); } };
+  assert.equal(recorder.recorderAvailable(), false);
+  assert.equal(await recorder.microphoneGranted(), false);
+  assert.equal(await recorder.requestMicrophone(), false);
+  let explained = false;
+  await recorder.askMicrophoneOnce({ getAccessToken: deps.getAccessToken, explain: async () => { explained = true; return true; } });
+  assert.equal(explained, false);
+  assert.equal(await recorder.startTripRecording('ride-1', deps), false);
+  await recorder.stopTripRecording(deps);
+  assert.equal(recorder.recordingRideId(), null);
+  assert.deepEqual(sent, []);
+  assert.equal(globalThis.__WHEELERS_TEST_NATIVE_LOADS__, 0);
+});

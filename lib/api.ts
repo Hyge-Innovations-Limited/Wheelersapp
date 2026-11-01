@@ -971,6 +971,40 @@ export interface ProvisionVirtualAccountResponse {
   alreadyProvisioned: boolean;
 }
 
+/** Should this driver's phone record trips? An older server answers 404: no. */
+export async function getTripRecordingSetting(input: { accessToken: string }): Promise<{ recordTrips: boolean }> {
+  return getJson<{ recordTrips: boolean }>("/drivers/me/trip-recording", {
+    accessToken: input.accessToken,
+    fallbackError: "Could not check trip recording.",
+  });
+}
+
+/** A signed PUT for one recorded segment (15 minutes). */
+export async function getTripRecordingUploadUrl(input: {
+  accessToken: string;
+  rideId: string;
+  segmentIndex: number;
+  bytes: number;
+}): Promise<{ url: string; key: string; expiresInSeconds: number }> {
+  return postJson("/drivers/me/trip-recordings/upload-url", { rideId: input.rideId, segmentIndex: input.segmentIndex, bytes: input.bytes }, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not upload the recording.",
+  });
+}
+
+/** The segment arrived: the server checks it and records it once. */
+export async function completeTripRecordingSegment(input: {
+  accessToken: string;
+  rideId: string;
+  segmentIndex: number;
+  durationSec: number;
+}): Promise<{ ok: boolean }> {
+  return postJson("/drivers/me/trip-recordings/complete", { rideId: input.rideId, segmentIndex: input.segmentIndex, durationSec: input.durationSec }, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not upload the recording.",
+  });
+}
+
 export async function getWalletDepositInfo(input: {
   accessToken: string;
 }): Promise<WalletDepositInfoResponse> {
@@ -2228,6 +2262,8 @@ export interface RiderActiveRideDetail {
   } | null;
   /** The rider's own trip code, until the driver has used it. */
   tripCode?: string | null;
+  /** The driver's phone is recording the trip (an older server never sends it). */
+  recording?: boolean;
   /** What the rider is offering. */
   riderOfferNgn?: number | null;
   /** The rider said yes to auto-booking this search (newer servers). */

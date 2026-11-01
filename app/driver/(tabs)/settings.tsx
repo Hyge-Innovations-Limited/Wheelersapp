@@ -28,6 +28,7 @@ import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
 import { toUserMessage } from '@/lib/error-messages';
+import { getRecordTripsSwitch, microphoneGranted, recorderAvailable, requestMicrophone, setRecordTripsSwitch } from '@/lib/trip-recorder';
 
 const APP_VERSION = '1.0.0';
 
@@ -111,6 +112,71 @@ function ChevronRightIcon({ size = 18 }: { size?: number }) {
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={theme.colors.mutedLight} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <Polyline points="9 18 15 12 9 6" />
     </Svg>
+  );
+}
+
+/** "Record trips": on by default; on asks for the microphone if it was never allowed. */
+function TripRecordingSetting({
+  cardBg,
+  menuItemStyle,
+  menuIconStyle,
+  subtleBg,
+  labelFontSize,
+}: {
+  cardBg: string;
+  menuItemStyle: object;
+  menuIconStyle: object;
+  subtleBg: string;
+  labelFontSize: number;
+}) {
+  const [on, setOn] = useState(true);
+  const [mic, setMic] = useState(true);
+  useEffect(() => {
+    let live = true;
+    void Promise.all([getRecordTripsSwitch(), microphoneGranted()]).then(([value, granted]) => {
+      if (!live) return;
+      setOn(value);
+      setMic(granted);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const change = async (next: boolean) => {
+    setOn(next);
+    await setRecordTripsSwitch(next);
+    if (next && !mic) setMic(await requestMicrophone());
+  };
+  const active = on && mic;
+  return (
+    <View style={styles.section}>
+      <AppText variant="label" color={theme.colors.muted} style={[styles.sectionLabel, { fontSize: labelFontSize }]} numberOfLines={1}>
+        SAFETY
+      </AppText>
+      <View style={[styles.card, { backgroundColor: cardBg }]}>
+        <View style={[styles.menuItem, menuItemStyle]}>
+          <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: active ? theme.colors.orangeLight : subtleBg }]}>
+            <AppText variant="label" color={active ? theme.colors.orange : theme.colors.muted}>●</AppText>
+          </View>
+          <View style={styles.menuInfo}>
+            <AppText variant="bodyMedium">Record trips</AppText>
+            <AppText variant="bodySmall" color={theme.colors.muted}>
+              {!on
+                ? 'Off'
+                : !mic
+                  ? 'Needs microphone access'
+                  : 'On — trips are recorded for safety. Only Wheelers support can listen, and recordings are deleted after 30 days'}
+            </AppText>
+          </View>
+          <Switch
+            value={on}
+            onValueChange={(next) => void change(next)}
+            trackColor={{ false: theme.colors.borderLight, true: theme.colors.orange }}
+            thumbColor={theme.colors.white}
+          />
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -502,6 +568,17 @@ export default function DriverSettingsScreen() {
             ) : null}
           </View>
         </View>
+      ) : null}
+
+      {/* ── Trip recording: on unless the driver turns it off (only on builds that can record) ── */}
+      {recorderAvailable() ? (
+        <TripRecordingSetting
+          cardBg={cardBg}
+          menuItemStyle={menuItemStyle}
+          menuIconStyle={menuIconStyle}
+          subtleBg={subtleBg}
+          labelFontSize={responsive.font(10)}
+        />
       ) : null}
 
       {/* ── Developer section (dev builds only) ── */}

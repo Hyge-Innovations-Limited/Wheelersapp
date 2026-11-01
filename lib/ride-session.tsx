@@ -122,6 +122,8 @@ export type RiderRideState = {
   status: RideStatus;
   /** The 4 digits to give the driver at pickup; they cannot start the trip without them. */
   tripCode?: string;
+  /** The driver's phone is recording the trip: the trip screen says so. */
+  recording?: boolean;
   itinerary: RideItinerary;
   fareEstimateNgn?: number;
   plannedDistanceKm?: number;
@@ -767,6 +769,13 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         confirmChecksRef.current = 0;
         setError(null);
         setRideState((previous) => rideAfterMatched(previous, payload));
+        return;
+      }
+
+      // The driver's phone started recording this trip.
+      if (type === 'ride:recording') {
+        const recordedRideId = typeof payload.rideId === 'string' ? payload.rideId : null;
+        setRideState((previous) => (previous && recordedRideId && previous.rideId === recordedRideId && !previous.recording ? { ...previous, recording: true } : previous));
         return;
       }
 
@@ -1716,7 +1725,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           } as RiderRideState;
         }
         if (!restored || previous.rideId !== restored.rideId) return previous;
-        return { ...previous, tripCode: previous.tripCode ?? restored.tripCode };
+        return { ...previous, tripCode: previous.tripCode ?? restored.tripCode, recording: previous.recording || restored.recording };
       });
     } catch {
       /* the next reconnect tries again */

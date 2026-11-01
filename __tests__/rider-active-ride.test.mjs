@@ -88,3 +88,9 @@ test('a search that has already closed, or that an older server sends without it
 test('a trip with a driver is marked as brought back too', () => {
   assert.equal(restoredRideFrom(ride()).restored, true);
 });
+
+test('a restored trip keeps "being recorded" when the server says so, and nothing otherwise', () => {
+  assert.equal(restoredRideFrom(ride({ status: 'IN_PROGRESS', recording: true })).recording, true);
+  assert.equal(restoredRideFrom(ride({ status: 'IN_PROGRESS' })).recording, undefined, 'an older server: no line');
+  assert.equal(restoredRideFrom(ride({ status: 'IN_PROGRESS', recording: false })).recording, undefined);
+});

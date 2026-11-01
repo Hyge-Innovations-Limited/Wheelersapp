@@ -58,14 +58,22 @@
         "expo-camera",
         {
           "cameraPermission": "Wheelers Rides needs camera access to verify your face before a group ride.",
-          "microphonePermission": "Wheelers uses the microphone for Live calls with your driver or rider during a trip.",
+          "microphonePermission": "Wheelers uses the microphone for Live calls during a trip and, for drivers, to record trips for safety.",
           "recordAudioAndroid": false
         }
       ],
       [
         "@config-plugins/react-native-webrtc",
         {
-          "microphonePermission": "Wheelers uses the microphone for Live calls with your driver or rider during a trip."
+          "microphonePermission": "Wheelers uses the microphone for Live calls during a trip and, for drivers, to record trips for safety."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Wheelers uses the microphone for Live calls during a trip and, for drivers, to record trips for safety.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": true
         }
       ],
       [
