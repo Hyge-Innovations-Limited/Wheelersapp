@@ -59,6 +59,8 @@ export async function getRecordTripsSwitch(): Promise<boolean> {
 
 export async function setRecordTripsSwitch(on: boolean): Promise<void> {
   await AsyncStorage.setItem(SWITCH_KEY, on ? 'on' : 'off').catch(() => undefined);
+  // Off mid-trip stops now, not at the end of the trip.
+  if (!on && active) await stopTripRecording(active.deps);
 }
 
 export async function microphoneGranted(): Promise<boolean> {
@@ -143,7 +145,9 @@ type Deps = {
   send: (type: string, payload: Record<string, unknown>) => Promise<void>;
 };
 
-let active: { rideId: string; recorder: any; startedAt: number; index: number; timer: ReturnType<typeof setTimeout> | null } | null = null;
+let active: { rideId: string; recorder: any; startedAt: number; index: number; timer: ReturnType<typeof setTimeout> | null; deps: Deps } | null = null;
+/** The trip that should be recording now; a start or a next piece that finds it changed stops. */
+let wanted: string | null = null;
 let starting = false;
 let draining = false;
 
@@ -187,9 +191,7 @@ export async function drainRecordingUploads(deps: Pick<Deps, 'getAccessToken'>):
   }
 }
 
-async function finishSegment(deps: Deps): Promise<void> {
-  const current = active;
-  if (!current) return;
+async function finishSegmentOf(current: NonNullable<typeof active>, deps: Deps): Promise<void> {
   if (current.timer) clearTimeout(current.timer);
   current.timer = null;
   try {
@@ -220,15 +222,26 @@ async function finishSegment(deps: Deps): Promise<void> {
 async function startSegment(mod: any, rideId: string, index: number, deps: Deps): Promise<boolean> {
   const recorder = new mod.AudioModule.AudioRecorder(recordingOptions(mod));
   await recorder.prepareToRecordAsync();
+  if (wanted !== rideId) {
+    try {
+      recorder.release?.();
+    } catch {
+      /* nothing to release */
+    }
+    return false;
+  }
   recorder.record();
-  active = { rideId, recorder, startedAt: Date.now(), index, timer: null };
+  active = { rideId, recorder, startedAt: Date.now(), index, timer: null, deps };
   active.timer = setTimeout(() => {
     void (async () => {
-      const ride = active?.rideId;
-      const next = (active?.index ?? 0) + 1;
-      await finishSegment(deps);
-      if (ride && next < 40) await startSegment(mod, ride, next, deps).catch(() => { active = null; });
-      else active = null;
+      const current = active;
+      if (!current || current.recorder !== recorder) return;
+      const next = index + 1;
+      active = null;
+      await finishSegmentOf(current, deps);
+      if (wanted === rideId && next < 40 && (await getRecordTripsSwitch())) {
+        await startSegment(mod, rideId, next, deps).catch(() => false);
+      }
     })();
   }, SEGMENT_MS);
   return true;
@@ -239,6 +252,7 @@ async function startSegment(mod: any, rideId: string, index: number, deps: Deps)
  * allows it. Safe to call again for the same ride.
  */
 export async function startTripRecording(rideId: string, deps: Deps): Promise<boolean> {
+  wanted = rideId;
   if (active?.rideId === rideId || starting) return active?.rideId === rideId;
   const mod = audio();
   if (!mod) return false;
@@ -248,9 +262,15 @@ export async function startTripRecording(rideId: string, deps: Deps): Promise<bo
     if (!(await microphoneGranted())) return false;
     const setting = await getTripRecordingSetting({ accessToken: await token(deps) }).catch(() => ({ recordTrips: false }));
     if (!setting.recordTrips) return false;
-    if (active) await stopTripRecording(deps);
+    if (active) {
+      // Another trip's recording was left running: close it first.
+      const old = active;
+      active = null;
+      await finishSegmentOf(old, deps);
+    }
+    if (wanted !== rideId) return false;
     await mod.setAudioModeAsync({ allowsRecording: true, allowsBackgroundRecording: true, shouldPlayInBackground: true, playsInSilentMode: true }).catch(() => undefined);
-    await startSegment(mod, rideId, await nextIndex(rideId), deps);
+    if (!(await startSegment(mod, rideId, await nextIndex(rideId), deps))) return false;
     await deps.send('ride:recording:started', { rideId }).catch(() => undefined);
     return true;
   } catch {
@@ -263,9 +283,11 @@ export async function startTripRecording(rideId: string, deps: Deps): Promise<bo
 
 /** The trip ended or was cancelled: the last segment goes to the queue. */
 export async function stopTripRecording(deps: Deps): Promise<void> {
+  wanted = null;
   if (!active) return;
-  await finishSegment(deps);
+  const current = active;
   active = null;
+  await finishSegmentOf(current, deps);
   const mod = audio();
   await mod?.setAudioModeAsync?.({ allowsRecording: false, allowsBackgroundRecording: false }).catch(() => undefined);
 }

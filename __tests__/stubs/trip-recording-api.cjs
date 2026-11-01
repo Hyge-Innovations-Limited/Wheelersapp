@@ -6,6 +6,9 @@ class ApiError extends Error {
   }
 }
 exports.ApiError = ApiError;
-exports.getTripRecordingSetting = async () => ({ recordTrips: true });
+exports.getTripRecordingSetting = async () => {
+  if (globalThis.__WHEELERS_TEST_RECORDING_SETTING__) return globalThis.__WHEELERS_TEST_RECORDING_SETTING__();
+  return { recordTrips: true };
+};
 exports.getTripRecordingUploadUrl = async () => ({ url: 'https://example.invalid/put' });
 exports.completeTripRecordingSegment = async () => ({ ok: true });
