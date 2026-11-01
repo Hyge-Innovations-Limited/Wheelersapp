@@ -979,6 +979,14 @@ export async function getTripRecordingSetting(input: { accessToken: string }): P
   });
 }
 
+/** The trip is running: the rider is told it is recorded, then the phone may record. Gives the next piece number. */
+export async function startTripRecordingOnServer(input: { accessToken: string; rideId: string }): Promise<{ ok: boolean; nextSegmentIndex: number }> {
+  return postJson("/drivers/me/trip-recordings/start", { rideId: input.rideId }, {
+    accessToken: input.accessToken,
+    fallbackError: "Could not start recording.",
+  });
+}
+
 /** A signed PUT for one recorded segment (15 minutes). */
 export async function getTripRecordingUploadUrl(input: {
   accessToken: string;

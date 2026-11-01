@@ -52,14 +52,22 @@ export function afterSuccess(queue: QueuedSegment[], done: QueuedSegment): Queue
   return queue.filter((item) => !(item.rideId === done.rideId && item.segmentIndex === done.segmentIndex));
 }
 
-/** A refusal the server will repeat forever (not mine, too old, too big, recording off): drop it. */
+/**
+ * A refusal the server will repeat forever (not mine, recording off, already
+ * recorded or not allowed, too big, not audio): drop it. 425 (not arrived
+ * yet), 401 and 5xx are tried again.
+ */
 export function isPermanentFailure(status: number | null | undefined): boolean {
-  return status === 403 || status === 404 || status === 409 || status === 413;
+  return status === 403 || status === 404 || status === 409 || status === 413 || status === 415;
 }
 
 export type UploadEffects = {
   load(): Promise<QueuedSegment[]>;
-  save(queue: QueuedSegment[]): Promise<void>;
+  /**
+   * Writes the queue from the latest one on the phone: a piece finished while
+   * this run was uploading must not be lost. One update at a time.
+   */
+  update(change: (latest: QueuedSegment[]) => QueuedSegment[]): Promise<void>;
   fileSize(uri: string): Promise<number | null>;
   deleteFile(uri: string): Promise<void>;
   /** The signed PUT for this segment; throws { status } on a refusal. */
@@ -73,12 +81,13 @@ export type UploadEffects = {
 const statusOf = (error: unknown): number | null =>
   error && typeof error === 'object' && typeof (error as { status?: unknown }).status === 'number' ? (error as { status: number }).status : null;
 
+const keyOf = (item: Pick<QueuedSegment, 'rideId' | 'segmentIndex'>) => `${item.rideId}:${item.segmentIndex}`;
+
 /** Uploads everything due, one at a time. Returns how many reached the server. */
 export async function drainUploads(effects: UploadEffects): Promise<number> {
-  let queue = await effects.load();
-  const { due, expired, keep } = planQueue(queue, effects.now());
+  const { due, expired, keep } = planQueue(await effects.load(), effects.now());
   for (const item of expired) await effects.deleteFile(item.uri).catch(() => undefined);
-  queue = keep;
+  let queue = keep;
   let uploaded = 0;
   for (const item of due) {
     try {
@@ -103,6 +112,16 @@ export async function drainUploads(effects: UploadEffects): Promise<number> {
       }
     }
   }
-  await effects.save(queue);
+  // Only what this run handled changes; anything queued meanwhile stays.
+  const handled = new Set([...expired, ...due].map(keyOf));
+  const after = new Map(queue.map((item) => [keyOf(item), item]));
+  await effects.update((latest) =>
+    latest.flatMap((item) => {
+      const key = keyOf(item);
+      if (!handled.has(key)) return [item];
+      const next = after.get(key);
+      return next ? [next] : [];
+    }),
+  );
   return uploaded;
 }

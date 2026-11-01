@@ -28,7 +28,7 @@ function effects(queue, over = {}) {
   return {
     state,
     load: async () => state.queue,
-    save: async (next) => { state.queue = next; },
+    update: async (change) => { state.queue = change(state.queue); },
     fileSize: async () => 1000,
     deleteFile: async (uri) => { state.deleted.push(uri); },
     uploadUrl: async (rideId, index) => `https://r2.invalid/${rideId}/${index}`,
@@ -91,4 +91,15 @@ test('a segment older than 30 days is deleted unsent; a missing file is forgotte
   assert.deepEqual(fx.state.queue, []);
   assert.deepEqual(fx.state.deleted, ['file:///old.m4a']);
   assert.deepEqual(fx.state.puts, []);
+});
+
+test('a piece finished while an upload run is going is kept', async () => {
+  const fx = effects(enqueueSegment([], segment(), NOW));
+  const late = segment({ segmentIndex: 1, uri: 'file:///seg-1.m4a' });
+  fx.put = async (url) => {
+    fx.state.puts.push(url);
+    fx.state.queue = enqueueSegment(fx.state.queue, late, NOW);
+  };
+  assert.equal(await drainUploads(fx), 1);
+  assert.deepEqual(fx.state.queue.map((item) => item.segmentIndex), [1]);
 });

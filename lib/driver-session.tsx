@@ -45,7 +45,7 @@ import {
   type GroupSeat,
 } from '@/lib/driver-session-reducer';
 import { playBidAlertChime } from '@/lib/sounds';
-import { drainRecordingUploads, startTripRecording, stopTripRecording } from '@/lib/trip-recorder';
+import { drainRecordingUploads, recordingRideId, startTripRecording, stopTripRecording } from '@/lib/trip-recorder';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { estimateEtaSeconds, haversineKm } from '@/lib/geo';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
@@ -591,20 +591,24 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   // Trip voice recording: from the trip's start to its end, when the server, the driver's
   // switch, the microphone and this build all allow it (nothing happens otherwise).
   const recordingDeps = useMemo(
-    () => ({ getAccessToken: () => getAccessTokenWithRetry(getAccessToken), send: sendEnvelope }),
-    [getAccessToken, sendEnvelope],
+    () => ({ getAccessToken: () => getAccessTokenWithRetry(getAccessToken) }),
+    [getAccessToken],
   );
   const tripRideId = session.status === 'active' ? session.currentRide?.rideId ?? null : null;
   useEffect(() => {
     if (tripRideId) void startTripRecording(tripRideId, recordingDeps).catch(() => false);
     else void stopTripRecording(recordingDeps).catch(() => undefined);
   }, [tripRideId, recordingDeps]);
+  // Each minute: send what is waiting, and if the trip is on but not recording (no signal at its start), try again.
   useEffect(() => {
     if (!user) return;
     void drainRecordingUploads(recordingDeps).catch(() => 0);
-    const timer = setInterval(() => void drainRecordingUploads(recordingDeps).catch(() => 0), 60_000);
+    const timer = setInterval(() => {
+      void drainRecordingUploads(recordingDeps).catch(() => 0);
+      if (tripRideId && recordingRideId() !== tripRideId) void startTripRecording(tripRideId, recordingDeps).catch(() => false);
+    }, 60_000);
     return () => clearInterval(timer);
-  }, [user, recordingDeps]);
+  }, [user, recordingDeps, tripRideId]);
 
   const goOnline = useCallback(async (lat: number, lng: number) => {
     console.log('[driver-session] goOnline called with', { lat, lng });

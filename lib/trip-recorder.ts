@@ -6,9 +6,11 @@ import {
   completeTripRecordingSegment,
   getTripRecordingSetting,
   getTripRecordingUploadUrl,
+  startTripRecordingOnServer,
   ApiError,
 } from '@/lib/api';
 import { drainUploads, enqueueSegment, type QueuedSegment } from '@/lib/recording-uploads';
+import { setRecordingTrip } from '@/lib/recording-state';
 
 /**
  * Trip voice recording on the driver's phone. It records only when all of
@@ -17,8 +19,11 @@ import { drainUploads, enqueueSegment, type QueuedSegment } from '@/lib/recordin
  * microphone is allowed, and this build has the recorder in it (an OTA
  * reaches older builds: there, nothing happens and nothing is announced).
  *
+ * Nothing records until the server has told the rider (the start call):
+ * no answer, no recording, and the driver session tries again a minute later.
+ *
  * 5-minute AAC segments, mono, 32 kbps (about 14 MB an hour). Each finished
- * segment goes to the upload queue; the rider is told once the first starts.
+ * segment goes to the upload queue.
  */
 
 const SEGMENT_MS = 5 * 60 * 1000;
@@ -129,8 +134,16 @@ async function loadQueue(): Promise<QueuedSegment[]> {
   }
 }
 
-async function saveQueue(queue: QueuedSegment[]): Promise<void> {
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue)).catch(() => undefined);
+let queueWrites: Promise<void> = Promise.resolve();
+
+/** Read-change-write of the queue, one at a time (a finished piece and an upload run never overwrite each other). */
+function updateQueue(change: (latest: QueuedSegment[]) => QueuedSegment[]): Promise<void> {
+  const run = queueWrites.then(async () => {
+    const next = change(await loadQueue());
+    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(next)).catch(() => undefined);
+  });
+  queueWrites = run.catch(() => undefined);
+  return run;
 }
 
 async function nextIndex(rideId: string): Promise<number> {
@@ -141,8 +154,6 @@ async function nextIndex(rideId: string): Promise<number> {
 
 type Deps = {
   getAccessToken: () => Promise<string | null>;
-  /** Over the driver's socket. */
-  send: (type: string, payload: Record<string, unknown>) => Promise<void>;
 };
 
 let active: { rideId: string; recorder: any; startedAt: number; index: number; timer: ReturnType<typeof setTimeout> | null; deps: Deps } | null = null;
@@ -158,21 +169,21 @@ async function token(deps: Deps): Promise<string> {
 }
 
 /** Uploads what is waiting, one run at a time. */
-export async function drainRecordingUploads(deps: Pick<Deps, 'getAccessToken'>): Promise<number> {
+export async function drainRecordingUploads(deps: Deps): Promise<number> {
   const fs = fileSystem();
   if (!fs || draining) return 0;
   draining = true;
   try {
     return await drainUploads({
       load: loadQueue,
-      save: saveQueue,
+      update: updateQueue,
       fileSize: async (uri) => {
         const info = await fs.getInfoAsync(uri).catch(() => null);
         return info?.exists && typeof info.size === 'number' ? info.size : null;
       },
       deleteFile: (uri) => fs.deleteAsync(uri, { idempotent: true }),
       uploadUrl: async (rideId, segmentIndex, bytes) =>
-        (await getTripRecordingUploadUrl({ accessToken: await token(deps as Deps), rideId, segmentIndex, bytes })).url,
+        (await getTripRecordingUploadUrl({ accessToken: await token(deps), rideId, segmentIndex, bytes })).url,
       put: async (url, uri) => {
         const result = await fs.uploadAsync(url, uri, {
           httpMethod: 'PUT',
@@ -182,7 +193,7 @@ export async function drainRecordingUploads(deps: Pick<Deps, 'getAccessToken'>):
         if (!result || result.status < 200 || result.status >= 300) throw new ApiError('Upload failed', result?.status ?? 0);
       },
       complete: async (rideId, segmentIndex, durationSec) => {
-        await completeTripRecordingSegment({ accessToken: await token(deps as Deps), rideId, segmentIndex, durationSec });
+        await completeTripRecordingSegment({ accessToken: await token(deps), rideId, segmentIndex, durationSec });
       },
       now: () => Date.now(),
     });
@@ -206,14 +217,14 @@ async function finishSegmentOf(current: NonNullable<typeof active>, deps: Deps):
     /* nothing to release */
   }
   if (uri) {
-    const queue = enqueueSegment(await loadQueue(), {
+    const segment = {
       rideId: current.rideId,
       segmentIndex: current.index,
       uri,
       durationSec: Math.max(1, Math.round((Date.now() - current.startedAt) / 1000)),
       createdAt: Date.now(),
-    }, Date.now());
-    await saveQueue(queue);
+    };
+    await updateQueue((latest) => enqueueSegment(latest, segment, Date.now()));
     await AsyncStorage.setItem(nextIndexKey(current.rideId), String(current.index + 1)).catch(() => undefined);
   }
   void drainRecordingUploads(deps).catch(() => 0);
@@ -232,6 +243,7 @@ async function startSegment(mod: any, rideId: string, index: number, deps: Deps)
   }
   recorder.record();
   active = { rideId, recorder, startedAt: Date.now(), index, timer: null, deps };
+  setRecordingTrip(true);
   active.timer = setTimeout(() => {
     void (async () => {
       const current = active;
@@ -239,9 +251,8 @@ async function startSegment(mod: any, rideId: string, index: number, deps: Deps)
       const next = index + 1;
       active = null;
       await finishSegmentOf(current, deps);
-      if (wanted === rideId && next < 40 && (await getRecordTripsSwitch())) {
-        await startSegment(mod, rideId, next, deps).catch(() => false);
-      }
+      const more = wanted === rideId && next < 40 && (await getRecordTripsSwitch()) && (await startSegment(mod, rideId, next, deps).catch(() => false));
+      if (!more && !active) setRecordingTrip(false);
     })();
   }, SEGMENT_MS);
   return true;
@@ -269,15 +280,19 @@ export async function startTripRecording(rideId: string, deps: Deps): Promise<bo
       await finishSegmentOf(old, deps);
     }
     if (wanted !== rideId) return false;
+    // The rider is told first; without the server's yes nothing records.
+    const started = await startTripRecordingOnServer({ accessToken: await token(deps), rideId });
+    if (!started?.ok || wanted !== rideId) return false;
+    const serverNext = Number.isInteger(started.nextSegmentIndex) && started.nextSegmentIndex >= 0 ? started.nextSegmentIndex : 0;
     await mod.setAudioModeAsync({ allowsRecording: true, allowsBackgroundRecording: true, shouldPlayInBackground: true, playsInSilentMode: true }).catch(() => undefined);
-    if (!(await startSegment(mod, rideId, await nextIndex(rideId), deps))) return false;
-    await deps.send('ride:recording:started', { rideId }).catch(() => undefined);
-    return true;
+    return await startSegment(mod, rideId, Math.max(await nextIndex(rideId), serverNext), deps);
   } catch {
-    active = null;
+    if (!active) setRecordingTrip(false);
     return false;
   } finally {
     starting = false;
+    // Another trip started while this one was starting: record that one.
+    if (wanted && wanted !== rideId && active?.rideId !== wanted) void startTripRecording(wanted, deps).catch(() => false);
   }
 }
 
@@ -287,6 +302,7 @@ export async function stopTripRecording(deps: Deps): Promise<void> {
   if (!active) return;
   const current = active;
   active = null;
+  setRecordingTrip(false);
   await finishSegmentOf(current, deps);
   const mod = audio();
   await mod?.setAudioModeAsync?.({ allowsRecording: false, allowsBackgroundRecording: false }).catch(() => undefined);

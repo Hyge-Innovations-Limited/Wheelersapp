@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { requireOptionalNativeModule } from 'expo';
 
+import { isRecordingTrip } from '@/lib/recording-state';
+
 let Audio: any = null;
 try {
   // Only load the package when this build has its native part (an OTA reaches older builds).
@@ -36,6 +38,15 @@ async function unloadCurrent(): Promise<void> {
  * Play the ride request alert sound on loop until stopped.
  * Safe to call multiple times — will not stack sounds.
  */
+
+/**
+ * A trip is being recorded: the phone's audio must stay able to record, or a
+ * chime would cut the recording on an iPhone. iOS then plays it even on silent.
+ */
+function keepRecording() {
+  return isRecordingTrip() ? { allowsRecordingIOS: true, playsInSilentModeIOS: true, staysActiveInBackground: true } : {};
+}
+
 export async function playRideRequestSound(): Promise<void> {
   if (!Audio) return;
   const token = ++playToken;
@@ -49,6 +60,7 @@ export async function playRideRequestSound(): Promise<void> {
       playsInSilentModeIOS: false,
       staysActiveInBackground: false,
       shouldDuckAndroid: false,
+      ...keepRecording(),
     });
     if (token !== playToken) return;
 
@@ -99,6 +111,7 @@ export async function playBidAlertChime(): Promise<void> {
       playsInSilentModeIOS: false,
       staysActiveInBackground: false,
       shouldDuckAndroid: true,
+      ...keepRecording(),
     });
     const { sound } = await Audio.Sound.createAsync(
       require('@/assets/sounds/ride-request.wav'),
