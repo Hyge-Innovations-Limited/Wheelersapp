@@ -42,7 +42,11 @@ export function routeForKyc(status: string | null): DriverKycRoute {
 /** The papers screens: a driver under review may use these while they wait. */
 const PAPERS_SCREENS = new Set(["docs", "doc-upload", "legal-details", "verify-phone"]);
 const onPapers = (status: string | null | undefined, segments: string[]) =>
-  status === "SUBMITTED" && segments[0] === "driver" && PAPERS_SCREENS.has(segments[1] ?? "") && segments.length === 2;
+  segments[0] === "driver" && segments.length === 2 && (
+    (status === "SUBMITTED" && PAPERS_SCREENS.has(segments[1] ?? ""))
+    // Signing up: the car papers step sends each paper from here.
+    || (status !== undefined && status !== "APPROVED" && segments[1] === "doc-upload")
+  );
 
 export function kycLockTarget(status: string | null | undefined, segments: string[]): DriverKycRoute | null {
   if (status === undefined || status === "APPROVED") return null;

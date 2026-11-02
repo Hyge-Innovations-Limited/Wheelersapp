@@ -20,14 +20,14 @@ const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-draft-')), 'bundle.cjs
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/driver-onboarding-draft.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
 const { draftFrom, restoreDraft, draftHasProgress, firstUnfinishedStep } = createRequire(import.meta.url)(outFile);
 
-const STEPS = ['licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos'];
+const STEPS = ['licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos', 'papers'];
 const NOW = Date.UTC(2026, 9, 14, 12);
 const empty = { legalDetails: null, phoneVerified: false, licenceUri: null, licenceType: 'image', selfieUri: null, selfieCheck: null, vehiclePhotos: [], vehicleInfo: null };
 const halfway = {
   ...empty,
   licenceUri: 'file:///licence.pdf',
   licenceType: 'pdf',
-  legalDetails: { legalName: 'Ada Obi' },
+  legalDetails: { legalName: 'Ada Obi', licenceNumber: 'ABC12345DE67', licenceExpiresOn: '2028-05-31' },
   selfieUri: 'file:///selfie.jpg',
   selfieCheck: 'passed',
   vehicleInfo: { make: 'Toyota', model: 'Corolla', plate: 'LAG123XY', year: 2015, phone: '08030000000' },
@@ -64,4 +64,11 @@ test('it never comes back for someone else, after three days, or from something 
   assert.equal(restoreDraft(null, 'driver-1', NOW, allThere), null);
   const broken = restoreDraft(JSON.stringify({ owner: 'driver-1', savedAt: NOW, legalDetails: { legalName: '' }, vehicleInfo: { make: 'Toyota' }, vehiclePhotos: 'x' }), 'driver-1', NOW, allThere);
   assert.deepEqual(broken, empty, 'half a record is no record');
+});
+
+test('a draft from when only the name was asked goes back to the details step for the licence number and expiry', () => {
+  const nameOnly = { ...halfway, legalDetails: { legalName: 'Ada Obi' } };
+  const back = restoreDraft(draftFrom(nameOnly, 'driver-1', NOW), 'driver-1', NOW + 3600_000, allThere);
+  assert.deepEqual(back.legalDetails, { legalName: 'Ada Obi' });
+  assert.equal(firstUnfinishedStep(back, STEPS), 'details');
 });

@@ -14,7 +14,8 @@ import { StatusPill } from '@/components/StatusPill';
 import { SkeletonCard, SkeletonLine, SkeletonMetricRow } from '@/components/SkeletonLoader';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
-import { getDriverStats, getDriverEarnings, type DriverStatsResponse } from '@/lib/api';
+import { checkPapersGate, PAPERS_GATE_BODY } from '@/lib/papers-gate';
+import { getDriverPapers, getDriverStats, getDriverEarnings, type DriverStatsResponse } from '@/lib/api';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
 import { useAppNotifications } from '@/lib/notifications';
@@ -112,17 +113,35 @@ export default function DriverDashboardScreen() {
   const statusVariant = isOnline ? 'green' as const : 'outline' as const;
   const balanceNgn = overview?.balanceNgn ?? stats?.balanceNgn ?? 0;
 
+  const togglingRef = useRef(false);
   const handleToggleOnline = async () => {
-    if (isOnline) {
-      await goOffline();
-    } else {
-      console.log('[dashboard] going online, currentLocation:', currentLocation);
-      if (!currentLocation) {
-        console.warn('[dashboard] no location available');
-        return;
+    if (togglingRef.current) return;
+    togglingRef.current = true;
+    try {
+      if (isOnline) {
+        await goOffline();
+      } else {
+        console.log('[dashboard] going online, currentLocation:', currentLocation);
+        if (!currentLocation) {
+          console.warn('[dashboard] no location available');
+          return;
+        }
+        const gate = await checkPapersGate({
+          getToken: () => getAccessTokenWithRetry(getAccessToken),
+          fetchPapers: getDriverPapers,
+        });
+        if (!gate.ok) {
+          Alert.alert('Send your papers first', PAPERS_GATE_BODY, [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Send papers', onPress: () => router.push('/driver/docs' as Href) },
+          ]);
+          return;
+        }
+        await requestBackgroundLocationAccess();
+        await goOnline(currentLocation.lat, currentLocation.lng);
       }
-      await requestBackgroundLocationAccess();
-      await goOnline(currentLocation.lat, currentLocation.lng);
+    } finally {
+      togglingRef.current = false;
     }
   };
 

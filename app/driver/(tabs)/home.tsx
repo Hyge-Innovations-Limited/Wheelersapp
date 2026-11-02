@@ -10,7 +10,8 @@ import { AppText, OnLight } from '@/components/app-text';
 import { useNearbyAlerts } from '@/components/nearby-alerts';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
-import { getDriverStats, getDriverEarnings, type DriverStatsResponse } from '@/lib/api';
+import { checkPapersGate, PAPERS_GATE_BODY } from '@/lib/papers-gate';
+import { getDriverPapers, getDriverStats, getDriverEarnings, type DriverStatsResponse } from '@/lib/api';
 import { DriverRequestFeed } from '@/components/driver-request-feed';
 import { useDriverSession } from '@/lib/driver-session';
 import { ringDeadlineMs } from '@/lib/driver-session-reducer';
@@ -257,7 +258,10 @@ export default function DriverHomeScreen() {
   const driverLat = currentLocation?.lat ?? LAGOS_REGION.latitude;
   const driverLng = currentLocation?.lng ?? LAGOS_REGION.longitude;
 
+  const togglingRef = useRef(false);
   const handleToggleOnline = async () => {
+    if (togglingRef.current) return;
+    togglingRef.current = true;
     try {
       if (isOnline) {
         // Going offline wipes the local session, but the backend still has
@@ -289,6 +293,17 @@ export default function DriverHomeScreen() {
           Alert.alert('Location unavailable', 'We need your location to go online. Please enable location services.');
           return;
         }
+        const gate = await checkPapersGate({
+          getToken: () => getAccessTokenWithRetry(getAccessToken),
+          fetchPapers: getDriverPapers,
+        });
+        if (!gate.ok) {
+          Alert.alert('Send your papers first', PAPERS_GATE_BODY, [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Send papers', onPress: () => router.push('/driver/docs' as Href) },
+          ]);
+          return;
+        }
         // Play prominent-disclosure flow: explain background location and ask
         // for "Allow all the time" before the driver starts receiving requests.
         // Going online still works in the foreground if they decline.
@@ -297,6 +312,8 @@ export default function DriverHomeScreen() {
       }
     } catch (err) {
       Alert.alert('Error', toUserMessage(err, 'Could not update status. Please try again.'));
+    } finally {
+      togglingRef.current = false;
     }
   };
 

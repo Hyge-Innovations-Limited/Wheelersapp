@@ -123,10 +123,18 @@ test('the lock: documents in, the driver waits on "Under review" and cannot go a
   for (const screen of ['driver/docs', 'driver/doc-upload', 'driver/legal-details', 'driver/verify-phone']) {
     assert.equal(kycLockTarget('SUBMITTED', at(screen)), null, `${screen} is open to a driver under review`);
     assert.equal(kycLockCovers('SUBMITTED', at(screen)), false);
+    if (screen === 'driver/doc-upload') continue;
     assert.equal(kycLockTarget('REJECTED', at(screen)), '/driver/onboarding/pending', `${screen}: a rejected driver fixes verification first`);
     assert.equal(kycLockTarget(null, at(screen)), '/driver/onboarding/welcome', `${screen}: not before applying`);
     assert.equal(kycLockCovers(null, at(screen)), true);
   }
+  // Signing up, the car papers step sends each paper through the upload screen.
+  for (const status of ['PENDING', 'REJECTED', null]) {
+    assert.equal(kycLockTarget(status, at('driver/doc-upload')), null, `${status} may send a paper`);
+    assert.equal(kycLockCovers(status, at('driver/doc-upload')), false);
+    assert.equal(kycLockTarget(status, at('driver/doc-upload/anything')), status === 'REJECTED' ? '/driver/onboarding/pending' : '/driver/onboarding/welcome');
+  }
+  assert.equal(kycLockCovers(undefined, at('driver/doc-upload')), true, 'not before the server answers');
   assert.equal(kycLockTarget('SUBMITTED', at('driver/docs/anything')), '/driver/onboarding/pending');
   assert.equal(kycLockTarget('SUBMITTED', at('driver/wallet')), '/driver/onboarding/pending', 'and still nothing else');
 });

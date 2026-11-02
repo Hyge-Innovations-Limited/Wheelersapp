@@ -21,15 +21,16 @@ const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-kyc-steps-')), 'bundle
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/kyc-steps.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
 const { fixStepsFrom, nextKycStep, kycProgress, stepsToWalk, KYC_STEPS, FIXABLE_STEPS } = createRequire(import.meta.url)(outFile);
 
-test('a new application walks every step, and the photos send it', () => {
+test('a new application walks every step, and the car papers send it', () => {
   assert.deepEqual(stepsToWalk(null), [...KYC_STEPS]);
-  assert.deepEqual([...KYC_STEPS], ['licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos']);
+  assert.deepEqual([...KYC_STEPS], ['licence', 'details', 'selfie', 'vehicle', 'phone', 'vehiclePhotos', 'papers']);
   assert.equal(nextKycStep('licence', null), 'details', 'the licence\'s details are typed right after its photo');
   assert.equal(nextKycStep('details', null), 'selfie');
   assert.equal(nextKycStep('vehicle', null), 'phone', 'the number is proved before the photos are sent');
   assert.equal(nextKycStep('phone', null), 'vehiclePhotos');
-  assert.equal(nextKycStep('vehiclePhotos', null), null);
-  assert.deepEqual(kycProgress('licence', null), { count: 7, active: 1 }, 'the welcome screen is step 0');
+  assert.equal(nextKycStep('vehiclePhotos', null), 'papers');
+  assert.equal(nextKycStep('papers', null), null);
+  assert.deepEqual(kycProgress('licence', null), { count: 8, active: 1 }, 'the welcome screen is step 0');
 });
 
 test('sent back for the licence only: one step, and it sends', () => {
@@ -56,4 +57,9 @@ test('nothing named means the whole application', () => {
   assert.deepEqual(fixStepsFrom(['phone']), [...FIXABLE_STEPS]);
   assert.equal(nextKycStep('vehicle', fixStepsFrom(['vehicle', 'vehiclePhotos'])), 'vehiclePhotos', 'fixing skips the phone step');
   assert.equal(nextKycStep('licence', fixStepsFrom(['licence', 'selfie'])), 'selfie', 'fixing skips the details step');
+});
+
+test('the car papers are never a step to fix: a sent-back driver resends them from Your papers', () => {
+  assert.deepEqual(fixStepsFrom(['papers']), [...FIXABLE_STEPS]);
+  assert.equal(nextKycStep('vehiclePhotos', fixStepsFrom(['vehiclePhotos'])), null, 'fixing the photos still sends from the photos step');
 });

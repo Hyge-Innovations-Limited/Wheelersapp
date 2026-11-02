@@ -1,17 +1,18 @@
 /**
  * The verification steps, in the order a driver fills them in. A new driver
- * walks all six; a driver sent back to fix something walks only what was
- * rejected (fix mode), and the last of those sends it.
+ * walks all seven, the car papers last (that step sends it); a driver sent
+ * back to fix something walks only what was rejected (fix mode), and the
+ * last of those sends it.
  *
- * "details" (the name as on the licence) is typed
+ * "details" (the name, licence number and expiry, as on the licence) is typed
  * right after the licence is photographed, and "phone" (a code sent to the
  * driver's number, typed back) comes after the car's details. A reviewer
  * never sends either back as a step: they are put right from Your papers,
  * so they are not part of fix mode.
  */
-export type KycStep = "licence" | "details" | "selfie" | "vehicle" | "phone" | "vehiclePhotos";
+export type KycStep = "licence" | "details" | "selfie" | "vehicle" | "phone" | "vehiclePhotos" | "papers";
 
-export const KYC_STEPS: readonly KycStep[] = ["licence", "details", "selfie", "vehicle", "phone", "vehiclePhotos"];
+export const KYC_STEPS: readonly KycStep[] = ["licence", "details", "selfie", "vehicle", "phone", "vehiclePhotos", "papers"];
 
 /** What a reviewer can send back. */
 export const FIXABLE_STEPS: readonly KycStep[] = ["licence", "selfie", "vehicle", "vehiclePhotos"];
@@ -23,15 +24,17 @@ export const KYC_STEP_ROUTES = {
   vehicle: "/driver/onboarding/vehicle-info",
   phone: "/driver/onboarding/verify-phone",
   vehiclePhotos: "/driver/onboarding/vehicle-photos",
+  papers: "/driver/onboarding/papers",
 } as const satisfies Record<KycStep, string>;
 
 export const KYC_STEP_LABELS: Record<KycStep, string> = {
   licence: "Driver's licence",
-  details: "Your name",
+  details: "Your licence details",
   selfie: "Face check",
   vehicle: "Vehicle details",
   phone: "Your phone number",
   vehiclePhotos: "Vehicle photos",
+  papers: "Car papers",
 };
 
 export function isKycStep(value: unknown): value is KycStep {

@@ -1718,11 +1718,16 @@ export async function submitDriverKyc(input: {
   phone?: string;
   /** As on the licence. */
   legalName: string;
+  licenceNumber: string;
+  /** YYYY-MM-DD. */
+  licenceExpiresOn: string;
 }): Promise<{ status: string }> {
   return postJson<{ status: string }>(
     "/drivers/kyc/submit",
     {
       legalName: input.legalName,
+      licenceNumber: input.licenceNumber,
+      licenceExpiresOn: input.licenceExpiresOn,
       licenceImage: input.licenceImage,
       selfieImage: input.selfieImage,
       ...(input.selfieCheck ? { selfieCheck: input.selfieCheck } : {}),

@@ -4,18 +4,21 @@ import { StyleSheet, TextInput, View } from "react-native";
 import { AppButton } from "@/components/app-button";
 import { AppInput } from "@/components/app-input";
 import { AppScreen } from "@/components/app-screen";
+import { AppText } from "@/components/app-text";
 import { FlowHeader } from "@/components/flow-header";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
+import { dayToIso, isPast, isoToDay, maskDay } from "@/lib/day-input";
 import { addReferralAtSignUp, tidyReferralCode } from "@/lib/referral-entry";
 import { useResponsive } from "@/lib/responsive";
 import { useKycStep } from "@/lib/use-kyc-step";
 import { theme } from "@/theme";
 
 /**
- * Right after the licence is photographed: the driver's name as it is on it.
- * A referral code from whoever brought them can go in too.
+ * Right after the licence is photographed: the driver's name, the licence
+ * number and the day it expires, as they are on it. All three are needed to
+ * go on. A referral code from whoever brought them can go in too.
  */
 export default function YourDetailsScreen() {
   const responsive = useResponsive();
@@ -23,6 +26,10 @@ export default function YourDetailsScreen() {
   const step = useKycStep("details");
   const { getAccessToken } = useAuth();
   const [name, setName] = useState(data.legalDetails?.legalName ?? "");
+  const [licence, setLicence] = useState(data.legalDetails?.licenceNumber ?? "");
+  const [expires, setExpires] = useState(isoToDay(data.legalDetails?.licenceExpiresOn ?? null));
+  const licenceRef = useRef<TextInput>(null);
+  const expiresRef = useRef<TextInput>(null);
   const referralRef = useRef<TextInput>(null);
   const [referral, setReferral] = useState("");
   const [referralError, setReferralError] = useState<string | undefined>(undefined);
@@ -30,8 +37,20 @@ export default function YourDetailsScreen() {
 
   const cleanName = name.replace(/\s+/g, " ").trim();
 
+  const cleanLicence = licence.replace(/\s+/g, "").toUpperCase();
+  const expiresIso = dayToIso(expires);
+
   const nameError = cleanName.length >= 3 && !cleanName.includes(" ") ? "Your full name: first name and surname." : undefined;
-  const valid = cleanName.length >= 5 && cleanName.includes(" ") && /^[\p{L}][\p{L} .'’-]*$/u.test(cleanName);
+  const licenceError = cleanLicence.length > 0 && !/^[A-Z0-9]*$/.test(cleanLicence) ? "Letters and numbers only." : undefined;
+  const expiresError = expires.length < 10
+    ? undefined
+    : !expiresIso ? "That is not a real date. Use day/month/year, e.g. 31/12/2027."
+      : isPast(expiresIso) ? "That licence has expired. Renew it, then enter the new date." : undefined;
+  const nameOk = cleanName.length >= 5 && cleanName.includes(" ") && /^[\p{L}][\p{L} .'’-]*$/u.test(cleanName);
+  const licenceOk = /^[A-Z0-9]{6,20}$/.test(cleanLicence);
+  const expiresOk = expiresIso !== null && !isPast(expiresIso);
+  const valid = nameOk && licenceOk && expiresOk;
+  const stillNeeded = [!nameOk && "full name", !licenceOk && "licence number", !expiresOk && "expiry date"].filter(Boolean).join(", ");
 
   async function handleContinue() {
     if (!valid || addingReferral) return;
@@ -51,7 +70,7 @@ export default function YourDetailsScreen() {
         setAddingReferral(false);
       }
     }
-    const details = { legalName: cleanName };
+    const details = { legalName: cleanName, licenceNumber: cleanLicence, licenceExpiresOn: expiresIso! };
     setLegalDetails(details);
     void step.go({ legalDetails: details });
   }
@@ -76,9 +95,37 @@ export default function YourDetailsScreen() {
           autoCorrect={false}
           maxLength={80}
           returnKeyType="next"
-          onSubmitEditing={() => referralRef.current?.focus()}
+          onSubmitEditing={() => licenceRef.current?.focus()}
           submitBehavior="submit"
           error={nameError}
+        />
+        <AppInput
+          ref={licenceRef}
+          label="Licence number"
+          placeholder="e.g. ABC12345DE67"
+          value={licence}
+          onChangeText={(text) => setLicence(text.toUpperCase())}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={24}
+          returnKeyType="next"
+          onSubmitEditing={() => expiresRef.current?.focus()}
+          submitBehavior="submit"
+          error={licenceError}
+        />
+        <AppInput
+          ref={expiresRef}
+          label="Licence expiry date"
+          hint="Day/month/year"
+          placeholder="DD/MM/YYYY"
+          value={expires}
+          onChangeText={(text) => setExpires(maskDay(text))}
+          keyboardType="number-pad"
+          maxLength={10}
+          returnKeyType="next"
+          onSubmitEditing={() => referralRef.current?.focus()}
+          submitBehavior="submit"
+          error={expiresError}
         />
         <AppInput
           ref={referralRef}
@@ -100,6 +147,11 @@ export default function YourDetailsScreen() {
 
       <View style={styles.spacer} />
 
+      {!valid && stillNeeded ? (
+        <AppText variant="bodySmall" color={theme.colors.muted} style={styles.reason}>
+          Still needed: {stillNeeded}
+        </AppText>
+      ) : null}
       <AppButton
         title={step.buttonTitle}
         onPress={() => void handleContinue()}
@@ -120,5 +172,9 @@ const styles = StyleSheet.create({
   spacer: {
     flexGrow: 1,
     minHeight: theme.spacing.xxl,
+  },
+  reason: {
+    textAlign: "center",
+    marginBottom: theme.spacing.sm,
   },
 });

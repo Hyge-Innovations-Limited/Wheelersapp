@@ -29,7 +29,7 @@ export default function DriverPaperUploadScreen() {
   const router = useRouter();
   const responsive = useResponsive();
   const { getAccessToken } = useAuth();
-  const { type } = useLocalSearchParams<{ type?: string }>();
+  const { type, from } = useLocalSearchParams<{ type?: string; from?: string }>();
   const [paper, setPaper] = useState<DriverPaper | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fileUri, setFileUri] = useState<string | null>(null);
@@ -139,7 +139,7 @@ export default function DriverPaperUploadScreen() {
 
   return (
     <AppScreen scroll contentStyle={styles.container} keyboardOffset={theme.spacing.lg}>
-      <FlowHeader title={paper?.label ?? 'Paper'} subtitle={paper?.hint} showBack backHref="/driver/docs" />
+      <FlowHeader title={paper?.label ?? 'Paper'} subtitle={paper?.hint} showBack backHref={from === 'signup' ? '/driver/onboarding/papers' : '/driver/docs'} />
 
       {!paper && !loadError ? <ActivityIndicator color={theme.colors.orange} style={styles.loading} /> : null}
       {loadError ? <AppText variant="body" color={theme.colors.danger} style={styles.loading}>{loadError}</AppText> : null}

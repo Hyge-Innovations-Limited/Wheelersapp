@@ -76,12 +76,14 @@ export function restoreDraft(
   const details = parsed.legalDetails as Record<string, unknown> | null | undefined;
   const car = parsed.vehicleInfo as Record<string, unknown> | null | undefined;
   const legalName = text(details?.legalName);
+  const licenceNumber = text(details?.licenceNumber);
+  const licenceExpiresOn = text(details?.licenceExpiresOn);
   const make = text(car?.make);
   const model = text(car?.model);
   const plate = text(car?.plate);
 
   return {
-    legalDetails: legalName ? { legalName } : null,
+    legalDetails: legalName ? { legalName, ...(licenceNumber && licenceExpiresOn ? { licenceNumber, licenceExpiresOn } : {}) } : null,
     phoneVerified: parsed.phoneVerified === true,
     licenceUri: photo(parsed.licenceUri),
     licenceType: parsed.licenceType === "pdf" ? "pdf" : "image",
@@ -102,7 +104,7 @@ export function restoreDraft(
 export function firstUnfinishedStep(data: DraftFields, steps: readonly KycStep[]): KycStep | null {
   for (const step of steps) {
     if (step === "licence" && !data.licenceUri) return step;
-    if (step === "details" && !data.legalDetails) return step;
+    if (step === "details" && !(data.legalDetails?.licenceNumber && data.legalDetails.licenceExpiresOn)) return step;
     if (step === "selfie" && !data.selfieUri) return step;
     if (step === "vehicle" && !data.vehicleInfo) return step;
     if (step === "phone" && !data.phoneVerified) return step;

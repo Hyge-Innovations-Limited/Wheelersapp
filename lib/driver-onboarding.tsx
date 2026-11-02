@@ -15,7 +15,7 @@ export interface VehicleInfo {
   phone: string;
 }
 
-/** The driver's name as on the licence. Number and expiry (YYYY-MM-DD) only in drafts from before they were dropped. */
+/** As on the licence: the name, the number and the expiry (YYYY-MM-DD). Drafts from when only the name was asked have no number or expiry. */
 export interface LegalDetails {
   legalName: string;
   licenceNumber?: string;
@@ -93,7 +93,7 @@ async function uriToBase64(uri: string): Promise<string> {
 function firstMissing(data: OnboardingData, steps: readonly KycStep[]): KycStep | null {
   for (const step of steps) {
     if (step === 'licence' && !data.licenceUri) return step;
-    if (step === 'details' && !data.legalDetails) return step;
+    if (step === 'details' && !(data.legalDetails?.licenceNumber && data.legalDetails.licenceExpiresOn)) return step;
     if (step === 'phone' && !data.phoneVerified) return step;
     if (step === 'selfie' && !data.selfieUri) return step;
     if (step === 'vehicle' && !data.vehicleInfo) return step;
@@ -246,6 +246,8 @@ export function DriverOnboardingProvider({ children }: { children: ReactNode }) 
           vehicleYear: data.vehicleInfo!.year,
           phone: data.vehicleInfo!.phone || undefined,
           legalName: data.legalDetails!.legalName,
+          licenceNumber: data.legalDetails!.licenceNumber!,
+          licenceExpiresOn: data.legalDetails!.licenceExpiresOn!,
         });
       }
       // Sent: there is nothing left to pick up later.

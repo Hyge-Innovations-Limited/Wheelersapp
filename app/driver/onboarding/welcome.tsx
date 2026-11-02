@@ -16,11 +16,12 @@ import { KYC_STEPS, KYC_STEP_LABELS, KYC_STEP_ROUTES } from "@/lib/kyc-steps";
 
 const STEPS = [
   { icon: "car-outline" as const, label: "Driver's licence (photo or PDF)" },
-  { icon: "person-outline" as const, label: "Your name" },
+  { icon: "person-outline" as const, label: "Your name, licence number and expiry" },
   { icon: "camera-outline" as const, label: "Face verification" },
   { icon: "speedometer-outline" as const, label: "Vehicle details" },
   { icon: "call-outline" as const, label: "Your phone number (we send you a code)" },
   { icon: "images-outline" as const, label: "Vehicle photos (7-10)" },
+  { icon: "document-text-outline" as const, label: "Car papers (hackney, insurance and more)" },
 ];
 
 export default function OnboardingWelcomeScreen() {
@@ -28,7 +29,7 @@ export default function OnboardingWelcomeScreen() {
   const responsive = useResponsive();
   const { data, restored, startFull } = useDriverOnboarding();
   // Something was filled in before the app was closed: carry on from the first step still to do.
-  const resumeAt = restored && draftHasProgress(data) ? firstUnfinishedStep(data, KYC_STEPS) ?? "vehiclePhotos" : null;
+  const resumeAt = restored && draftHasProgress(data) ? firstUnfinishedStep(data, KYC_STEPS) ?? "papers" : null;
 
   // Five rows plus a header have to clear the button on a 320x568 phone —
   // tighten the rhythm there instead of pushing the CTA off-screen.
@@ -39,7 +40,7 @@ export default function OnboardingWelcomeScreen() {
       <FlowHeader
         title="Let's get you verified"
         subtitle="To start earning, we need a few things from you"
-        progress={{ count: 6, active: 0 }}
+        progress={{ count: KYC_STEPS.length + 1, active: 0 }}
       />
 
       <Animated.View
