@@ -25,9 +25,9 @@ const {
   bidCeilingFareNgn, pricingVersionOf,
 } = createRequire(import.meta.url)(outFile);
 
-test('₦350/km on 10 km: the rider sees ₦4,150, the driver gets the trip fare less 5%, the ₦300 WhatsApp fee and the levy', () => {
+test('version 3, ₦350/km on 10 km: the rider sees ₦4,150, the driver gets the trip fare less 5%, the ₦300 WhatsApp fee and the levy', () => {
   assert.equal(fareFromRatePerKmNgn(350, 10), 4150);
-  const f = rideFees(4150);
+  const f = rideFees(4150, 3);
   assert.equal(f.pricingVersion, 3);
   assert.equal(f.bookingFeeNgn, 350);
   assert.equal(f.tripFareNgn, 3534.88);
@@ -52,7 +52,8 @@ test('a ride agreed before the change: booking fee first, then 4% and 7.5% of th
   assert.equal(pricingVersionOf(2), 2);
   assert.equal(pricingVersionOf(3), 3);
   assert.equal(pricingVersionOf('3'), 3);
-  assert.equal(pricingVersionOf(4), 3, 'a newer version than this app knows is priced as the newest it does, never as version 1');
+  assert.equal(pricingVersionOf(4), 4);
+  assert.equal(pricingVersionOf(5), 4, 'a newer version than this app knows is priced as the newest it does, never as version 1');
 });
 
 test('per km is the trip fare over the distance, and moves with the price', () => {
@@ -91,4 +92,22 @@ test('a tiny fare never costs the driver money, and the lines always add up to t
       assert.equal(Math.round((f.bookingFeeNgn + f.commissionNgn + f.whatsappFeeNgn + f.vatNgn + f.stateLevyNgn + f.driverPayoutNgn) * 100) / 100, fare);
     }
   }
+});
+
+test('version 4 (from 3 Nov 2026): no booking fee; ₦3,300 − ₦300 WhatsApp fee = ₦3,000, then VAT 225, levy 30, 5% 150: ₦2,595, as the server settles it', () => {
+  const f = rideFees(3300, 4);
+  assert.equal(f.bookingFeeNgn, 0);
+  assert.equal(f.whatsappFeeNgn, 300);
+  assert.equal(f.tripFareNgn, 3000);
+  assert.equal(f.vatNgn, 225);
+  assert.equal(f.stateLevyNgn, 30);
+  assert.equal(f.commissionNgn, 150);
+  assert.equal(f.driverPayoutNgn, 2595);
+  for (const fare of [3300, 4150, 7500, 12800]) {
+    const g = rideFees(fare, 4);
+    assert.equal(Math.round((g.driverPayoutNgn + g.whatsappFeeNgn + g.vatNgn + g.stateLevyNgn + g.commissionNgn) * 100), Math.round(fare * 100), `fare ${fare}`);
+  }
+  assert.equal(rideFees(7500, 4).driverPayoutNgn, 6270);
+  assert.equal(rideFees(3300, 3).driverPayoutNgn, 2276.98, 'version 3 rides keep their maths');
+  assert.equal(driverRatePerKmNgn(4150, 10, 4), driverRatePerKmNgn(4150, 10, 3), 'the rate per km does not move');
 });

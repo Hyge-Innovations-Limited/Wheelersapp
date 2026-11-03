@@ -12,11 +12,18 @@
  *   the driver is paid: the trip fare inside that fare (₦3,534.88)
  *   − commission 5% ₦176.74 − WhatsApp fee ₦300 − Lagos levy ₦30  = ₦3,028.14
  *
- * Version 2 (10 to 21 Oct 2026): the same with 10% commission and no WhatsApp
+ * Version 4 (from 2026-11-03): prices are built the same way (the rate per km
+ * and the fare it makes do not move), but there is no booking fee in the
+ * split: the ₦300 WhatsApp fee comes off the fare, and VAT 7.5%, the ₦30 levy
+ * and 5% commission all come out of what is left:
+ *
+ *   ₦3,300 − ₦300 = ₦3,000 − VAT ₦225 − levy ₦30 − commission ₦150 = ₦2,595
+ *
+ * Version 2 (10 to 21 Oct 2026): the same as 3 with 10% commission and no WhatsApp
  * fee. Version 1 (before): the booking fee came off the fare, then 4%
  * commission, 7.5% VAT and the levy all came off the driver's share.
  */
-export type PricingVersion = 1 | 2 | 3;
+export type PricingVersion = 1 | 2 | 3 | 4;
 /** Wheelers' service charge inside every fare. Rides agreed under version 1 carried ₦375. */
 export const BOOKING_FEE_NGN = 350;
 export const V1_BOOKING_FEE_NGN = 375;
@@ -65,8 +72,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function pricingVersionOf(value: unknown): PricingVersion {
   if (value === null || value === undefined || value === '') return 1;
   const n = Number(value);
-  if (n === 1 || n === 2 || n === 3) return n;
-  return Number.isFinite(n) && n > 3 ? 3 : 1;
+  if (n === 1 || n === 2 || n === 3 || n === 4) return n;
+  return Number.isFinite(n) && n > 4 ? 4 : 1;
 }
 
 /** The fare a rider pays when the driver's rate is `ratePerKmNgn` over `distanceKm`. */
@@ -82,8 +89,35 @@ export function tripFareNgn(fareNgn: number, version: PricingVersion = 3): numbe
   return version === 1 ? afterFee : round2(afterFee / (1 + VAT_RATE));
 }
 
-export function rideFees(fareNgn: number, version: PricingVersion = 3): RideFees {
+export function rideFees(fareNgn: number, version: PricingVersion = 4): RideFees {
   const fare = round2(fareNgn);
+  if (version === 4) {
+    // No booking fee: the WhatsApp fee off the fare, then VAT, the levy and commission from the rest (as on the server).
+    let whatsapp4 = Math.min(WHATSAPP_FEE_NGN, Math.max(0, fare));
+    const base = round2(fare - whatsapp4);
+    let vat4 = round2(base * VAT_RATE);
+    let levy4 = STATE_LEVY_NGN;
+    let commission4 = round2(base * COMMISSION_RATE);
+    let over4 = round2(vat4 + levy4 + commission4 - base);
+    if (over4 > 0) { const cut = Math.min(levy4, over4); levy4 = round2(levy4 - cut); over4 = round2(over4 - cut); }
+    if (over4 > 0) { const cut = Math.min(commission4, over4); commission4 = round2(commission4 - cut); over4 = round2(over4 - cut); }
+    if (over4 > 0) { const cut = Math.min(vat4, over4); vat4 = round2(vat4 - cut); }
+    whatsapp4 = round2(whatsapp4);
+    return {
+      fareNgn: fare,
+      bookingFeeNgn: 0,
+      tripFareNgn: base,
+      driverShareNgn: base,
+      commissionNgn: commission4,
+      whatsappFeeNgn: whatsapp4,
+      vatNgn: vat4,
+      stateLevyNgn: levy4,
+      driverPayoutNgn: Math.max(0, round2(base - vat4 - levy4 - commission4)),
+      pricingVersion: 4,
+      platformFeeNgn: commission4,
+      serviceFeeNgn: 0,
+    };
+  }
   const booking = Math.min(bookingFeeOf(version), Math.max(0, fare));
   const afterFee = round2(fare - booking);
   const share = version === 1 ? afterFee : round2(afterFee / (1 + VAT_RATE));

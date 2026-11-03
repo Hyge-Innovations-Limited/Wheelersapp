@@ -237,9 +237,9 @@ export default function DriverActiveTripScreen() {
             </AppText>
           </View>
           {recordingTrip ? (
-            <View style={styles.recordingBadge} accessibilityRole="text" accessibilityLabel="This trip is being recorded">
+            <View style={styles.recordingBadge} accessibilityRole="text" accessibilityLabel="Recording started">
               <View style={styles.recordingDot} />
-              <AppText variant="caption" color={theme.colors.offWhite} numberOfLines={1}>This trip is being recorded</AppText>
+              <AppText variant="caption" color={theme.colors.offWhite} numberOfLines={1}>Recording started</AppText>
             </View>
           ) : null}
         </View>

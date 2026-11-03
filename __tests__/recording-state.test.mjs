@@ -1,5 +1,5 @@
 /**
- * The trip screen says "This trip is being recorded" while it is: it follows
+ * The trip screen says "Recording started" while the trip records: it follows
  * the recording flag, which tells its listeners only when it really changes.
  *
  *   node --test __tests__/recording-state.test.mjs
@@ -35,5 +35,5 @@ test('the driver trip screen shows the line only while recording', () => {
   const screen = readFileSync(join(projectRoot, 'app/driver/active-trip.tsx'), 'utf8');
   assert.match(screen, /const recordingTrip = useRecordingTrip\(\);/);
   assert.match(screen, /\{recordingTrip \? \(/);
-  assert.match(screen, /This trip is being recorded/);
+  assert.match(screen, />Recording started</);
 });
