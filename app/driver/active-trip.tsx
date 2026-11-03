@@ -19,6 +19,7 @@ import { useDriverSession } from '@/lib/driver-session';
 import { toUserMessage } from '@/lib/error-messages';
 import { haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
+import { useRecordingTrip } from '@/lib/recording-state';
 import { useCourseBearing, useLiveRoute } from '@/lib/use-live-route';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
@@ -44,6 +45,7 @@ const END_TRIP_NEAR_KM = 0.3;
 export default function DriverActiveTripScreen() {
   const router = useRouter();
   const { session, endTrip, sendGps, chatMessages, sendChatMessage } = useDriverSession();
+  const recordingTrip = useRecordingTrip();
   const { currentLocation } = useAppLocation();
   const responsive = useResponsive();
   const insets = useSafeAreaInsets();
@@ -223,15 +225,23 @@ export default function DriverActiveTripScreen() {
         </Marker>
       </GoogleMapView>
 
-      {/* Top overlay: LIVE + SOS, out of the road's way */}
+      {/* Top overlay: LIVE (and, while it records, that the trip is recorded) + SOS, out of the road's way */}
       <View
         style={[styles.topOverlay, { top: insets.top + responsive.scale(10) }]}
         pointerEvents="box-none">
-        <View style={styles.liveBadge}>
-          <View style={styles.liveDot} />
-          <AppText variant="monoSmall" color={theme.colors.offWhite}>
-            {ride.tripId ? `LIVE · ${ride.tripId}` : 'LIVE'}
-          </AppText>
+        <View style={styles.badges}>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <AppText variant="monoSmall" color={theme.colors.offWhite}>
+              {ride.tripId ? `LIVE · ${ride.tripId}` : 'LIVE'}
+            </AppText>
+          </View>
+          {recordingTrip ? (
+            <View style={styles.recordingBadge} accessibilityRole="text" accessibilityLabel="This trip is being recorded">
+              <View style={styles.recordingDot} />
+              <AppText variant="caption" color={theme.colors.offWhite} numberOfLines={1}>This trip is being recorded</AppText>
+            </View>
+          ) : null}
         </View>
         <View style={styles.topActions}>
           <TripChatButton
@@ -308,6 +318,26 @@ export default function DriverActiveTripScreen() {
 }
 
 const styles = StyleSheet.create({
+  badges: {
+    flexShrink: 1,
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+  },
+  recordingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: theme.radius.pill,
+    backgroundColor: 'rgba(13, 13, 13, 0.8)',
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.danger,
+  },
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
