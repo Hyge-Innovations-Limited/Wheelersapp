@@ -53,9 +53,12 @@ export function afterSuccess(queue: QueuedSegment[], done: QueuedSegment): Queue
 }
 
 /**
- * A refusal the server will repeat forever (not mine, recording off, already
+ * A refusal OUR server will repeat forever (not mine, recording off, already
  * recorded or not allowed, too big, not audio): drop it. 425 (not arrived
- * yet), 401 and 5xx are tried again.
+ * yet), 401 and 5xx are tried again. A refusal from the storage itself (the
+ * signed PUT to Cloudflare) is never final: a bucket or key set up wrong is
+ * put right on the server, and the piece then goes up (it stays until it
+ * expires with the rest of the queue).
  */
 export function isPermanentFailure(status: number | null | undefined): boolean {
   return status === 403 || status === 404 || status === 409 || status === 413 || status === 415;
@@ -90,6 +93,8 @@ export async function drainUploads(effects: UploadEffects): Promise<number> {
   let queue = keep;
   let uploaded = 0;
   for (const item of due) {
+    // Which side refused: only our server's refusals can drop a piece.
+    let atStorage = false;
     try {
       const bytes = await effects.fileSize(item.uri);
       if (!bytes) {
@@ -98,13 +103,15 @@ export async function drainUploads(effects: UploadEffects): Promise<number> {
         continue;
       }
       const url = await effects.uploadUrl(item.rideId, item.segmentIndex, bytes);
+      atStorage = true;
       await effects.put(url, item.uri);
+      atStorage = false;
       await effects.complete(item.rideId, item.segmentIndex, item.durationSec);
       await effects.deleteFile(item.uri).catch(() => undefined);
       queue = afterSuccess(queue, item);
       uploaded += 1;
     } catch (error) {
-      if (isPermanentFailure(statusOf(error))) {
+      if (!atStorage && isPermanentFailure(statusOf(error))) {
         await effects.deleteFile(item.uri).catch(() => undefined);
         queue = afterSuccess(queue, item);
       } else {

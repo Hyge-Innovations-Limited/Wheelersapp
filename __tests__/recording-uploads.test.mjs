@@ -74,6 +74,20 @@ test('a refusal the server would repeat (not mine, too old, too big) drops the s
   }
 });
 
+test('the storage refusing the upload (a bucket not found, a key without access) keeps the piece; it goes up once that is put right', async () => {
+  for (const status of [403, 404]) {
+    const fx = effects(enqueueSegment([], segment(), NOW), { put: async () => { throw Object.assign(new Error('Upload failed'), { status }); } });
+    assert.equal(await drainUploads(fx), 0);
+    assert.equal(fx.state.queue.length, 1, `status ${status}: kept`);
+    assert.deepEqual(fx.state.deleted, [], `status ${status}: the file stays on the phone`);
+    // The bucket is fixed: the next run (when due) uploads it.
+    const later = fx.state.queue[0].nextAt;
+    const fixed = { ...fx, put: async (url) => { fx.state.puts.push(url); }, now: () => later };
+    assert.equal(await drainUploads(fixed), 1, `status ${status}: uploaded after the fix`);
+    assert.deepEqual(fx.state.queue, []);
+  }
+});
+
 test('a server error or signed-out is retried, not dropped', async () => {
   for (const status of [401, 500, 503]) {
     const fx = effects(enqueueSegment([], segment(), NOW), { complete: async () => { throw Object.assign(new Error('no'), { status }); } });
