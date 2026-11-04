@@ -29,6 +29,7 @@ import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
 import { toUserMessage } from '@/lib/error-messages';
 import { getRecordTripsSwitch, microphoneGranted, recorderAvailable, requestMicrophone, setRecordTripsSwitch } from '@/lib/trip-recorder';
+import { confirmRecordingOff } from '@/lib/recording-off-warning';
 
 const APP_VERSION = '1.0.0';
 
@@ -143,6 +144,7 @@ function TripRecordingSetting({
     };
   }, []);
   const change = async (next: boolean) => {
+    if (!next && !(await confirmRecordingOff(Alert.alert))) return;
     setOn(next);
     await setRecordTripsSwitch(next);
     if (next && !mic) setMic(await requestMicrophone());
