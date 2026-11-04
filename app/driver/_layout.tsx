@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { DriverNoticeBanner } from '@/components/driver-notice-banner';
 import { DriverTripRouter } from '@/components/driver-trip-router';
 import { DriverSessionProvider } from '@/lib/driver-session';
 import { DriverTripLiveActivity } from '@/components/trip-live-activity';
@@ -42,6 +43,7 @@ export default function DriverLayout() {
         <Stack.Screen name="legal-details" />
         <Stack.Screen name="verify-phone" />
       </Stack>
+      <DriverNoticeBanner />
       <DriverKycLock />
       {/* The driver's trip on the lock screen and in the Dynamic Island (iPhone). */}
       <DriverTripLiveActivity />

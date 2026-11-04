@@ -26,6 +26,7 @@ import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { startDriverLivenessUpdates, stopDriverLivenessUpdates } from '@/lib/background-location';
 import { readOnlineIntent, rememberOnline } from '@/lib/driver-online-intent';
 import { driverCancelNotice } from '@/lib/cancel-copy';
+import { riderCancelledNotice, showDriverNotice } from '@/lib/driver-notice';
 import { pauseStandbyUpdates, resumeStandbyIfEnabled } from '@/lib/standby-location';
 import {
   applyActiveRideSnapshot,
@@ -374,6 +375,10 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         lastRouteChangeKeyRef.current = key;
         if (chime) void playBidAlertChime();
       }
+
+      // The rider cancelled a request or bid still on screen: the card goes, a short notice says why.
+      const cancelledNotice = riderCancelledNotice(sessionRef.current, type, payload);
+      if (cancelledNotice) showDriverNotice(cancelledNotice);
 
       // Everything else is a session transition — see driver-session-reducer.
       setSession((prev) => reduceDriverSession(prev, type, payload) ?? prev);

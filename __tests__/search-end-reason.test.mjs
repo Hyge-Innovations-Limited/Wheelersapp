@@ -21,10 +21,11 @@ const entry = join(dir, 'entry.ts');
 writeFileSync(entry, `
 export * from '${join(projectRoot, 'lib/driver-session-reducer.ts')}';
 export * from '${join(projectRoot, 'lib/bid-card-state.ts')}';
+export { riderCancelledNotice } from '${join(projectRoot, 'lib/driver-notice.ts')}';
 `);
 const outFile = join(dir, 'bundle.cjs');
 execFileSync('npx', ['esbuild', entry, '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { reduceDriverSession, recordBid, defaultDriverSession, bidStage, outcomeLabel, hydrateBidRecords } = createRequire(import.meta.url)(outFile);
+const { reduceDriverSession, recordBid, defaultDriverSession, bidStage, outcomeLabel, hydrateBidRecords, riderCancelledNotice } = createRequire(import.meta.url)(outFile);
 
 const NOW = Date.parse('2026-10-27T10:00:00Z');
 const offer = (rideId = 'ride-1') => ({
@@ -132,4 +133,16 @@ test('a request re-sent for a ride whose card ended shows again; the sync does n
     ride: { pickupAddress: 'Akoka', destAddress: 'Yaba', fareEstimateNgn: 3000, riderOfferNgn: 3000, agreedFareNgn: null },
   }], NOW + 6_000);
   assert.equal(synced.pendingBids['ride-1'], undefined);
+});
+
+test('the rider cancelling says so in a short notice: for a bid, a paying bid, or a request on screen; never for anything else', () => {
+  const cancel = { rideId: 'ride-1', reason: 'rider_cancelled' };
+  assert.equal(riderCancelledNotice(withBid(), 'ride:bid_timeout', cancel), 'Rider cancelled · Akoka');
+  assert.equal(riderCancelledNotice(withBid(), 'ride:rider_paying_ended', { rideId: 'ride-1', reason: 'cancelled' }), 'Rider cancelled · Akoka');
+  const request = reduceDriverSession({ ...defaultDriverSession, status: 'online' }, 'ride:offer', offerPayload('ride-1'), NOW);
+  assert.equal(riderCancelledNotice(request, 'ride:bid_timeout', cancel), 'Rider cancelled · Akoka');
+
+  assert.equal(riderCancelledNotice(withBid(), 'ride:bid_timeout', { rideId: 'ride-1', reason: 'timed_out' }), null, 'search ended: no notice');
+  assert.equal(riderCancelledNotice(withBid(), 'ride:bid_declined', { rideId: 'ride-1' }), null, 'declined: no notice');
+  assert.equal(riderCancelledNotice(defaultDriverSession, 'ride:bid_timeout', cancel), null, 'nothing on screen: no notice');
 });
