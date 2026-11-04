@@ -179,13 +179,12 @@ for (const [name, start] of [['waiting', () => withBid(3500)], ['countered', cou
   });
 }
 
-test('paying ended: other_chosen is lost, cancelled and search_ended are the finished cards the app already has', () => {
+test('paying ended: other_chosen is lost, cancelled takes the card away, search_ended is the finished card the app already has', () => {
   let s = ended(paying(withBid(3500)), 'other_chosen');
   assert.equal(stageOf(s), 'lost');
   assert.equal(s.pendingBids['ride-1'].endReason, 'booked_other');
   s = ended(paying(withBid(3500)), 'cancelled');
-  assert.equal(stageOf(s), 'expired');
-  assert.equal(s.pendingBids['ride-1'].endReason, 'rider_cancelled');
+  assert.equal(s.pendingBids['ride-1'], undefined);
   s = ended(paying(withBid(3500)), 'search_ended');
   assert.equal(stageOf(s), 'expired');
   assert.equal(s.pendingBids['ride-1'].endReason, 'timed_out');

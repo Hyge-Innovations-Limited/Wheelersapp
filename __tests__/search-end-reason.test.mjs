@@ -39,9 +39,9 @@ const labelOf = (s, rideId = 'ride-1') => {
   return outcomeLabel(bid.outcome, bid.endReason);
 };
 
-test('rider cancelled, search ended, not chosen: each says so', () => {
+test('rider cancelled: the bid card goes; search ended, not chosen: each says so', () => {
   const cancelled = reduceDriverSession(withBid(), 'ride:bid_timeout', { rideId: 'ride-1', reason: 'rider_cancelled' }, NOW);
-  assert.equal(labelOf(cancelled), 'Rider cancelled');
+  assert.equal(cancelled.pendingBids['ride-1'], undefined);
   const timedOut = reduceDriverSession(withBid(), 'ride:bid_timeout', { rideId: 'ride-1', reason: 'timed_out' }, NOW);
   assert.equal(labelOf(timedOut), 'Search ended');
   const lost = reduceDriverSession(withBid(), 'ride:bid_lost', { rideId: 'ride-1', reason: 'booked_other' }, NOW);
@@ -91,16 +91,12 @@ test('declined still lets the driver send a new price, and the reason is not set
   assert.equal(s.pendingBids['ride-1'].endReason, undefined);
 });
 
-test('ride:cancelled by the rider on a bid (not our trip) keeps the card as "Rider cancelled"', () => {
+test('ride:cancelled by the rider on a bid (not our trip): the card goes', () => {
   let s = reduceDriverSession(withBid(), 'ride:offer_accepted', { rideId: 'ride-1', agreedFareNgn: 3500, paymentMethod: 'WALLET' }, NOW);
   s = reduceDriverSession(s, 'ride:cancelled', { rideId: 'ride-1', reason: 'rider_cancelled', cancelledBy: 'rider' }, NOW);
-  const bid = s.pendingBids['ride-1'];
-  assert.ok(bid);
-  assert.equal(bid.acceptedAt, undefined);
-  assert.equal(bid.riderPaid, false);
-  assert.equal(labelOf(s), 'Rider cancelled');
+  assert.equal(s.pendingBids['ride-1'], undefined);
 
-  // Without a word on who cancelled: cleared, as before.
+  // Without a word on who cancelled: cleared too.
   const plain = reduceDriverSession(withBid(), 'ride:cancelled', { rideId: 'ride-1' }, NOW);
   assert.equal(plain.pendingBids['ride-1'], undefined);
 });
@@ -113,15 +109,14 @@ test('ride:cancelled for the trip itself still ends the trip', () => {
   assert.equal(s.pendingBids['ride-1'], undefined);
 });
 
-test('a reconnect does not wipe a "Rider cancelled" card the server marks CANCELLED; a card still waiting is cleared as before', () => {
+test('a reconnect does not bring back a bid card the rider cancelled; a card still waiting is cleared', () => {
   const rec = (rideId) => ({
     rideId, riderId: 'rider-1', status: 'CANCELLED', amountNgn: 3500, createdAt: new Date(NOW).toISOString(), resolvedAt: new Date(NOW).toISOString(),
     ride: { status: 'CANCELLED', pickupAddress: 'Akoka', destAddress: 'Yaba', fareEstimateNgn: 3000, riderOfferNgn: 3000, agreedFareNgn: null },
   });
   const ended = reduceDriverSession(withBid(), 'ride:bid_timeout', { rideId: 'ride-1', reason: 'rider_cancelled' }, NOW);
   const synced = hydrateBidRecords(ended, [rec('ride-1')], NOW + 1_000);
-  assert.ok(synced.pendingBids['ride-1'], 'kept');
-  assert.equal(labelOf(synced), 'Rider cancelled');
+  assert.equal(synced.pendingBids['ride-1'], undefined, 'not rebuilt');
 
   const waiting = hydrateBidRecords(withBid('ride-2'), [rec('ride-2')], NOW + 1_000);
   assert.equal(waiting.pendingBids['ride-2'], undefined, 'a live-looking card of a cancelled ride still goes');

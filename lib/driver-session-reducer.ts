@@ -1080,7 +1080,10 @@ export function reduceDriverSession(
     // A bid the rider had chosen ("paid") whose booking then fell through (the
     // server found this driver busy) is lost too, unless the trip is ours.
     const fellThrough = bid?.acceptedAt && type === 'ride:bid_lost' && prev.currentRide?.rideId !== rideId;
-    if (bid && (!bid.acceptedAt || fellThrough)) {
+    // The rider cancelled the search: nothing left to see or bid on, the card goes.
+    if (bid && !bid.acceptedAt && endReason === 'rider_cancelled') {
+      delete pendingBids[rideId];
+    } else if (bid && (!bid.acceptedAt || fellThrough)) {
       pendingBids[rideId] = {
         ...bid,
         acceptedAt: undefined,
@@ -1165,6 +1168,10 @@ export function reduceDriverSession(
       };
     }
     const ending = payingEndOutcome(payload.reason);
+    if (ending?.endReason === 'rider_cancelled') {
+      const { [rideId]: _cancelled, ...pendingBids } = prev.pendingBids;
+      return { ...prev, pendingBids };
+    }
     return {
       ...prev,
       pendingBids: {
@@ -1260,33 +1267,9 @@ export function reduceDriverSession(
     );
     const cancelledCurrentRide = !cancelledRideId || prev.currentRide?.rideId === cancelledRideId;
 
+    // A cancelled ride's bid card goes, whoever cancelled: nothing left to bid on.
     const pendingBids = { ...prev.pendingBids };
-    // The rider cancelled a search this driver bid on (the booking of this
-    // driver had not gone through yet): the card stays, "Rider cancelled",
-    // instead of vanishing. Any other cancel clears it as before.
-    const cancelledBid = cancelledRideId ? prev.pendingBids[cancelledRideId] : undefined;
-    const riderCancelledBid =
-      type === 'ride:cancelled' &&
-      cancelledBid !== undefined &&
-      !cancelledCurrentRide &&
-      (payload.reason === 'rider_cancelled' || payload.cancelledBy === 'rider');
-    if (cancelledRideId && cancelledBid && riderCancelledBid) {
-      if (!cancelledBid.outcome) {
-        pendingBids[cancelledRideId] = {
-          ...cancelledBid,
-          acceptedAt: undefined,
-          riderPaid: false,
-          payingAt: undefined,
-          payingSince: undefined,
-          payingForMs: undefined,
-          outcome: 'expired',
-          endReason: 'rider_cancelled',
-          resolvedAt: new Date(now).toISOString(),
-        };
-      }
-    } else if (cancelledRideId) {
-      delete pendingBids[cancelledRideId];
-    }
+    if (cancelledRideId) delete pendingBids[cancelledRideId];
 
     return {
       ...prev,
