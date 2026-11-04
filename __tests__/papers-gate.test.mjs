@@ -17,21 +17,26 @@ const projectRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const dir = mkdtempSync(join(tmpdir(), 'wheelers-papers-gate-'));
 const outFile = join(dir, 'bundle.cjs');
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/papers-gate.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { checkPapersGate, PAPERS_GATE_BODY } = createRequire(import.meta.url)(outFile);
+const { checkPapersGate, PAPERS_GATE_BODY, PAPERS_GATE_TITLE } = createRequire(import.meta.url)(outFile);
 
 const getToken = async () => 'tok';
 
-// Mirrors the screens: gate first, then alert or go online.
-async function tapGoOnline(fetchPapers, extra = {}) {
+// Mirrors the screens: gate first; papers missing is a warning — Send papers, or Go online anyway.
+async function tapGoOnline(fetchPapers, extra = {}, choose = 'Go online') {
   const calls = { online: 0, alerts: [], pushed: [] };
   const gate = await checkPapersGate({ getToken, fetchPapers, ...extra });
   if (!gate.ok) {
-    calls.alerts.push({
-      title: 'Send your papers first',
-      body: PAPERS_GATE_BODY,
-      buttons: [{ text: 'Not now', style: 'cancel' }, { text: 'Send papers', onPress: () => calls.pushed.push('/driver/docs') }],
+    const goAnyway = await new Promise((resolve) => {
+      const buttons = [
+        { text: 'Send papers', onPress: () => { calls.pushed.push('/driver/docs'); resolve(false); } },
+        { text: 'Go online', onPress: () => resolve(true) },
+      ];
+      calls.alerts.push({ title: PAPERS_GATE_TITLE, body: PAPERS_GATE_BODY, buttons });
+      buttons.find((b) => b.text === choose).onPress();
     });
-  } else calls.online += 1;
+    if (!goAnyway) return calls;
+  }
+  calls.online += 1;
   return calls;
 }
 
@@ -41,13 +46,17 @@ test('nothing to do: goes online', async () => {
   assert.equal(c.alerts.length, 0);
 });
 
-test('papers to do: stays offline, alert opens Your papers', async () => {
+test('papers to do: a warning, and Go online still goes online', async () => {
   const c = await tapGoOnline(async () => ({ toDo: 2 }));
+  assert.equal(c.alerts[0].title, 'Some papers are missing');
+  assert.equal(c.alerts[0].body, 'Send them soon. You can still go online.');
+  assert.deepEqual(c.alerts[0].buttons.map((b) => b.text), ['Send papers', 'Go online']);
+  assert.equal(c.online, 1, 'not blocked');
+});
+
+test('papers to do: Send papers opens Your papers and stays offline', async () => {
+  const c = await tapGoOnline(async () => ({ toDo: 2 }), {}, 'Send papers');
   assert.equal(c.online, 0);
-  assert.equal(c.alerts[0].title, 'Send your papers first');
-  assert.equal(c.alerts[0].body, 'Send what is missing to go online.');
-  assert.deepEqual(c.alerts[0].buttons.map((b) => b.text), ['Not now', 'Send papers']);
-  c.alerts[0].buttons[1].onPress();
   assert.deepEqual(c.pushed, ['/driver/docs']);
 });
 
@@ -85,10 +94,9 @@ for (const f of ['app/driver/dashboard.tsx', 'app/driver/(tabs)/home.tsx']) {
     assert.ok(g > 0);
     assert.ok(g < h.indexOf('requestBackgroundLocationAccess()'));
     assert.ok(g < h.indexOf('goOnline('));
-    const blk = h.slice(h.indexOf('if (!gate.ok)'));
-    assert.ok(blk.slice(0, blk.indexOf('}\n')).includes('return;'));
-    assert.ok(h.includes('PAPERS_GATE_BODY') && src.includes('PAPERS_GATE_BODY }'));
-    assert.ok(h.includes('Send your papers first') && h.includes("'/driver/docs'"));
+    assert.ok(h.includes('PAPERS_GATE_TITLE') && h.includes('PAPERS_GATE_BODY') && src.includes('PAPERS_GATE_TITLE }'));
+    assert.ok(h.includes("text: 'Go online', onPress: () => resolve(true)"), 'a warning: Go online goes on');
+    assert.ok(h.includes('if (!goAnyway) return;') && h.includes("'/driver/docs'"));
     assert.ok(h.includes('if (togglingRef.current) return;') && h.includes('togglingRef.current = false;'));
     assert.ok(h.indexOf('togglingRef.current = true') < g);
   });

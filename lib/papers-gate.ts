@@ -35,7 +35,9 @@ export async function checkPapersGate(deps: {
   }
 }
 
-export const PAPERS_GATE_BODY = "Send what is missing to go online.";
+/** A warning, not a block (Timi, 4 Nov 2026): the driver sees what is missing and may still go online. */
+export const PAPERS_GATE_TITLE = "Some papers are missing";
+export const PAPERS_GATE_BODY = "Send them soon. You can still go online.";
 
 /**
  * The sign-up papers step: the required needs nothing good has been sent for

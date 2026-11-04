@@ -14,7 +14,7 @@ import { StatusPill } from '@/components/StatusPill';
 import { SkeletonCard, SkeletonLine, SkeletonMetricRow } from '@/components/SkeletonLoader';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
-import { checkPapersGate, PAPERS_GATE_BODY } from '@/lib/papers-gate';
+import { checkPapersGate, PAPERS_GATE_BODY, PAPERS_GATE_TITLE } from '@/lib/papers-gate';
 import { getDriverPapers, getDriverStats, getDriverEarnings, type DriverStatsResponse } from '@/lib/api';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
@@ -131,11 +131,14 @@ export default function DriverDashboardScreen() {
           fetchPapers: getDriverPapers,
         });
         if (!gate.ok) {
-          Alert.alert('Send your papers first', PAPERS_GATE_BODY, [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Send papers', onPress: () => router.push('/driver/docs' as Href) },
-          ]);
-          return;
+          // A warning, not a block: Send papers, or Go online anyway.
+          const goAnyway = await new Promise<boolean>((resolve) => {
+            Alert.alert(PAPERS_GATE_TITLE, PAPERS_GATE_BODY, [
+              { text: 'Send papers', onPress: () => { router.push('/driver/docs' as Href); resolve(false); } },
+              { text: 'Go online', onPress: () => resolve(true) },
+            ], { cancelable: true, onDismiss: () => resolve(false) });
+          });
+          if (!goAnyway) return;
         }
         await requestBackgroundLocationAccess();
         await goOnline(currentLocation.lat, currentLocation.lng);
