@@ -59,10 +59,13 @@ test('no reason (older server): the old words', () => {
   assert.equal(labelOf(odd), 'Request ended', 'an unknown reason is ignored');
 });
 
-test('a request never answered: "Rider cancelled" files it as cancelled, not as one to still bid on', () => {
+test('a request never answered: the rider cancelling takes it off the screen, nothing left behind', () => {
   let s = reduceDriverSession({ ...defaultDriverSession, status: 'online' }, 'ride:offer', offerPayload('ride-m'), NOW);
   s = reduceDriverSession(s, 'ride:bid_timeout', { rideId: 'ride-m', reason: 'rider_cancelled' }, NOW + 5_000);
-  assert.equal(s.missedOffers[0].reason, 'cancelled');
+  assert.deepEqual(s.offers, []);
+  assert.equal(s.currentOffer, null);
+  assert.deepEqual(s.missedOffers, []);
+  assert.equal(s.status, 'online');
 
   let t = reduceDriverSession({ ...defaultDriverSession, status: 'online' }, 'ride:offer', offerPayload('ride-n'), NOW);
   t = reduceDriverSession(t, 'ride:bid_timeout', { rideId: 'ride-n', reason: 'booked_other' }, NOW + 5_000);

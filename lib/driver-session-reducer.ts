@@ -1100,10 +1100,11 @@ export function reduceDriverSession(
             : type === 'ride:bid_lost' ? 'taken' : 'expired';
     const offers = prev.offers.filter((queued) => queued.rideId !== rideId);
     // A request the driver never answered doesn't vanish when the auction
-    // closes — it becomes a missed card saying what happened to it.
+    // closes — it becomes a missed card saying what happened to it. One the
+    // rider cancelled just goes.
     const droppedOffer = prev.offers.find((queued) => queued.rideId === rideId);
     const missedOffers =
-      droppedOffer && !bid
+      droppedOffer && !bid && missedReason !== 'cancelled'
         ? (
             [
               {
