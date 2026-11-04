@@ -36,7 +36,6 @@ import { SessionKeeper } from "@/components/session-keeper";
 import { LocationProvider } from "@/lib/location";
 import { AppNotificationsProvider } from "@/lib/notifications";
 import { InterstateRequestsProvider } from "@/lib/interstate-requests-context";
-import { QuestBadgeProvider } from "@/lib/quest-badge-context";
 import { RideSessionProvider } from "@/lib/ride-session";
 import { RiderTripLiveActivity } from "@/components/trip-live-activity";
 import { isDriverApp } from "@/lib/app-variant";
@@ -77,7 +76,6 @@ export default function RootLayout() {
           <LocationProvider>
             <RideSessionProvider>
               <AppNotificationsProvider>
-                <QuestBadgeProvider>
                   <InterstateRequestsProvider>
                   <AppLockProvider>
                     {/* The driver app's calls live in the driver layout, on the driver's socket. */}
@@ -88,7 +86,6 @@ export default function RootLayout() {
                     <RiderTripLiveActivity />
                   </AppLockProvider>
                   </InterstateRequestsProvider>
-                </QuestBadgeProvider>
               </AppNotificationsProvider>
             </RideSessionProvider>
           </LocationProvider>

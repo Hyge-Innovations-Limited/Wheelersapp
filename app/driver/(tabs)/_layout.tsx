@@ -3,7 +3,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 import { useDriverSession } from '@/lib/driver-session';
-import { useQuestBadge } from '@/lib/quest-badge-context';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
@@ -77,14 +76,6 @@ function QuestsIcon({ color, size }: { color: string; size: number }) {
   );
 }
 
-function QuestsIconWithBadge({ color, size, showBadge }: { color: string; size: number; showBadge: boolean }) {
-  return (
-    <View>
-      <QuestsIcon color={color} size={size} />
-      {showBadge && <View style={tabStyles.badge} />}
-    </View>
-  );
-}
 
 /**
  * The Interstate icon with a live count of passenger requests.
@@ -123,22 +114,10 @@ const tabStyles = StyleSheet.create({
     lineHeight: 12,
     color: theme.colors.white,
   },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -4,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: theme.colors.red,
-    borderWidth: 1.5,
-    borderColor: theme.colors.white,
-  },
 });
 
 export default function DriverTabsLayout() {
   const { isDark } = useAppTheme();
-  const { showBadge } = useQuestBadge();
   const { session } = useDriverSession();
   // The Active tab's number: requests on the table + live bids + the trip.
   const activeCount =
@@ -221,7 +200,7 @@ export default function DriverTabsLayout() {
         name="quests"
         options={{
           title: 'Quests',
-          tabBarIcon: ({ color, size }) => <QuestsIconWithBadge color={color} size={size} showBadge={showBadge} />,
+          tabBarIcon: ({ color, size }) => <QuestsIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen

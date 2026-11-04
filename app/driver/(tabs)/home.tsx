@@ -17,23 +17,12 @@ import { useDriverSession } from '@/lib/driver-session';
 import { ringDeadlineMs } from '@/lib/driver-session-reducer';
 import { useAppLocation } from '@/lib/location';
 import { useAppNotifications } from '@/lib/notifications';
-import { useQuestBadge } from '@/lib/quest-badge-context';
 import { useResponsive } from '@/lib/responsive';
 import { offerRideOverlayOnce } from '@/lib/ride-overlay';
 import { playBidAlertChime, playRideRequestSound, stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
 import { useMapRevival } from '@/hooks/use-map-revival';
 import { toUserMessage } from '@/lib/error-messages';
-
-function countCompletedQuests(todayRides: number, todayEarnings: number, totalRides: number, rating: number): number {
-  let count = 0;
-  if (todayRides >= 5) count++;   // Daily Grind
-  if (todayRides >= 10) count++;  // Road Warrior
-  if (todayEarnings >= 10000) count++; // Big Earner
-  if (rating >= 4.8 && rating > 0) count++; // Five Star Driver
-  if (totalRides >= 100) count++; // Century Club
-  return count;
-}
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -64,7 +53,6 @@ export default function DriverHomeScreen() {
     useAppLocation();
 
   const { permissionGranted, requestNotificationAccess } = useAppNotifications();
-  const { reportCompletedCount } = useQuestBadge();
   const insets = useSafeAreaInsets();
   const responsive = useResponsive();
   const notificationPromptedRef = useRef(false);
@@ -97,21 +85,15 @@ export default function DriverHomeScreen() {
         ]);
         setStats(driverStats);
         setTodayEarnings(earnings.totalEarningsNgn);
-        reportCompletedCount(countCompletedQuests(
-          earnings.rideCount,
-          earnings.totalEarningsNgn,
-          driverStats.totalRides,
-          driverStats.rating,
-        ));
       } catch {
         // non-blocking
       }
     })();
-    // Both deps are stable by construction (useCallback with empty deps), so
+    // getAccessToken is stable by construction (useCallback with empty deps), so
     // this runs once per mount. That matters more than it looks: this effect
-    // fires two network calls, and anything that makes either identity change
+    // fires two network calls, and anything that makes its identity change
     // per render turns it into a request flood.
-  }, [getAccessToken, reportCompletedCount]);
+  }, [getAccessToken]);
 
   // Requests are NOT auto-opened. Pushing the request screen automatically
   // fought with that screen's own "no offer → go home" redirect: push → replace
