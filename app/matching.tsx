@@ -999,7 +999,7 @@ export default function MatchingScreen() {
               onPress={handleDeclineAll}
               size="md"
               style={styles.flex}
-              title="Decline all"
+              title={offers.length === 1 ? "Decline" : "Decline all"}
               variant="ghost"
             />
           </View>

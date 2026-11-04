@@ -757,13 +757,11 @@ export default function IncomingRequestScreen() {
               ) : typedFare !== null ? (
                 <PerKmChip priceNgn={typedFare} distanceKm={offer.plannedDistanceKm} pricingVersion={offer.pricingVersion} />
               ) : null}
-              <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
-                {perKm
-                  ? offer.maxRatePerKmNgn
-                    ? `Your price per km, up to ${formatPerKmNgn(offer.maxRatePerKmNgn)}. The rider picks.`
-                    : 'Your price per km. The rider picks.'
-                  : 'Any amount. The rider picks.'}
-              </AppText>
+              {perKm && offer.maxRatePerKmNgn ? (
+                <AppText variant="bodySmall" color={theme.colors.muted} style={styles.bidCapHint}>
+                  Up to {formatPerKmNgn(offer.maxRatePerKmNgn)}/km
+                </AppText>
+              ) : null}
               <View style={styles.bidActions}>
                 <Pressable onPress={handleCancelBid} style={styles.bidCancelBtn}>
                   <AppText variant="label" color={theme.colors.muted}>Cancel</AppText>
@@ -781,7 +779,7 @@ export default function IncomingRequestScreen() {
               <View style={styles.actions}>
                 <AppButton title={`Accept ${formatNgn(activeFare)}`} onPress={handleAccept} style={styles.acceptBtn} />
               </View>
-              <AppText variant="caption" color={theme.colors.muted} style={styles.suggestionHint}>OR BID HIGHER</AppText>
+              <AppText variant="caption" color={theme.colors.muted} style={styles.suggestionHint}>OR BID</AppText>
               <View style={styles.suggestionRow}>
                 {/* New pricing: the bid is the rate, the fare under it is what the rider sees. */}
                 {bidChoices(activeFare, offer).map(({ fareNgn, ratePerKmNgn }) => (
@@ -822,14 +820,9 @@ export default function IncomingRequestScreen() {
             </Pressable>
           ) : (
             <Pressable onPress={() => router.back()} style={styles.declineBtn}>
-              <AppText variant="label" color={theme.colors.muted}>Close — keep my bid</AppText>
+              <AppText variant="label" color={theme.colors.muted}>Close</AppText>
             </Pressable>
           )}
-
-          {/* Hint */}
-          <AppText variant="bodySmall" color={theme.colors.mutedLight} style={styles.hint}>
-            or swipe down to leave it open
-          </AppText>
         </ScrollView>
         </OnLight>
       </Animated.View>
@@ -1240,8 +1233,4 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.sm,
   },
 
-  // Hint
-  hint: {
-    textAlign: 'center',
-  },
 });

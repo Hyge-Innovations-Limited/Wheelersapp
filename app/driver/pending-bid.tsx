@@ -156,7 +156,7 @@ export default function PendingBidScreen() {
       if (!found) {
         Alert.alert(
           'Not started yet',
-          'The rider has accepted, but the trip has not been set up on our side yet. Give it a moment and try again.',
+          'Almost ready. Try again in a moment.',
         );
       }
     } finally {
@@ -206,21 +206,11 @@ export default function PendingBidScreen() {
                   ? `You took the rider's price: ${formatNgn(bid.amountNgn)}`
                   : `Your bid: ${formatNgn(bid.amountNgn)}`}
         </AppText>
-        <AppText variant="bodySmall" color={theme.colors.muted}>
-          {accepted
-            ? tripIsThisRide
-              ? 'Your trip is ready.'
-              : 'Setting up your trip. This usually takes a few seconds.'
-            : stage === 'paying'
-              ? 'Starts once they pay.'
-              : stage === 'declined'
-                ? repriced
-                  ? `The rider declined your ${formatNgn(bid.amountNgn)}, then named a new price. Take it or send a new bid below.`
-                  : `The rider declined your ${formatNgn(bid.amountNgn)}. The trip is still open — send a new bid below.`
-                : tookRidersPrice(bid)
-                  ? 'Nothing to agree on — the rider just has to confirm and pay. We will alert you the moment they do. Keep the app open so they can reach you.'
-                  : 'Waiting for the rider. You can leave this page; we will alert you when they decide.'}
-        </AppText>
+        {accepted || (stage !== 'paying' && stage !== 'declined') ? (
+          <AppText variant="bodySmall" color={theme.colors.muted}>
+            {accepted ? (tripIsThisRide ? 'Your trip is ready.' : 'Setting up…') : 'Waiting for the rider'}
+          </AppText>
+        ) : null}
         {!accepted && stage !== 'paying' ? (() => {
           // The server's clock for this search, the same one the request card counted down.
           // Counting from the driver's own bid time overstated it by however long they took to bid.
@@ -397,7 +387,7 @@ export default function PendingBidScreen() {
           )
         ) : null}
         <AppButton
-          title={accepted ? 'Back' : bid.outcome ? 'Close' : 'Close — keep my bid'}
+          title={accepted ? 'Back' : 'Close'}
           variant="ghost"
           onPress={() => {
             if (router.canGoBack()) router.back();

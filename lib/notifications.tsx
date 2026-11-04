@@ -7,6 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { isDriverApp } from "@/lib/app-variant";
 import { isTripChatOpen, requestOpenTripChat } from "@/lib/trip-chat";
+import { DRIVER_NEWS_PUSH_TYPES, quietDriverNews } from "@/lib/driver-push-quiet";
 import { requestCurrentCall } from "@/lib/live-call/events";
 import { liveCallSupported } from "@/lib/live-call/native";
 
@@ -87,7 +88,9 @@ Notifications.setNotificationHandler({
     const quiet =
       (data?.type === "chat:message" && typeof data.rideId === "string" && isTripChatOpen(data.rideId)) ||
       // The app is open and can ring: the call screen is already up.
-      (data?.type === "call:incoming" && liveCallSupported && AppState.currentState === "active");
+      (data?.type === "call:incoming" && liveCallSupported && AppState.currentState === "active") ||
+      // Driver ride news with the app on screen: the screen already shows it.
+      quietDriverNews(data?.type, isDriverApp, AppState.currentState);
     return {
       shouldPlaySound: !quiet,
       shouldSetBadge: false,
@@ -241,6 +244,11 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
       if (isDriverApp && data?.type === "dispatch_nudge") {
         const offerWaiting = data.online === "1" && typeof data.rideId === "string";
         router.navigate((offerWaiting ? "/driver/(tabs)/active" : "/driver/(tabs)/home") as Href);
+      }
+      // Driver ride news: Active, where the request, bid or trip is; money: Wallet.
+      if (isDriverApp && typeof data?.type === "string" && DRIVER_NEWS_PUSH_TYPES.includes(data.type)) {
+        router.navigate((data.type === "wallet:updated" ? "/driver/(tabs)/wallet" : "/driver/(tabs)/active") as Href);
+        return;
       }
       // A scheduled ride has started looking for drivers, a driver has made an
       // offer, or a search ended with nobody: Home, which brings the search

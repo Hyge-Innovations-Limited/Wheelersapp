@@ -130,7 +130,7 @@ export default function DriverNavigationScreen() {
   const handleCancelTrip = () => {
     Alert.alert(
       'Cancel this trip?',
-      'The rider will be told and the ride goes back to them to re-match. Only do this if you cannot do the trip.',
+      'The rider will be told.',
       [
         { text: 'Keep trip', style: 'cancel' },
         {

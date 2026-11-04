@@ -81,8 +81,8 @@ export default function DriverActiveScreen() {
           <AppText variant="h3" style={styles.emptyTitle}>Nothing in flight</AppText>
           <AppText variant="body" color={theme.colors.muted} style={styles.emptyText}>
             {session.status === 'offline'
-              ? 'Go online and new ride requests land here — along with every bid you have on the table.'
-              : 'You are online. Requests and your live bids will appear here the moment they exist.'}
+              ? 'Go online to get requests'
+              : 'Waiting for requests'}
           </AppText>
         </View>
       ) : (

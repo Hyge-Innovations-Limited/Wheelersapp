@@ -100,7 +100,7 @@ export default function DriverArrivedScreen() {
   const handleNoShow = () => {
     Alert.alert(
       'Cancel this trip?',
-      'The rider will be told and the ride goes back to them to re-match. Only do this if you cannot reach the rider.',
+      'The rider will be told.',
       [
         { text: 'Keep waiting', style: 'cancel' },
         {

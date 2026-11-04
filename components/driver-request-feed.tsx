@@ -13,12 +13,6 @@ import {
 import { bidChoices, bidsPerKm, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
 import { useDriverSession } from '@/lib/driver-session';
-import {
-  getDriverFilters,
-  loadDriverFilters,
-  subscribeDriverFilters,
-  type DriverFilters,
-} from '@/lib/driver-filters';
 import { haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
 import { stopRideRequestSound } from '@/lib/sounds';
@@ -53,11 +47,6 @@ const HOME_CARD_WINDOW_MS = RING_WINDOW_MS;
 export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean } = {}) {
   const router = useRouter();
   const { session, acceptRide, rejectRide, selectOffer, dismissBid, dismissMissedOffer } = useDriverSession();
-  const [filters, setFilters] = useState<DriverFilters>(getDriverFilters());
-  useEffect(() => {
-    void loadDriverFilters().then(setFilters);
-    return subscribeDriverFilters(setFilters);
-  }, []);
   const { currentLocation } = useAppLocation();
   const [now, setNow] = useState(() => Date.now());
   const [busyRideId, setBusyRideId] = useState<string | null>(null);
@@ -78,16 +67,6 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
   const answered = new Set(bids.map((bid) => bid.offer.rideId));
   const requests = session.offers
     .filter((offer) => !answered.has(offer.rideId))
-    .filter((offer) => {
-      // The driver's own bar for what's worth a look.
-      const ask = offer.riderOfferNgn ?? offer.fareEstimateNgn;
-      if (filters.minFareNgn !== null && ask < filters.minFareNgn) return false;
-      if (filters.maxPickupKm !== null) {
-        const km = distanceKm(offer);
-        if (km !== null && km > filters.maxPickupKm) return false;
-      }
-      return true;
-    })
     // Home shows a request for 30 seconds, then it moves on; Active keeps every
     // open one — and the stale ones, greyed, biddable until the ride is taken.
     .filter((offer) => fullHeight || (!isOfferStale(offer, now) && now - (offer.receivedAtMs ?? now) < HOME_CARD_WINDOW_MS))
@@ -154,7 +133,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               ? 'Taken by another driver'
               : entry.reason === 'cancelled'
                 ? 'Rider cancelled'
-                : 'Expired — not answered'}
+                : 'Expired'}
           </AppText>
           <Pressable onPress={() => dismissMissedOffer(offer.rideId)} style={styles.cancelChip}>
             <AppText variant="label" color={theme.colors.muted}>✕</AppText>
@@ -163,13 +142,6 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         <AppText variant="bodySmall" color={theme.colors.mutedLight} numberOfLines={1}>
           {offer.pickup.address} → {offer.destination.address} · {formatNgn(ask)}
         </AppText>
-        {entry.reason === 'cancelled' ? null : (
-          <AppText variant="caption" color={theme.colors.muted}>
-            {entry.reason === 'taken'
-              ? 'Another driver has this one'
-              : 'Tap to view — you can still try a bid'}
-          </AppText>
-        )}
         </OnLight>
       </Pressable>
       </OnLight>
@@ -246,12 +218,10 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                     ? `You took ${formatNgn(bid.amountNgn)}`
                     : `You offered ${formatNgn(bid.amountNgn)}`}
           </AppText>
-          {tookPrice ? (
-            <AppText variant="caption" color={theme.colors.muted}>the rider&apos;s price</AppText>
-          ) : !accepted && !paying && timeLeft ? (
+          {tookPrice ? null : !accepted && !paying && timeLeft ? (
             <AppText variant="label" color={theme.colors.black}>{timeLeft} left</AppText>
           ) : !accepted && !paying && !bid.outcome ? (
-            <AppText variant="caption" color={theme.colors.muted}>open · waiting on rider</AppText>
+            <AppText variant="caption" color={theme.colors.muted}>Waiting</AppText>
           ) : null}
         </View>
         <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
@@ -302,13 +272,9 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
                 style={({ pressed }) => [styles.acceptBtn, pressed && styles.pressed]}>
                 <AppText variant="label" color={theme.colors.white}>Accept {formatNgn(riderAsk)}</AppText>
               </Pressable>
-            ) : (
-              <AppText variant="caption" color={theme.colors.mutedLight} style={styles.waitNote}>
-                {tookPrice
-                  ? 'Waiting for the rider to confirm and pay. Keep the app open — you can take other requests too.'
-                  : 'You can keep taking other requests'}
-              </AppText>
-            )}
+            ) : tookPrice ? (
+              <AppText variant="caption" color={theme.colors.mutedLight} style={styles.waitNote}>Waiting for the rider</AppText>
+            ) : null}
             {/* Took the rider's own price: nothing to change, so no "Change bid". */}
             {tookRidersPrice(bid) ? null : (
               <OnLight>

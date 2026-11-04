@@ -173,7 +173,7 @@ export default function DriverActiveTripScreen() {
     }
     Alert.alert(
       'You are not at the drop-off yet',
-      `You are about ${awayKm < 10 ? awayKm.toFixed(1) : Math.round(awayKm)} km from ${ride.destination.address}. Ending now completes the trip and charges the rider the full fare.`,
+      `${awayKm < 10 ? awayKm.toFixed(1) : Math.round(awayKm)} km from ${ride.destination.address}. The rider pays the full fare.`,
       [
         { text: 'Keep driving', style: 'cancel' },
         { text: 'End anyway', style: 'destructive', onPress: () => void endRide() },
