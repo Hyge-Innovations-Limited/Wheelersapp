@@ -280,7 +280,7 @@ export default function RideSelectionScreen() {
             next.minOfferNgn !== current.minOfferNgn;
           if (!changed) {
             // Same price, a different reason for it (or the box switched on or off): changes quietly.
-            if (!samePriceReason(next.priceReason, current.priceReason) || next.tripDetailsBox !== current.tripDetailsBox) setLiveEstimate(next);
+            if (!samePriceReason(next.priceReason, current.priceReason) || (next.tripDetailsBox === true) !== (current.tripDetailsBox === true)) setLiveEstimate(next);
             return;
           }
           setIsRepricing(true);
