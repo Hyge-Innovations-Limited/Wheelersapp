@@ -167,6 +167,8 @@ export interface RideEstimateResponse {
   destination?: RideEstimateWaypoint;
   stops?: RideEstimateWaypoint[];
   route?: RideRouteGeometry;
+  /** The server takes trip details (people, luggage, pet, a note): the box shows. Older or switched off: absent. */
+  tripDetailsBox?: boolean;
 }
 
 const RIDE_ESTIMATE_CACHE_TTL_MS = 20 * 1000;

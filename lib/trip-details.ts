@@ -19,9 +19,19 @@ export const TRIP_NOTE_MAX = 60;
 
 export const DEFAULT_TRIP_DETAILS: TripDetails = { passengers: 1, luggage: false, pet: false };
 
+/** At most 60 UTF-16 units, never half an emoji. */
+function cutNote(text: string): string {
+  let out = "";
+  for (const char of text) {
+    if (out.length + char.length > TRIP_NOTE_MAX) break;
+    out += char;
+  }
+  return out;
+}
+
 /** The details as sent: whole people 1-4, a one-line note at most 60 characters, none when empty. */
 export function tripDetailsOut(details: TripDetails): TripDetails {
-  const note = (details.note ?? "").replace(/\s+/g, " ").trim().slice(0, TRIP_NOTE_MAX);
+  const note = cutNote((details.note ?? "").replace(/\s+/g, " ").trim());
   return {
     passengers: Math.min(TRIP_PASSENGERS_MAX, Math.max(1, Math.round(details.passengers) || 1)),
     luggage: details.luggage === true,

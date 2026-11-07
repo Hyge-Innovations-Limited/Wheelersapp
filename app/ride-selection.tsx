@@ -170,6 +170,9 @@ export default function RideSelectionScreen() {
   const [offerNgn, setOfferNgn] = useState<number | null>(null);
   // People, luggage, pet, a note: drivers see them before they bid.
   const [tripDetails, setTripDetails] = useState<TripDetails>(DEFAULT_TRIP_DETAILS);
+  // Only when the server takes them (TRIP_DETAILS_BOX=on); otherwise no box and nothing sent.
+  const tripBoxOn = liveEstimate?.tripDetailsBox === true;
+  const tripDetailsSent = tripBoxOn ? tripDetailsOut(tripDetails) : undefined;
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** The price "Auto-book a driver at ₦X?" is asking about; null while not asking. */
   const [autoBookAsk, setAutoBookAsk] = useState<number | null>(null);
@@ -438,7 +441,7 @@ export default function RideSelectionScreen() {
           pickup,
           destination,
           stops,
-          tripDetails: tripDetailsOut(tripDetails),
+          ...(tripDetailsSent ? { tripDetails: tripDetailsSent } : {}),
         });
 
         router.replace({
@@ -483,7 +486,7 @@ export default function RideSelectionScreen() {
         ...(estimateParam ? { estimate: estimateParam } : {}),
         offer: String(priceNgn),
         autoAccept: autoAccept ? "1" : "0",
-        trip: JSON.stringify(tripDetailsOut(tripDetails)),
+        ...(tripDetailsSent ? { trip: JSON.stringify(tripDetailsSent) } : {}),
       },
     });
   };
@@ -562,7 +565,7 @@ export default function RideSelectionScreen() {
           </View>
         </View>
 
-        <TripDetailsBox onChange={setTripDetails} value={tripDetails} />
+        {tripBoxOn ? <TripDetailsBox onChange={setTripDetails} value={tripDetails} /> : null}
 
         {estimateFailed && !hasLiveFare ? (
           estimateRefusal ? (
