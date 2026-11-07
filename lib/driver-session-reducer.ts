@@ -11,6 +11,7 @@
 import type { DriverActiveRide, RideEstimateWaypoint, RideRouteGeometry } from '@/lib/api';
 import { outcomeFromServerStatus } from '@/lib/bid-card-state';
 import { pricingVersionOf, type PricingVersion } from '@/lib/ride-fees';
+import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
 
 export type DriverStatus =
   | 'offline'
@@ -90,6 +91,8 @@ export type RideOffer = {
    * per seat — accept one rider's price, bid another — not on a lump sum.
    */
   groupMembers?: GroupSeat[];
+  /** People, luggage, pet and the rider's note. Absent: booked without them. */
+  tripDetails?: TripDetails;
 };
 
 export type GroupSeat = {
@@ -130,6 +133,8 @@ export type DriverRide = {
   liveDistanceKm?: number;
   /** The rider's last change to the route (final for the driver). Absent on older servers. */
   routeChange?: { change?: string; fareNgn?: number; key: string; at?: number };
+  /** People, luggage, pet and the rider's note, for the pickup. Absent: booked without them. */
+  tripDetails?: TripDetails;
 };
 
 /**
@@ -645,6 +650,7 @@ function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
     riderPhone: ride.riderPhone ?? undefined,
     riderName: ride.riderName ?? undefined,
     tripCodeRequired: ride.tripCodeRequired === true,
+    tripDetails: parseTripDetails(ride.tripDetails),
   };
 }
 
@@ -804,6 +810,7 @@ export function applyActiveRideSnapshot(
             riderName: prev.currentRide.riderName ?? snapshot.riderName,
             tripCodeRequired: snapshot.tripCodeRequired,
             startedAt: prev.currentRide.startedAt ?? snapshot.startedAt,
+            tripDetails: snapshot.tripDetails ?? prev.currentRide.tripDetails,
           }
         : snapshot,
   };
@@ -864,6 +871,7 @@ export function reduceDriverSession(
         Array.isArray(payload.groupMembers) && payload.groupMembers.length > 0
           ? (payload.groupMembers as GroupSeat[])
           : undefined,
+      tripDetails: parseTripDetails(payload.tripDetails),
     };
 
     // A re-broadcast for a ride we've already BID on is the rider talking
@@ -1018,6 +1026,8 @@ export function reduceDriverSession(
           typeof payload.tripCodeRequired === 'boolean'
             ? payload.tripCodeRequired
             : sameRide ? prev.currentRide?.tripCodeRequired : undefined,
+        tripDetails:
+          parseTripDetails(payload.tripDetails) ?? offer?.tripDetails ?? (sameRide ? prev.currentRide?.tripDetails : undefined),
       },
     };
   }

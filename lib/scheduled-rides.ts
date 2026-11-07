@@ -2,6 +2,7 @@ import { useAuth } from "@/lib/auth";
 import { useCallback, useEffect, useState } from "react";
 
 import { getAccessTokenWithRetry } from "@/lib/access-token";
+import type { TripDetails } from "@/lib/trip-details";
 import {
   cancelScheduledRide,
   createScheduledRide,
@@ -170,6 +171,8 @@ export async function submitScheduledRide(params: {
   pickup: RideEstimateWaypoint;
   destination: RideEstimateWaypoint;
   stops?: RideEstimateWaypoint[];
+  /** People, luggage, pet and a note, for its search. Older servers ignore it. */
+  tripDetails?: TripDetails;
 }): Promise<ScheduledRide> {
   const accessToken = await getAccessTokenWithRetry(params.getAccessToken);
   if (!accessToken) {
@@ -183,6 +186,7 @@ export async function submitScheduledRide(params: {
     pickup: params.pickup,
     destination: params.destination,
     stops: params.stops ?? [],
+    ...(params.tripDetails ? { tripDetails: params.tripDetails } : {}),
   });
 
   return response.item;

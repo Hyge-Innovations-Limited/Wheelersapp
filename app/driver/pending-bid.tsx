@@ -11,6 +11,7 @@ import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
 import { RATE_NUDGES_NGN, bidCeilingFareNgn, bidNudgesNgn, bidsPerKm, driverRatePerKmNgn, fareFromRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
+import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { theme } from '@/theme';
 import { bidStage, PAYING_LABEL, outcomeLabel, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
 import { toUserMessage } from '@/lib/error-messages';
@@ -277,6 +278,9 @@ export default function PendingBidScreen() {
         </OnLight>
       </View>
       </OnLight>
+
+      {/* People, luggage, pet, the rider's note */}
+      <TripDetailsChips details={offer.tripDetails} />
 
       {/* The money */}
       <OnLight>

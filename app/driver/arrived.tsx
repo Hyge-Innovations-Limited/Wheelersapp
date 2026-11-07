@@ -13,6 +13,7 @@ import { TripCallButton } from '@/components/TripCallButton';
 import { TripCodeSheet } from '@/components/TripCodeSheet';
 import { onStartResult } from '@/lib/trip-code';
 import { TripChatButton } from '@/components/TripChatButton';
+import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
@@ -163,6 +164,9 @@ export default function DriverArrivedScreen() {
             </OnLight>
           </View>
         </View>
+
+        {/* What the rider said: people, luggage, pet, a note. */}
+        <TripDetailsChips details={ride.tripDetails} />
 
         <View style={styles.phoneRow}>
           <TripChatButton

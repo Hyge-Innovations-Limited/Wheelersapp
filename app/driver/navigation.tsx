@@ -14,6 +14,7 @@ import { GoogleMapView } from '@/components/GoogleMapView';
 import { StatusPill } from '@/components/StatusPill';
 import { TripCallButton } from '@/components/TripCallButton';
 import { TripChatButton } from '@/components/TripChatButton';
+import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { DriverRouteChangeLine } from '@/components/DriverRouteChangeLine';
 import { useDriverSession } from '@/lib/driver-session';
 import { estimateEtaMinutes, haversineKm } from '@/lib/geo';
@@ -259,6 +260,8 @@ export default function DriverNavigationScreen() {
               ) : null}
             </View>
           </View>
+          {/* What the rider said: people, luggage, pet, a note. */}
+          <TripDetailsChips details={ride.tripDetails} />
           <View style={styles.contactRow}>
             <TripChatButton
               rideId={ride.rideId}

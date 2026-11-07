@@ -14,6 +14,7 @@ import {
 } from '@/lib/ride-offers';
 import { carryProfile, profileFrom, type DriverProfile } from '@/lib/driver-photo';
 import { useAuth } from '@/lib/auth';
+import type { TripDetails } from '@/lib/trip-details';
 import { useAppLocation } from '@/lib/location';
 import {
   createContext,
@@ -173,7 +174,7 @@ type RideSessionContextValue = {
   currentRide: RiderRideState | null;
   chatMessages: RideChatMessage[];
   error: string | null;
-  requestRide: (itinerary: RideItinerary, options?: { offerNgn?: number; autoAccept?: boolean }) => Promise<void>;
+  requestRide: (itinerary: RideItinerary, options?: { offerNgn?: number; autoAccept?: boolean; tripDetails?: TripDetails }) => Promise<void>;
   /** Take a driver's bid — this is what actually books the ride. */
   acceptOffer: (driverId: string, shownNgn?: number) => Promise<void>;
   /** Counter a specific driver with a different price. */
@@ -1167,7 +1168,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
   );
 
   const requestRide = useCallback(
-    async (itinerary: RideItinerary, options?: { offerNgn?: number; autoAccept?: boolean }): Promise<void> => {
+    async (itinerary: RideItinerary, options?: { offerNgn?: number; autoAccept?: boolean; tripDetails?: TripDetails }): Promise<void> => {
       if (!isBackendConfigured()) {
         throw new Error('Wheelers is not available right now. Please try again later.');
       }
@@ -1211,6 +1212,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           // covers it). Only then does the server book and hold by itself;
           // older servers ignore it.
           autoAccept,
+          // People, luggage, pet and a note: drivers see them before they bid. Older servers ignore it.
+          ...(options?.tripDetails ? { tripDetails: options.tripDetails } : {}),
         });
       } catch (requestError) {
         setRideState(null);

@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { targetAuthRole } from "@/lib/app-variant";
+import type { TripDetails } from "@/lib/trip-details";
 
 function getExpoDevServerHost(): string | null {
   const hostUri = Constants.expoConfig?.hostUri;
@@ -1305,6 +1306,7 @@ export async function createScheduledRide(input: {
   destination: RideEstimateWaypoint;
   stops?: RideEstimateWaypoint[];
   paymentMethod?: "wallet_balance";
+  tripDetails?: TripDetails;
 }): Promise<{ item: ScheduledRide }> {
   return postJson<{ item: ScheduledRide }>(
     "/scheduled-rides",
@@ -1314,6 +1316,7 @@ export async function createScheduledRide(input: {
       destination: input.destination,
       stops: input.stops ?? [],
       paymentMethod: input.paymentMethod ?? "wallet_balance",
+      ...(input.tripDetails ? { tripDetails: input.tripDetails } : {}),
     },
     {
       accessToken: input.accessToken,
@@ -2058,6 +2061,8 @@ export interface DriverActiveRide {
   riderName?: string | null;
   /** Start trip asks for the rider's trip code. Older servers leave it out. */
   tripCodeRequired?: boolean;
+  /** People, luggage, pet and the rider's note. Absent: booked without them, or an older server. */
+  tripDetails?: unknown;
   matchedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;

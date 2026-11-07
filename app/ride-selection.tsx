@@ -18,6 +18,8 @@ import {
 import { PriceCard, PriceCardNote, PriceShimmer } from "@/components/rider/price-card";
 import { priceReasonLine, samePriceReason } from "@/lib/price-reason";
 import { AutoBookSheet } from "@/components/rider/auto-book-sheet";
+import { TripDetailsBox } from "@/components/rider/trip-details-box";
+import { DEFAULT_TRIP_DETAILS, tripDetailsOut, type TripDetails } from "@/lib/trip-details";
 import { shouldAskAutoBook } from "@/lib/ride-pay";
 import { fetchFreshBalanceNgn } from "@/lib/wallet-overview";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
@@ -166,6 +168,8 @@ export default function RideSelectionScreen() {
    * is theirs.
    */
   const [offerNgn, setOfferNgn] = useState<number | null>(null);
+  // People, luggage, pet, a note: drivers see them before they bid.
+  const [tripDetails, setTripDetails] = useState<TripDetails>(DEFAULT_TRIP_DETAILS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** The price "Auto-book a driver at ₦X?" is asking about; null while not asking. */
   const [autoBookAsk, setAutoBookAsk] = useState<number | null>(null);
@@ -434,6 +438,7 @@ export default function RideSelectionScreen() {
           pickup,
           destination,
           stops,
+          tripDetails: tripDetailsOut(tripDetails),
         });
 
         router.replace({
@@ -478,6 +483,7 @@ export default function RideSelectionScreen() {
         ...(estimateParam ? { estimate: estimateParam } : {}),
         offer: String(priceNgn),
         autoAccept: autoAccept ? "1" : "0",
+        trip: JSON.stringify(tripDetailsOut(tripDetails)),
       },
     });
   };
@@ -555,6 +561,8 @@ export default function RideSelectionScreen() {
             )}
           </View>
         </View>
+
+        <TripDetailsBox onChange={setTripDetails} value={tripDetails} />
 
         {estimateFailed && !hasLiveFare ? (
           estimateRefusal ? (

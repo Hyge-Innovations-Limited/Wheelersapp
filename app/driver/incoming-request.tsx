@@ -27,6 +27,7 @@ import { AppButton } from '@/components/app-button';
 import { bidCeilingNgn } from '@/lib/bid-limits';
 import { bidCeilingFareNgn, bidChoices, bidsPerKm, fareFromRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
 import { PerKmChip } from '@/components/PerKmChip';
+import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { AppText, OnLight } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
@@ -635,6 +636,9 @@ export default function IncomingRequestScreen() {
             </OnLight>
           </View>
           </OnLight>
+
+          {/* What the rider said: people, luggage, pet, a note — before any bid. */}
+          <TripDetailsChips details={offer.tripDetails} />
 
           {/* Driver→pickup, live */}
           {toPickupLabel ? (

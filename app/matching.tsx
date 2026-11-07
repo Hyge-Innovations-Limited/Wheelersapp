@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { parseTripDetails } from "@/lib/trip-details";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -89,7 +90,10 @@ export default function MatchingScreen() {
     offer?: string | string[];
     /** "1": the rider said yes to "Auto-book a driver at ₦X?" on Set your price. */
     autoAccept?: string | string[];
+    /** People, luggage, pet and a note from Set your price (JSON). */
+    trip?: string | string[];
   }>();
+  const tripDetails = useMemo(() => parseTripDetails(params.trip), [params.trip]);
 
   const itinerary = useMemo(
     () => parseRideItineraryParam(params.itinerary),
@@ -180,7 +184,7 @@ export default function MatchingScreen() {
     async (offerNgn: number | undefined, autoAccept: boolean, onFailure?: () => void) => {
       setRequestSettled(false);
       try {
-        await requestRide(itinerary, { offerNgn, autoAccept });
+        await requestRide(itinerary, { offerNgn, autoAccept, tripDetails });
       } catch (requestError) {
         Alert.alert(
           "Could not request this ride",
@@ -193,7 +197,7 @@ export default function MatchingScreen() {
         setRequestSettled(true);
       }
     },
-    [itinerary, requestRide],
+    [itinerary, requestRide, tripDetails],
   );
 
   /* ── publish the ride, exactly once ────────────────────────────────── */
