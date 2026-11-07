@@ -13,6 +13,7 @@ import { CourseArrowMarker } from '@/components/course-arrow-marker';
 import { EmergencyButton } from '@/components/emergency-button';
 import { GoogleMapView } from '@/components/GoogleMapView';
 import { TripChatButton } from '@/components/TripChatButton';
+import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { DriverRouteChangeLine } from '@/components/DriverRouteChangeLine';
 import { useDriverSession } from '@/lib/driver-session';
@@ -308,6 +309,9 @@ export default function DriverActiveTripScreen() {
             {ride.destination.address}
           </AppText>
         </View>
+
+        {/* What the rider said: people, luggage, pet, a note — for the drop-off too. */}
+        <TripDetailsChips details={ride.tripDetails} />
 
         <AppButton title="End ride" onPress={handleEndRide} />
         </OnLight>
