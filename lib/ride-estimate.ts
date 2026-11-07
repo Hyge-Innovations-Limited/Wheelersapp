@@ -57,6 +57,8 @@ export function parseRideEstimateParam(
             .filter((stop): stop is NonNullable<RideEstimateResponse["stops"]>[number] => stop != null)
         : undefined,
       route: parseRideRouteGeometry(parsed.route) ?? undefined,
+      // Kept across screens, so the trip details box is there from the first draw.
+      ...(parsed.tripDetailsBox === true ? { tripDetailsBox: true } : {}),
     };
   } catch {
     return null;

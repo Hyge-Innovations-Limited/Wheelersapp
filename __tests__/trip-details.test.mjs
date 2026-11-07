@@ -48,6 +48,8 @@ test('what Set your price sends: whole people 1-4, one-line note, none when empt
   assert.deepEqual(tripDetailsOut({ passengers: 9, luggage: true, pet: false, note: '  Two \n boxes ' }), { passengers: 4, luggage: true, pet: false, note: 'Two boxes' });
   assert.deepEqual(tripDetailsOut({ passengers: 0, luggage: false, pet: false, note: '   ' }), { passengers: 1, luggage: false, pet: false });
   assert.equal(tripDetailsOut({ passengers: 1, luggage: false, pet: false, note: 'x'.repeat(80) }).note.length, 60);
+  // Never half an emoji at the 60th character.
+  assert.equal(tripDetailsOut({ passengers: 1, luggage: false, pet: false, note: 'a'.repeat(59) + String.fromCodePoint(0x1f600) }).note, 'a'.repeat(59));
   // The matching screen gets it as a route param.
   assert.deepEqual(parseTripDetails(JSON.stringify(DETAILS)), DETAILS);
   assert.deepEqual(parseTripDetails([JSON.stringify(DETAILS)]), DETAILS);

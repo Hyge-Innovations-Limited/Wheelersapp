@@ -167,9 +167,17 @@ export default function MatchingScreen() {
   const navigatedRef = useRef(false);
   const rideAtMountRef = useRef(currentRide);
   // What this trip was searched with (from Set your price, or the search on screen when opened
-  // from elsewhere): search again keeps it after the finished search is put away.
-  const tripDetailsRef = useRef(tripFromParams ?? currentRide?.tripDetails);
-  if (!tripDetailsRef.current && currentRide?.tripDetails) tripDetailsRef.current = currentRide.tripDetails;
+  // from elsewhere): search again keeps it after the finished search is put away. Never an
+  // ended ride's or another trip's details.
+  const openSearchDetails =
+    currentRide &&
+    currentRide.status !== "cancelled" &&
+    currentRide.status !== "completed" &&
+    serializeRideItinerary(currentRide.itinerary) === serializedItinerary
+      ? currentRide.tripDetails
+      : undefined;
+  const tripDetailsRef = useRef(tripFromParams ?? openSearchDetails);
+  if (!tripDetailsRef.current && openSearchDetails) tripDetailsRef.current = openSearchDetails;
 
   const offers = useMemo(() => currentRide?.offers ?? [], [currentRide?.offers]);
   const status = currentRide?.status;
