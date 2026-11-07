@@ -65,7 +65,7 @@ test('the driver sees them on the request, keeps them through the bid and the ma
   s = recordBid(s, s.currentOffer, 6500, new Date(NOW).toISOString());
   assert.deepEqual(s.pendingBids['ride-1'].offer.tripDetails, DETAILS, 'on the bid card');
 
-  // An older gateway's match carries no details: the bid's are kept.
+  // A match without them (an older server): the bid card's are kept.
   s = reduceDriverSession(s, 'ride:matched', { rideId: 'ride-1', riderId: 'rider-1', agreedFareNgn: 6500, riderPaid: true }, NOW + 60_000);
   assert.deepEqual(s.currentRide.tripDetails, DETAILS, 'at the pickup');
 
@@ -84,4 +84,17 @@ test('a request booked without them (older apps, chat) has none, and nothing bre
   assert.equal(s.currentOffer.tripDetails, undefined);
   const bad = reduceDriverSession({ ...defaultDriverSession, status: 'online' }, 'ride:offer', offer({ tripDetails: 'three' }), NOW);
   assert.equal(bad.currentOffer.tripDetails, undefined);
+});
+
+test('a search brought back from the server (app restarted) keeps its details, so search again sends them', () => {
+  const { restoredRideFrom } = build('lib/rider-active-ride.ts');
+  const ride = {
+    id: 'ride-9', tripId: 'WH-00009', status: 'MATCHING', pickup: PICKUP, destination: DEST, stops: [{ type: 'FINAL', address: DEST.address }],
+    fareEstimateNgn: 5200, riderOfferNgn: 6000, autoAccept: false,
+    search: { bidsCloseAt: new Date(Date.now() + 60_000).toISOString(), offers: [] },
+    tripDetails: DETAILS,
+  };
+  assert.deepEqual(restoredRideFrom(ride).tripDetails, DETAILS);
+  const { tripDetails: _, ...older } = ride;
+  assert.equal(restoredRideFrom(older).tripDetails, undefined, 'an older server: none');
 });

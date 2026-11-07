@@ -2256,6 +2256,8 @@ export async function requestStellarWithdrawal(input: {
 
 export interface RiderActiveRideDetail {
   id: string;
+  /** People, luggage, pet and a note the ride was booked with (newer servers). */
+  tripDetails?: unknown;
   tripId: string | null;
   status: string;
   pickup: { lat: number; lng: number; address: string };

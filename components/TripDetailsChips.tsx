@@ -11,8 +11,25 @@ import { theme } from '@/theme';
  * are not missed), and the rider's note. Nothing for a ride booked without
  * them (older apps, chat).
  */
-export function TripDetailsChips({ details }: { details?: TripDetails }) {
+export function TripDetailsChips({ details, compact = false }: { details?: TripDetails; compact?: boolean }) {
   if (!details) return null;
+  // The in-trip panel is small: one line, and nothing when the rider said nothing out of the ordinary.
+  if (compact) {
+    const parts = [
+      details.passengers > 1 ? peopleLabel(details.passengers) : null,
+      details.luggage ? 'Luggage' : null,
+      details.pet ? 'Pet' : null,
+      details.note ? `“${details.note}”` : null,
+    ].filter(Boolean);
+    if (parts.length === 0) return null;
+    return (
+      <OnLight>
+        <AppText variant="bodySmall" numberOfLines={1} style={styles.compact}>
+          {parts.join(' · ')}
+        </AppText>
+      </OnLight>
+    );
+  }
   const said = [
     peopleLabel(details.passengers),
     details.luggage ? 'luggage' : null,
@@ -67,5 +84,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipYes: { borderColor: theme.colors.orange, backgroundColor: theme.colors.orangeLight },
-  note: { paddingHorizontal: 2 },
+  // Its own white card: the request and bid screens can be dark, and the note must read on any of them.
+  note: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.white,
+    overflow: 'hidden',
+  },
+  compact: { paddingHorizontal: 2 },
 });

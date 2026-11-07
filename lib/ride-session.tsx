@@ -146,6 +146,8 @@ export type RiderRideState = {
   autoAcceptSupported?: boolean;
   /** The rider said yes to "Auto-book a driver at ₦X?" for this search. */
   autoAcceptChosen?: boolean;
+  /** People, luggage, pet and a note the search went out with: search again sends them again. */
+  tripDetails?: TripDetails;
   /** Set when the window closed with nobody accepting. */
   bidTimeout?: boolean;
   startedAt?: string;
@@ -1193,6 +1195,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         status: 'requesting',
         itinerary,
         autoAcceptChosen: autoAccept,
+        ...(options?.tripDetails ? { tripDetails: options.tripDetails } : {}),
       });
 
       try {

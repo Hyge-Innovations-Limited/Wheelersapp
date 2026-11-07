@@ -96,7 +96,7 @@ function YesNoRow({
             <Pressable
               accessibilityLabel={`${label}: ${yes ? "Yes" : "No"}`}
               accessibilityRole="radio"
-              accessibilityState={{ selected: picked }}
+              accessibilityState={{ checked: picked }}
               key={yes ? "yes" : "no"}
               onPress={() => onChange(yes)}
               style={[styles.segButton, picked ? (yes ? styles.segYes : styles.segNo) : null]}>
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.72 },
   number: { width: 30, textAlign: "center", fontSize: 22, lineHeight: 26 },
   seg: { flexDirection: "row", gap: 2, padding: 3, borderRadius: radius.sm, backgroundColor: colors.tint },
-  segButton: { width: 56, height: 40, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  segButton: { width: 56, height: 44, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   segNo: { backgroundColor: colors.ink },
   segYes: { backgroundColor: colors.orange },
   segYesText: { fontFamily: fonts.heavy },

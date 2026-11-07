@@ -93,7 +93,7 @@ export default function MatchingScreen() {
     /** People, luggage, pet and a note from Set your price (JSON). */
     trip?: string | string[];
   }>();
-  const tripDetails = useMemo(() => parseTripDetails(params.trip), [params.trip]);
+  const tripFromParams = useMemo(() => parseTripDetails(params.trip), [params.trip]);
 
   const itinerary = useMemo(
     () => parseRideItineraryParam(params.itinerary),
@@ -166,6 +166,10 @@ export default function MatchingScreen() {
   const staleRideIdRef = useRef<string | null>(null);
   const navigatedRef = useRef(false);
   const rideAtMountRef = useRef(currentRide);
+  // What this trip was searched with (from Set your price, or the search on screen when opened
+  // from elsewhere): search again keeps it after the finished search is put away.
+  const tripDetailsRef = useRef(tripFromParams ?? currentRide?.tripDetails);
+  if (!tripDetailsRef.current && currentRide?.tripDetails) tripDetailsRef.current = currentRide.tripDetails;
 
   const offers = useMemo(() => currentRide?.offers ?? [], [currentRide?.offers]);
   const status = currentRide?.status;
@@ -184,7 +188,7 @@ export default function MatchingScreen() {
     async (offerNgn: number | undefined, autoAccept: boolean, onFailure?: () => void) => {
       setRequestSettled(false);
       try {
-        await requestRide(itinerary, { offerNgn, autoAccept, tripDetails });
+        await requestRide(itinerary, { offerNgn, autoAccept, tripDetails: tripDetailsRef.current });
       } catch (requestError) {
         Alert.alert(
           "Could not request this ride",
@@ -197,7 +201,7 @@ export default function MatchingScreen() {
         setRequestSettled(true);
       }
     },
-    [itinerary, requestRide, tripDetails],
+    [itinerary, requestRide],
   );
 
   /* ── publish the ride, exactly once ────────────────────────────────── */

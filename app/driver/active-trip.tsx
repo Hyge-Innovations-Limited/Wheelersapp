@@ -311,7 +311,7 @@ export default function DriverActiveTripScreen() {
         </View>
 
         {/* What the rider said: people, luggage, pet, a note — for the drop-off too. */}
-        <TripDetailsChips details={ride.tripDetails} />
+        <TripDetailsChips compact details={ride.tripDetails} />
 
         <AppButton title="End ride" onPress={handleEndRide} />
         </OnLight>

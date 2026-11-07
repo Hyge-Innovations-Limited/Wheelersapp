@@ -1,4 +1,5 @@
 import type { RiderActiveRideDetail } from '@/lib/api';
+import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
 import { profileFrom, type DriverProfile } from '@/lib/driver-photo';
 import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ride-offers';
 
@@ -41,6 +42,8 @@ export type RestoredRide = {
   tripCode?: string;
   itinerary: { pickup: string; stops: string[] };
   fareEstimateNgn?: number;
+  /** People, luggage, pet and a note the search went out with (newer servers). */
+  tripDetails?: TripDetails;
   startedAt?: string;
   driver?: DriverProfile & {
     driverId: string;
@@ -79,6 +82,7 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
     ...(typeof ride.riderOfferNgn === 'number' ? { riderOfferNgn: ride.riderOfferNgn } : {}),
     bidsCloseAt: ride.search.bidsCloseAt,
     autoAcceptSupported: true,
+    ...(parseTripDetails(ride.tripDetails) ? { tripDetails: parseTripDetails(ride.tripDetails) } : {}),
     ...(typeof ride.autoAccept === 'boolean' ? { autoAcceptChosen: ride.autoAccept } : {}),
     offers: ride.search.offers
       .filter((offer) => offer.counterOfferNgn > 0)
