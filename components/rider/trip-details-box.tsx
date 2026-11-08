@@ -9,7 +9,7 @@ const { colors, fonts, radius } = rider;
 
 /**
  * People, luggage, pet and a note on "Set your price": drivers see them
- * before they bid. Untouched it is 1 person, no luggage, no pet, no note.
+ * before they bid. Untouched it is 1 person, luggage and pet Yes, no note.
  * The WhatsApp ride page has the same box (widget/ride/ride.html).
  */
 export function TripDetailsBox({ value, onChange }: { value: TripDetails; onChange: (next: TripDetails) => void }) {
