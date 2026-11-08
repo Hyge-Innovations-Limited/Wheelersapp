@@ -44,7 +44,7 @@ function offer(extra = {}) {
 }
 
 test('what Set your price sends: whole people 1-4, one-line note, none when empty', () => {
-  assert.deepEqual(tripDetailsOut(DEFAULT_TRIP_DETAILS), { passengers: 1, luggage: false, pet: false });
+  assert.deepEqual(tripDetailsOut(DEFAULT_TRIP_DETAILS), { passengers: 1, luggage: true, pet: true }, 'untouched: luggage and pet Yes');
   assert.deepEqual(tripDetailsOut({ passengers: 9, luggage: true, pet: false, note: '  Two \n boxes ' }), { passengers: 4, luggage: true, pet: false, note: 'Two boxes' });
   assert.deepEqual(tripDetailsOut({ passengers: 0, luggage: false, pet: false, note: '   ' }), { passengers: 1, luggage: false, pet: false });
   assert.equal(tripDetailsOut({ passengers: 1, luggage: false, pet: false, note: 'x'.repeat(80) }).note.length, 60);

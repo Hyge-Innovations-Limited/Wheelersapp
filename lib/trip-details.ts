@@ -17,7 +17,8 @@ export type TripDetails = {
 export const TRIP_PASSENGERS_MAX = 4;
 export const TRIP_NOTE_MAX = 60;
 
-export const DEFAULT_TRIP_DETAILS: TripDetails = { passengers: 1, luggage: false, pet: false };
+/** Luggage and pet start on Yes (Timi, 8 Nov): the rider taps No when they have none. */
+export const DEFAULT_TRIP_DETAILS: TripDetails = { passengers: 1, luggage: true, pet: true };
 
 /** At most 60 UTF-16 units, never half an emoji. */
 function cutNote(text: string): string {
