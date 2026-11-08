@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AppState, Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -12,47 +12,22 @@ import { useResponsive } from "@/lib/responsive";
 import { theme } from "@/theme";
 import { useDriverOnboarding } from "@/lib/driver-onboarding";
 import { useKycStep } from "@/lib/use-kyc-step";
-import { faceCheck, PROMPTS, readFrame, START, STEPS, stepsDone, type CheckState, type SelfieCheck } from "@/lib/face-check";
 
-/** What makes a selfie usable, shown under the camera when there is no face check. */
+/** What makes a selfie usable, shown under the camera. */
 const TIPS: { icon: keyof typeof Ionicons.glyphMap; text: string }[] = [
   { icon: "phone-portrait-outline", text: "Hold your phone at eye level" },
   { icon: "scan-outline", text: "Your whole face inside the oval" },
   { icon: "sunny-outline", text: "Good light, no cap or sunglasses" },
 ];
 
-/** A prompt not done in this long gets a hint, and counts as a miss. */
-const STUCK_MS = 20_000;
-/** After this many misses the driver may go on without the check (the photo is marked for the reviewer). */
-const MISSES_BEFORE_SKIP = 3;
-/** Frame reads that fail in a row before the check is given up on this phone. */
-const ERRORS_BEFORE_GIVING_UP = 4;
-/** The camera giving no frames for this long (it restarts when the size is set, or after the app was away): the check is given up. */
-const CAMERA_FAILING_MS = 8_000;
-
-const STUCK_HINTS: Record<string, string> = {
-  straight: "Hold the phone at eye level, face in the oval, in good light",
-  close_eyes: "Close both eyes fully for a second",
-  open_eyes: "Open your eyes and look at the screen",
-  turn_one: "Turn your head slowly, as if looking over your shoulder",
-  turn_other: "Now turn the other way, past the middle",
-  ready: "Look straight at the camera with your eyes open",
-};
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 /**
- * The driver's selfie, taken by the driver and looked at before it is used.
+ * The driver's selfie: they put their face in the oval, take the photo
+ * themselves and look at it before it is used.
  *
- * With the face check (modules/face-check, in builds that have it) the phone
- * watches a few frames a second and the prompts move on only when the driver
- * really does them: look straight, close then open the eyes, turn one way then
- * the other (lib/face-check.ts). The oval turns green and the shutter lights
- * up only then, and only while they look straight. A driver stuck three times
- * may go on without it; that photo is marked for the reviewer.
- *
- * Without it (older builds, or a phone where it fails), the driver takes the
- * photo with the tips shown and looks at it, as before.
+ * The on-device face check (modules/face-check) is not used here any more:
+ * it read the face by taking photos several times a second, and every one
+ * flashed the screen white on Android. The photo is marked "taken without
+ * face check" for the reviewer, as on builds that never had the check.
  *
  * Front camera only, never the gallery. Coming back to this step shows the
  * photo already taken, to keep or retake.
@@ -62,111 +37,21 @@ export default function FaceVerificationScreen() {
   const step = useKycStep("selfie");
   const { data, setSelfieUri } = useDriverOnboarding();
   const [permission, requestPermission] = useCameraPermissions();
-  const checker = faceCheck();
 
   const [photoUri, setPhotoUri] = useState<string | null>(data.selfieUri);
-  const [photoCheck, setPhotoCheck] = useState<SelfieCheck | null>(data.selfieCheck);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraKey, setCameraKey] = useState(0);
   const [taking, setTaking] = useState(false);
-  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
   const cameraRef = useRef<CameraView>(null);
 
-  // The face check: on unless this build has none, the phone could not run it, or the driver went on without it.
-  const [checking, setChecking] = useState(checker !== null);
-  const [without, setWithout] = useState<SelfieCheck>("unavailable");
-  const [check, setCheck] = useState<CheckState>(START);
-  const [hint, setHint] = useState<string | null>(null);
-  // The clearer words after being stuck on a prompt: kept until that prompt is done (frames would overwrite `hint`).
-  const [stuckHint, setStuckHint] = useState<string | null>(null);
-  const [canShoot, setCanShoot] = useState(false);
-  const [misses, setMisses] = useState(0);
-  const checkRef = useRef<CheckState>(START);
-  const pausedRef = useRef(false);
-  const frameRef = useRef<Promise<unknown> | null>(null);
-
   const reviewing = photoUri !== null;
-  /** The app is in front: frames and the stuck timer stop while the driver is elsewhere. */
-  const [active, setActive] = useState(AppState.currentState === "active");
-
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (state) => setActive(state === "active"));
-    return () => sub.remove();
-  }, []);
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
       void requestPermission();
     }
   }, [permission, requestPermission]);
-
-  // A few frames a second while the camera is open: each one moves the prompts on, or says what is off.
-  useEffect(() => {
-    // Not before the picture size is set: setting it restarts the camera, and frames taken meanwhile fail.
-    if (!checking || !checker || reviewing || !cameraReady || cameraError || !active || pictureSize === undefined) return;
-    let alive = true;
-    /** The check itself failing on frames it was given; the camera failing to give one is only given up on after a while. */
-    let errors = 0;
-    let failingSince: number | null = null;
-    void (async () => {
-      while (alive) {
-        if (pausedRef.current || !cameraRef.current) {
-          await sleep(150);
-          continue;
-        }
-        let gotFrame = false;
-        const read = (async () => {
-          const picture = await cameraRef.current!.takePictureAsync({ quality: 0.3, skipProcessing: true, shutterSound: false });
-          if (!picture?.uri) throw new Error("no frame");
-          gotFrame = true;
-          return checker.detect(picture.uri, true);
-        })();
-        frameRef.current = read;
-        try {
-          const frame = await read;
-          errors = 0;
-          failingSince = null;
-          if (!alive) break;
-          const before = checkRef.current.prompt;
-          const out = readFrame(checkRef.current, frame);
-          checkRef.current = out.state;
-          setCheck(out.state);
-          setHint(out.hint);
-          setCanShoot(out.canShoot);
-          if (out.state.prompt !== before) {
-            setStuckHint(null);
-            void Haptics.selectionAsync().catch(() => undefined);
-          }
-        } catch {
-          if (gotFrame) errors += 1;
-          failingSince ??= Date.now();
-          if (alive && (errors >= ERRORS_BEFORE_GIVING_UP || Date.now() - failingSince > CAMERA_FAILING_MS)) {
-            // This phone cannot run it: the photo is taken by hand, marked as without the check.
-            setWithout("unavailable");
-            setChecking(false);
-            break;
-          }
-        } finally {
-          frameRef.current = null;
-        }
-        await sleep(120);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [checking, checker, reviewing, cameraReady, cameraError, active, pictureSize]);
-
-  // A prompt not done for a while: a clearer hint, and a miss.
-  useEffect(() => {
-    if (!checking || reviewing || !cameraReady || !active) return;
-    const timer = setTimeout(() => {
-      setMisses((n) => n + 1);
-      setStuckHint(STUCK_HINTS[check.prompt] ?? null);
-    }, STUCK_MS);
-    return () => clearTimeout(timer);
-  }, [checking, reviewing, cameraReady, active, check.prompt, misses]);
 
   async function takePhoto() {
     if (taking) return;
@@ -175,15 +60,10 @@ export default function FaceVerificationScreen() {
       return;
     }
     setTaking(true);
-    // The frame being read finishes first: the camera takes one picture at a time.
-    pausedRef.current = true;
-    // Never waits for good on a frame the camera does not finish.
-    await Promise.race([frameRef.current?.catch(() => undefined), sleep(2000)]);
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, shutterSound: false });
       if (photo?.uri) {
         setPhotoUri(photo.uri);
-        setPhotoCheck(checking ? "passed" : without);
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       } else {
         setCameraError("The photo didn't save. Try again.");
@@ -191,56 +71,23 @@ export default function FaceVerificationScreen() {
     } catch {
       setCameraError("Your camera couldn't take the photo. Try again.");
     } finally {
-      pausedRef.current = false;
       setTaking(false);
     }
   }
 
-  /**
-   * About 1280 px on the long side, when the camera offers it: a 12 MP frame a
-   * few times a second makes a cheap phone slow, and 1280 is plenty for a selfie.
-   * Otherwise the camera's own default.
-   */
-  async function choosePictureSize() {
-    try {
-      const sizes = (await cameraRef.current?.getAvailablePictureSizesAsync()) ?? [];
-      const sized = sizes
-        .map((size) => {
-          const [w, h] = size.split("x").map(Number);
-          return { size, long: Math.max(w || 0, h || 0) };
-        })
-        .filter((s) => s.long >= 960 && s.long <= 1920)
-        .sort((a, b) => Math.abs(a.long - 1280) - Math.abs(b.long - 1280));
-      setPictureSize(sized[0]?.size ?? "");
-    } catch {
-      setPictureSize("");
-    }
-  }
-
-  /** Back to the camera, fresh. Prompts already done stay done: they were done moments ago, by this face. */
+  /** Back to the camera, fresh. */
   function retake() {
     setPhotoUri(null);
-    setPhotoCheck(null);
     setCameraError(null);
     setCameraReady(false);
-    setCanShoot(false);
     setCameraKey((k) => k + 1);
-  }
-
-  /** On without the face check: the driver takes the photo by hand; it is marked for the reviewer. */
-  function goOnWithout() {
-    setWithout("skipped");
-    setChecking(false);
-    setHint(null);
-    setStuckHint(null);
   }
 
   /** Keep this photo and move on (or send, when it is the last step). */
   function usePhoto() {
     if (!photoUri) return;
-    const how = photoCheck ?? without;
-    setSelfieUri(photoUri, how);
-    void step.go({ selfieUri: photoUri, selfieCheck: how });
+    setSelfieUri(photoUri, "unavailable");
+    void step.go({ selfieUri: photoUri, selfieCheck: "unavailable" });
   }
 
   if (!permission?.granted) {
@@ -250,7 +97,7 @@ export default function FaceVerificationScreen() {
         <View style={styles.center}>
           <Ionicons name="camera-outline" size={40} color={theme.colors.muted} />
           <AppText variant="body" color={theme.colors.muted} style={styles.centerText}>
-            {"We use your front camera to check it's you, and for one photo of your face."}
+            {"We use your front camera for one clear photo of your face."}
           </AppText>
         </View>
         <AppButton title="Allow camera" onPress={requestPermission} />
@@ -258,19 +105,16 @@ export default function FaceVerificationScreen() {
     );
   }
 
-  // The frame takes whatever height is left after the header, prompts and buttons,
+  // The frame takes whatever height is left after the header, tips and buttons,
   // capped to 3:4, so it shrinks on a small phone instead of pushing the buttons off.
   const frameHeight = responsive.vh(46, 240, 460);
   const guideHeight = Math.round(frameHeight * 0.7);
-  const done = stepsDone(check.prompt);
-  const shutterOn = cameraReady && !taking && (!checking || canShoot);
+  const shutterOn = cameraReady && !taking;
   const subtitle = reviewing
     ? "Check your photo before you use it"
     : cameraError
       ? "Let's try that again"
-      : checking
-        ? "Follow the prompts so we know it's really you"
-        : "Take a clear photo of your face";
+      : "Put your face in the oval and take the photo";
 
   return (
     <AppScreen scroll contentStyle={styles.container}>
@@ -289,18 +133,15 @@ export default function FaceVerificationScreen() {
                 style={styles.fill}
                 facing="front"
                 mode="picture"
-                pictureSize={pictureSize || undefined}
-                onCameraReady={() => {
-                  setCameraReady(true);
-                  if (pictureSize === undefined) void choosePictureSize();
-                }}
+                // No white flash over the screen when the photo is taken.
+                animateShutter={false}
+                onCameraReady={() => setCameraReady(true)}
                 onMountError={() => setCameraError("Your camera didn't start. Close any other app using it, then try again.")}
               />
               <View style={styles.overlay} pointerEvents="none">
                 <View
                   style={[
                     styles.faceGuide,
-                    checking && canShoot && styles.faceGuideReady,
                     { height: guideHeight, width: Math.round(guideHeight * 0.77), borderRadius: Math.round(guideHeight * 0.4) },
                   ]}
                 />
@@ -328,38 +169,7 @@ export default function FaceVerificationScreen() {
               Your whole face, not blurry or dark. If not, take it again.
             </AppText>
           </View>
-        ) : cameraError ? null : checking ? (
-          <View style={styles.tips}>
-            <View style={styles.stepRow} accessibilityLabel={`${done} of ${STEPS.length} steps done`}>
-              {STEPS.map((s, index) => {
-                const ok = index < done;
-                const now = index === done;
-                return (
-                  <View key={s.key} style={[styles.stepPill, ok && styles.stepPillDone, now && styles.stepPillNow]}>
-                    {ok ? <Ionicons name="checkmark" size={14} color={theme.colors.white} /> : null}
-                    <AppText variant="caption" color={ok ? theme.colors.white : now ? theme.colors.black : theme.colors.muted}>
-                      {s.label}
-                    </AppText>
-                  </View>
-                );
-              })}
-            </View>
-            {cameraReady ? (
-              <>
-                <AppText variant="h3" style={styles.centerText} accessibilityLiveRegion="polite">
-                  {PROMPTS[check.prompt]}
-                </AppText>
-                <AppText variant="bodySmall" color={hint || stuckHint ? theme.colors.orange : theme.colors.muted} style={styles.centerText}>
-                  {hint ?? stuckHint ?? (check.prompt === "ready" ? "All done. Hold still and tap the button." : " ")}
-                </AppText>
-              </>
-            ) : (
-              <AppText variant="bodySmall" color={theme.colors.muted}>
-                Starting your camera…
-              </AppText>
-            )}
-          </View>
-        ) : (
+        ) : cameraError ? null : (
           <View style={styles.tips}>
             {TIPS.map((tip) => (
               <View key={tip.text} style={styles.tipRow}>
@@ -382,17 +192,14 @@ export default function FaceVerificationScreen() {
               accessibilityState={{ disabled: !shutterOn }}
               style={({ pressed }) => [styles.shutter, !shutterOn && styles.shutterOff, (pressed || taking) && styles.shutterPressed]}>
               <OnLight>
-                <View style={[styles.shutterInner, !shutterOn && styles.shutterInnerOff]}>
+                <View style={styles.shutterInner}>
                   <Ionicons name="camera" size={28} color={theme.colors.white} />
                 </View>
               </OnLight>
             </Pressable>
             <AppText variant="bodySmall" color={theme.colors.muted}>
-              {taking ? "Taking photo…" : shutterOn ? "Tap to take the photo" : "Finish the steps first"}
+              {taking ? "Taking photo…" : "Tap to take the photo"}
             </AppText>
-            {checking && misses >= MISSES_BEFORE_SKIP ? (
-              <AppButton title="Continue without the face check" variant="ghost" onPress={goOnWithout} />
-            ) : null}
           </View>
         ) : null}
       </View>
@@ -457,11 +264,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.orange,
     borderStyle: "dashed",
   },
-  faceGuideReady: {
-    borderWidth: 4,
-    borderColor: theme.colors.green,
-    borderStyle: "solid",
-  },
   tips: {
     alignItems: "center",
     gap: theme.spacing.xs,
@@ -471,30 +273,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.sm,
-  },
-  stepRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 6,
-    marginBottom: theme.spacing.xs,
-  },
-  stepPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.borderLight,
-  },
-  stepPillNow: {
-    borderColor: theme.colors.orange,
-  },
-  stepPillDone: {
-    backgroundColor: theme.colors.green,
-    borderColor: theme.colors.green,
   },
   shutterWrap: {
     alignItems: "center",
@@ -526,9 +304,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.orange,
     alignItems: "center",
     justifyContent: "center",
-  },
-  shutterInnerOff: {
-    backgroundColor: theme.colors.muted,
   },
   errorWrap: {
     alignItems: "center",
