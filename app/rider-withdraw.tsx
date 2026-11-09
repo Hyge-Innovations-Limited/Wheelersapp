@@ -5,9 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
   Pressable,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -16,11 +16,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { KeyboardShiftView } from "@/components/keyboard-shift-view";
+import { BankMark } from "@/components/rider/bank-mark";
+import { bankSections, searchBanks } from "@/lib/bank-list";
 import {
   RBack,
   RButton,
   RCard,
-  RIconDot,
   RInput,
   RLink,
   RScreen,
@@ -135,8 +136,9 @@ export default function RiderWithdrawScreen() {
   };
 
   const loadWithdrawalBankNetworks = async (query?: string) => {
-    const normalizedQuery = query?.trim().toLowerCase() ?? "";
-    const lookupKey = `NG:${normalizedQuery}`;
+    // The whole list is loaded once and searched here (a few hundred banks): typing never waits on the network.
+    void query;
+    const lookupKey = "NG:all";
 
     if (!isBackendConfigured()) {
       return;
@@ -163,8 +165,7 @@ export default function RiderWithdrawScreen() {
       const response = await getWithdrawalBankNetworks({
         accessToken,
         country: "NG",
-        query: normalizedQuery || undefined,
-        limit: normalizedQuery ? 100 : 40,
+        limit: 1000,
       });
       setWithdrawBankNetworks(response.items);
     } catch (error) {
@@ -485,17 +486,17 @@ export default function RiderWithdrawScreen() {
     else router.replace("/rider/wallet");
   };
 
-  const filteredWithdrawalBanks = withdrawBankNetworks.filter((bank) => {
-    const query = bankSearchQuery.trim().toLowerCase();
-    if (!query) {
-      return true;
-    }
-
-    return (
-      bank.name.toLowerCase().includes(query) ||
-      (bank.code?.toLowerCase().includes(query) ?? false)
-    );
-  });
+  // No search: the popular banks, then every bank A–Z under its letter. A search: every match, best first.
+  const bankQuery = bankSearchQuery.trim();
+  const bankListSections = (
+    bankQuery ? [{ title: "", data: searchBanks(withdrawBankNetworks, bankQuery) }] : bankSections(withdrawBankNetworks)
+  )
+    .filter((section) => section.data.length > 0)
+    .map((section) => ({
+      title: section.title,
+      // A popular bank is listed twice (on top and under its letter): each row gets its own key.
+      data: section.data.map((bank) => ({ bank, listKey: `${section.title}:${bank.id}` })),
+    }));
 
   const displayedWithdrawAmount = parseNgnAmount(withdrawAmount);
   const breakdown = displayedWithdrawAmount
@@ -707,7 +708,7 @@ export default function RiderWithdrawScreen() {
           {selectedWithdrawBank ? (
             <View style={styles.bankForm}>
               <RCard style={styles.bankCard} tone="card">
-                <RIconDot name="business-outline" />
+                <BankMark code={selectedWithdrawBank.code} name={selectedWithdrawBank.name} />
                 <View style={styles.bankCopy}>
                   <RText color={rider.colors.muted} variant="small">
                     Bank
@@ -762,7 +763,7 @@ export default function RiderWithdrawScreen() {
                 placeholder="Search bank"
                 value={bankSearchQuery}
               />
-              <FlatList
+              <SectionList
                 ListEmptyComponent={
                   isLoadingBankNetworks ? (
                     <View style={styles.bankListState}>
@@ -784,10 +785,9 @@ export default function RiderWithdrawScreen() {
                     </View>
                   )
                 }
-                data={filteredWithdrawalBanks}
                 keyboardShouldPersistTaps="handled"
-                keyExtractor={(bank) => bank.id}
-                renderItem={({ item: bank }) => (
+                keyExtractor={(row) => row.listKey}
+                renderItem={({ item: { bank } }) => (
                   <Pressable
                     accessibilityLabel={bank.name}
                     accessibilityRole="button"
@@ -797,6 +797,7 @@ export default function RiderWithdrawScreen() {
                       setTimeout(() => accountNumberRef.current?.focus(), 300);
                     }}
                     style={({ pressed }) => [styles.bankRow, pressed ? styles.pressed : null]}>
+                    <BankMark code={bank.code} name={bank.name} />
                     <View style={styles.bankCopy}>
                       <RText numberOfLines={1} variant="bodyBold">
                         {bank.name}
@@ -805,7 +806,18 @@ export default function RiderWithdrawScreen() {
                     <Ionicons color={rider.colors.muted} name="chevron-forward" size={18} />
                   </Pressable>
                 )}
+                renderSectionHeader={({ section }) =>
+                  section.title ? (
+                    <View style={styles.bankSection}>
+                      <RText accessibilityRole="header" color={rider.colors.muted} style={styles.bankSectionText} variant="small">
+                        {section.title}
+                      </RText>
+                    </View>
+                  ) : null
+                }
+                sections={bankListSections}
                 showsVerticalScrollIndicator={false}
+                stickySectionHeadersEnabled
                 style={styles.bankList}
               />
             </>
@@ -980,6 +992,9 @@ const styles = StyleSheet.create({
   },
   bankForm: { gap: 16 },
   bankList: { flex: 1 },
+  // "Popular", then A, B, C…, held at the top while its banks scroll under it.
+  bankSection: { paddingTop: 14, paddingBottom: 6, backgroundColor: rider.colors.cream },
+  bankSectionText: { fontFamily: rider.fonts.heavy, letterSpacing: 0.4 },
   bankListState: { alignItems: "center", gap: 4, paddingVertical: 32 },
   bankRow: {
     flexDirection: "row",
