@@ -94,7 +94,7 @@ export function PriceCard({
     const typed = textRef.current;
     editingRef.current = false;
     setEditingBoth(false);
-    const got = settleTypedPrice(typed, startTextRef.current, before, floor, cap);
+    const got = settleTypedPrice(typed, startTextRef.current, before, floor);
     if (got.changed || got.low) setLowNote(got.low ? `Lowest is ${naira(got.amount)}` : null);
     if (got.changed) committed.current = got.amount;
     if (sendNow && got.changed) {

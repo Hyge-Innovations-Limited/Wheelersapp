@@ -6,6 +6,8 @@ import { naira, rider } from "@/constants/rider-theme";
 import type { RideOffer } from "@/lib/ride-offers";
 
 const { colors, fonts } = rider;
+/** Card outline on the cream page: 3:1 against white, softer than ink. */
+const CARD_EDGE = "#9A9086";
 
 /**
  * One driver's offer: who they are, what they drive, how far away they are,
@@ -22,7 +24,7 @@ export function OfferCard({
   offer: RideOffer;
   /** What the rider offered; the comparison line is left out without it. */
   riderOfferNgn?: number | null;
-  /** The dark card: the cheapest offer on screen. */
+  /** The first offer on screen: an orange border and an orange Accept (the same white card otherwise). */
   featured?: boolean;
   /** An accept is on its way to the server; nothing can be pressed. */
   busy?: boolean;
@@ -43,11 +45,12 @@ export function OfferCard({
       ? "Accepted your price"
       : null;
   const price = naira(offer.counterOfferNgn);
-  const quiet = featured ? colors.onInkMuted : colors.muted;
-  const strong = featured ? colors.cream : colors.ink;
+  // Every card is the same white card with ink text; the first one is marked with orange.
+  const quiet = colors.muted;
+  const strong = colors.ink;
 
   return (
-    <View style={[styles.card, featured ? styles.cardInk : styles.cardPlain]}>
+    <View style={[styles.card, featured ? styles.cardFeatured : styles.cardPlain]}>
       <View style={styles.head}>
         <RAvatar cache={avatarCachePolicy(true)} name={name} photoKey={offer.driverPhotoKey} size={52} uri={offer.driverPhotoUrl} />
         <View style={styles.who}>
@@ -68,7 +71,7 @@ export function OfferCard({
         <Text
           maxFontSizeMultiplier={1.1}
           numberOfLines={1}
-          style={[styles.price, { color: featured ? colors.orange : colors.ink }]}>
+          style={[styles.price, { color: colors.ink }]}>
           {price}
         </Text>
       </View>
@@ -83,7 +86,7 @@ export function OfferCard({
             <View />
           )}
           {offer.vehiclePlate ? (
-            <View style={[styles.plate, { borderColor: featured ? colors.inkLine : colors.ink }]}>
+            <View style={[styles.plate, { borderColor: colors.ink }]}>
               <Text
                 accessibilityLabel={`Plate number ${offer.vehiclePlate}`}
                 maxFontSizeMultiplier={1.15}
@@ -105,7 +108,7 @@ export function OfferCard({
           style={({ pressed }) => [
             styles.button,
             styles.decline,
-            { borderColor: featured ? colors.inkLine : colors.ink },
+            { borderColor: colors.ink },
             busy ? styles.dimmed : null,
             pressed ? styles.pressed : null,
           ]}>
@@ -140,8 +143,9 @@ export function OfferCard({
 
 const styles = StyleSheet.create({
   card: { padding: 14, borderRadius: rider.radius.xl, gap: 10 },
-  cardInk: { backgroundColor: colors.ink },
-  cardPlain: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line },
+  // A border dark enough to stand off the cream page (3:1 on white); the first offer's is orange.
+  cardFeatured: { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.orange },
+  cardPlain: { backgroundColor: colors.card, borderWidth: 1.5, borderColor: CARD_EDGE },
   head: { flexDirection: "row", alignItems: "center", gap: 12 },
   who: { flex: 1, minWidth: 0, gap: 2 },
   name: { fontFamily: fonts.bold, fontSize: 17 },
