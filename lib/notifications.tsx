@@ -7,7 +7,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { isDriverApp } from "@/lib/app-variant";
 import { isTripChatOpen, requestOpenTripChat } from "@/lib/trip-chat";
-import { DRIVER_NEWS_PUSH_TYPES, quietDriverNews } from "@/lib/driver-push-quiet";
+import { quietDriverNews } from "@/lib/driver-push-quiet";
+import { focusDriverOffer, handleTapResponse } from "@/lib/push-routing";
 import { requestCurrentCall } from "@/lib/live-call/events";
 import { liveCallSupported } from "@/lib/live-call/native";
 
@@ -230,60 +231,40 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
     const subscription = Notifications.addNotificationReceivedListener(() => {
       void refreshNotifications();
     });
-    // A "ride near you" nudge from dispatch. The ride itself was sent to the
-    // driver: online, it is on the Active tab (where offers are); offline,
-    // Home, where Go online is, and the ride arrives the moment they go online.
-    // Everything else keeps the default behaviour of simply opening the app.
-    const tapSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-      // The verification decision: that screen says what to fix, or moves an approved driver on.
-      if (isDriverApp && (data?.type === "kyc_rejected" || data?.type === "kyc_approved")) {
-        router.navigate("/driver/onboarding/pending" as Href);
-        return;
+    // Taps are routed in lib/push-routing (type -> screen). A failure there
+    // must never reach the native event callback or stop registration below.
+    const tapDeps = {
+      isDriverApp,
+      navigate: (href: string) => router.navigate(href as Href),
+      requestOpenTripChat,
+      requestCurrentCall,
+      liveCallSupported,
+      focusDriverOffer,
+    };
+    const handleTap = (response: Notifications.NotificationResponse, launch = false) => {
+      try {
+        handleTapResponse(response, tapDeps, { launch });
+      } catch {
+        // a routing failure leaves the driver where they were
       }
-      if (isDriverApp && data?.type === "dispatch_nudge") {
-        const offerWaiting = data.online === "1" && typeof data.rideId === "string";
-        router.navigate((offerWaiting ? "/driver/(tabs)/active" : "/driver/(tabs)/home") as Href);
-      }
-      // Driver ride news: Active, where the request, bid or trip is; money: Wallet.
-      if (isDriverApp && typeof data?.type === "string" && DRIVER_NEWS_PUSH_TYPES.includes(data.type)) {
-        router.navigate((data.type === "wallet:updated" ? "/driver/(tabs)/wallet" : "/driver/(tabs)/active") as Href);
-        return;
-      }
-      // A scheduled ride has started looking for drivers, a driver has made an
-      // offer, or a search ended with nobody: Home, which brings the search
-      // back from the server and opens its screen.
-      if (
-        !isDriverApp &&
-        (data?.type === "ride:scheduled_started" ||
-          data?.type === "ride:offer" ||
-          data?.type === "ride:bid_timeout" ||
-          data?.type === "ride:driver_arrived" ||
-          data?.type === "ride:driver_cancelled")
-      ) {
-        router.navigate("/rider" as Href);
-        return;
-      }
-      // Booked ("Driver found!"), possibly by auto-accept while the app was
-      // away: the trip screen. Coming to the front squares the ride with the
-      // server, so the trip is there (or arrives) when it opens.
-      if (!isDriverApp && data?.type === "ride:matched") {
-        router.navigate("/rider/active-trip" as Href);
-        return;
-      }
-      // Someone is calling: ask for the call on that trip; the call screen opens over whatever is showing.
-      if (data?.type === "call:incoming" && typeof data.rideId === "string" && liveCallSupported) {
-        requestCurrentCall(data.rideId);
-        return;
-      }
-      // A chat message or a missed call: open that trip's chat. If no trip
-      // screen is showing, go to the trip; the chat opens when it appears.
-      if ((data?.type === "chat:message" || data?.type === "call:missed") && typeof data.rideId === "string") {
-        if (!requestOpenTripChat(data.rideId)) {
-          router.navigate((isDriverApp ? "/driver/(tabs)/active" : "/rider/active-trip") as Href);
+    };
+    const tapSubscription = Notifications.addNotificationResponseReceivedListener((response) => handleTap(response));
+
+    // A tap that launched the app from closed: read once, through the same
+    // handler, and cleared so a later sign-in (maybe another account) cannot replay it.
+    void (async () => {
+      try {
+        if (typeof Notifications.getLastNotificationResponseAsync !== "function") return;
+        const launchTap = await Notifications.getLastNotificationResponseAsync();
+        if (cancelled || !launchTap) return;
+        handleTap(launchTap, true);
+        if (typeof Notifications.clearLastNotificationResponse === "function") {
+          Notifications.clearLastNotificationResponse();
         }
+      } catch {
+        // never blocks sign-in or token registration
       }
-    });
+    })();
 
     void (async () => {
       try {

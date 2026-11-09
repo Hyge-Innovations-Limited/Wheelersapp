@@ -14,9 +14,10 @@ import {
   HankenGrotesk_700Bold,
   HankenGrotesk_800ExtraBold,
 } from "@expo-google-fonts/hanken-grotesk";
-import { Stack } from "expo-router";
+import { Stack, router as rootRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import { Text, TextInput } from "react-native";
 
 // Cap Dynamic Type scaling globally so layouts don't break on devices
@@ -38,7 +39,9 @@ import { AppNotificationsProvider } from "@/lib/notifications";
 import { InterstateRequestsProvider } from "@/lib/interstate-requests-context";
 import { RideSessionProvider } from "@/lib/ride-session";
 import { RiderTripLiveActivity } from "@/components/trip-live-activity";
+import { RiderPushBridge } from "@/components/rider/push-ride-bridge";
 import { isDriverApp } from "@/lib/app-variant";
+import { armPushHold, releasePushHoldAndNavigate, setPushFallbackNavigator } from "@/lib/push-routing";
 import { RiderLiveCallHost } from "@/lib/live-call/hosts";
 import { ThemeProvider, useAppTheme } from "@/lib/theme-context";
 import { useOtaUpdates } from "@/lib/ota-updates";
@@ -65,6 +68,10 @@ export default function RootLayout() {
     HankenGrotesk_800ExtraBold,
   });
 
+  // Held from the very first render: the splash mounts a commit later, and the
+  // notifications provider's launch read can come first.
+  useState(() => armPushHold());
+
   if (!loaded) {
     return null;
   }
@@ -84,6 +91,7 @@ export default function RootLayout() {
                     <SessionKeeper />
                     {/* The rider's trip on the lock screen and in the Dynamic Island (iPhone). */}
                     <RiderTripLiveActivity />
+                    {isDriverApp ? null : <RiderPushBridge />}
                   </AppLockProvider>
                   </InterstateRequestsProvider>
               </AppNotificationsProvider>
@@ -100,6 +108,16 @@ function ThemedLayout() {
   useOtaUpdates();
   // Where they are, so an app Android closed in the background opens there again.
   useRememberPlace();
+  // Failsafe: a tapped push is held while the splash decides where to go. If the
+  // splash is skipped (a deep link, a fast refresh), let go as soon as another screen shows.
+  const pathname = usePathname();
+  useEffect(() => {
+    setPushFallbackNavigator((href) => rootRouter.navigate(href as never));
+    return () => setPushFallbackNavigator(null);
+  }, []);
+  useEffect(() => {
+    if (pathname !== "/" && pathname !== "/splash") releasePushHoldAndNavigate();
+  }, [pathname]);
 
   return (
     <>

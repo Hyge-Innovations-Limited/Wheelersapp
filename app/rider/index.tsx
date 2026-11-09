@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { reopenedRideIds } from "@/lib/push-routing";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -49,9 +50,6 @@ const SHEET_MS = 280;
 const MAP_PEEK = 40;
 
 /* ── last ride ─────────────────────────────────────────────────────────── */
-
-/** Rides whose screen was already reopened after a restart, so it happens once per ride. */
-const reopenedRideIds = new Set<string>();
 
 type RoutePair = { pickup: string; destination: string };
 

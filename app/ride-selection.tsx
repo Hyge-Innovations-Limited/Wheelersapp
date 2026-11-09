@@ -15,7 +15,7 @@ import {
   naira,
   rider,
 } from "@/components/rider/kit";
-import { PriceCard, PriceCardNote, PriceShimmer } from "@/components/rider/price-card";
+import { PriceCard, PriceShimmer } from "@/components/rider/price-card";
 import { priceReasonLine, samePriceReason } from "@/lib/price-reason";
 import { AutoBookSheet } from "@/components/rider/auto-book-sheet";
 import { TripDetailsBox } from "@/components/rider/trip-details-box";
@@ -168,6 +168,7 @@ export default function RideSelectionScreen() {
    * is theirs.
    */
   const [offerNgn, setOfferNgn] = useState<number | null>(null);
+  const [typingPrice, setTypingPrice] = useState(false);
   // People, luggage, pet, a note: drivers see them before they bid.
   const [tripDetails, setTripDetails] = useState<TripDetails>(DEFAULT_TRIP_DETAILS);
   // Only when the server takes them (TRIP_DETAILS_BOX=on); otherwise no box and nothing sent.
@@ -626,17 +627,18 @@ export default function RideSelectionScreen() {
               loading={isPriceLoading}
               minNgn={minOfferNgn}
               onChange={setOfferNgn}
+              onEditingChange={setTypingPrice}
               reason={priceReasonLine(resolvedEstimate?.priceReason)}
               sideLabel="Suggested price"
-              sideValue={naira(suggestedNgn)}>
-              <PriceCardNote>
-                {isPriceLoading
+              note={
+                isPriceLoading
                   ? "Getting the price for this route."
                   : effectiveOfferNgn <= minOfferNgn
                     ? "This is the minimum offer for this trip."
-                    : `Minimum offer: ${naira(minOfferNgn)}`}
-              </PriceCardNote>
-            </PriceCard>
+                    : `Minimum offer: ${naira(minOfferNgn)}`
+              }
+              sideValue={naira(suggestedNgn)}
+            />
 
             <View style={styles.whenRow}>
               <View
@@ -667,7 +669,7 @@ export default function RideSelectionScreen() {
         <RButton
           // Until the server's price for this route is in, the figure is a
           // guess that may be under the minimum: nothing is sent at a guess.
-          disabled={isPriceLoading}
+          disabled={isPriceLoading || typingPrice}
           loading={isSubmitting}
           onPress={() => void handleBookRide()}
           title={

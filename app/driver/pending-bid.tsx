@@ -7,6 +7,7 @@ import { AppButton } from '@/components/app-button';
 import { AppScreen } from '@/components/app-screen';
 import { AppText, OnLight } from '@/components/app-text';
 import { BID_LIFETIME_MS } from '@/lib/driver-session-reducer';
+import { leaveToActiveBids } from '@/lib/driver-active-bids';
 import { useDriverSession } from '@/lib/driver-session';
 import { useAppLocation } from '@/lib/location';
 import { RATE_NUDGES_NGN, bidCeilingFareNgn, bidNudgesNgn, bidsPerKm, driverRatePerKmNgn, fareFromRatePerKmNgn, formatPerKmNgn } from '@/lib/ride-fees';
@@ -143,6 +144,7 @@ export default function PendingBidScreen() {
       await acceptRide(bid.offer.rideId, Math.round(amountNgn), currentLocation ?? undefined);
       setEditOpen(false);
       setEditAmount('');
+      leaveToActiveBids(router);
     } catch (err) {
       Alert.alert('Could not update bid', toUserMessage(err, 'Please try again.'));
     } finally {

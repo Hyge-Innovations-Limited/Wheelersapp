@@ -1,7 +1,7 @@
 import { hasTermsToAnswer, isNameNeeded } from "@/lib/rider-sign-in-state";
 import { RIDER_TERMS_KEY } from "@/lib/terms-acceptance";
 import { useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import * as NativeSplash from "expo-splash-screen";
 import { Animated, Image, Pressable, StyleSheet, View, useColorScheme } from "react-native";
@@ -26,6 +26,7 @@ import {
 import { resolvePostAuthRoute, type PostAuthRoute } from "@/lib/post-auth";
 import { prefetchRiderHistory } from "@/lib/rider-history";
 import { prefetchWalletOverview } from "@/lib/wallet-overview";
+import { armPushHold, notePushOpened, releasePushHold } from "@/lib/push-routing";
 import { takePlace, type Place } from "@/lib/resume-place";
 
 type SplashRoute = VariantPublicRoute | AuthenticatedRoute | PostAuthRoute | "/rider-new";
@@ -64,6 +65,9 @@ function prefetchHomeData(getAccessToken: () => Promise<string | null | undefine
 export default function SplashScreen() {
   const router = useRouter();
   const { getAccessToken, isReady } = useAuth();
+  // Every splash is a fresh start of the UI: hold pushed taps until it has decided
+  // (before the notifications provider's launch read, which runs after this render).
+  useState(() => armPushHold());
   const hasNavigated = useRef(false);
   /** A driver's KYC is being asked for: the fallback below must not jump ahead of it. */
   const checkingDriver = useRef(false);
@@ -76,8 +80,21 @@ export default function SplashScreen() {
     router.replace(href);
     const then = thenRef.current;
     thenRef.current = null;
-    // Over home, so Back from it goes home as it would have.
-    if (then) setTimeout(() => router.push({ pathname: then.pathname, params: then.params } as never), 60);
+    // A tapped push that arrived while this screen was deciding: it opens over home,
+    // in place of the remembered place. A driver still being verified keeps the KYC route.
+    const parked = releasePushHold();
+    // (A tap parked while this goes to the KYC route, terms or /rider-new is dropped on purpose.)
+    if (parked && (href === "/driver/(tabs)/home" || href === "/rider")) {
+      setTimeout(() => {
+        try {
+          router.navigate(parked as never);
+          notePushOpened(parked);
+        } catch { /* stays on home */ }
+      }, 60);
+    } else if (then) {
+      // Over home, so Back from it goes home as it would have.
+      setTimeout(() => router.push({ pathname: then.pathname, params: then.params } as never), 60);
+    }
     // The native splash is NOT hidden here. replace() only starts the journey:
     // the destination is still mounting and sliding in for a few hundred ms,
     // and hiding a frame later uncovered this JS screen underneath it — whose
@@ -103,6 +120,8 @@ export default function SplashScreen() {
   useEffect(() => {
     return () => {
       if (navTimerRef.current) clearTimeout(navTimerRef.current);
+      // Left some other way (e.g. the terms screen): routes go straight to the router from here.
+      releasePushHold();
     };
   }, []);
 
@@ -157,6 +176,7 @@ export default function SplashScreen() {
         if (cancelled || hasNavigated.current) return;
         hasNavigated.current = true;
         const next = { pathname: (await isNameNeeded()) ? "/rider-new" : "/rider", params: {} };
+        releasePushHold();
         router.replace({ pathname: "/legal", params: { mode: "answer", who: RIDER_TERMS_KEY, next: JSON.stringify(next) } });
         return;
       }

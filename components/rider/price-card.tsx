@@ -1,9 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  AppState,
+  Animated,
+  Easing,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { naira, rider } from "@/constants/rider-theme";
+import { settleTypedPrice } from "@/lib/typed-price";
 
 const { colors, fonts, radius } = rider;
 
@@ -31,8 +42,10 @@ export function PriceCard({
   amountNgn,
   minNgn,
   onChange,
+  onEditingChange,
   loading = false,
   reason,
+  note,
   children,
 }: {
   label: string;
@@ -42,18 +55,107 @@ export function PriceCard({
   amountNgn: number;
   minNgn: number;
   onChange: (next: number) => void;
+  /** The rider is typing the price: the screen holds its button until they are done. */
+  onEditingChange?: (editing: boolean) => void;
   /** The price for this trip is still on its way: no number is shown, and nothing can be changed yet. */
   loading?: boolean;
   /** One small line under the figure: why the price is up ("Busy in this area · +₦1,200"). */
   reason?: string | null;
+  /** One line under the card's figure ("Minimum offer: ₦X"); "Lowest is ₦X" takes its place after a typed price is raised to the floor. */
+  note?: string | null;
   children?: ReactNode;
 }) {
   const atFloor = loading || amountNgn <= minNgn;
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const [lowNote, setLowNote] = useState<string | null>(null);
+  const committed = useRef<number | null>(null);
+  const editingRef = useRef(false);
+  const textRef = useRef("");
+  const startTextRef = useRef("");
+  const latest = useRef({ amountNgn, minNgn, onChange, onEditingChange });
+  latest.current = { amountNgn, minNgn, onChange, onEditingChange };
 
-  function change(next: number) {
+  // A change that did not come from typing (a chip, the screen) clears the "Lowest is" line.
+  useEffect(() => {
+    if (committed.current !== amountNgn) setLowNote(null);
+  }, [amountNgn]);
+
+  function setEditingBoth(next: boolean) {
+    editingRef.current = next;
+    setEditing(next);
+    latest.current.onEditingChange?.(next);
+  }
+
+  /** Done: runs once however it is reached (Done key, blur, keyboard hidden, background, unmount). */
+  function finishTyping(sendNow = true): number | null {
+    if (!editingRef.current) return null;
+    const { amountNgn: before, minNgn: floor, onChange: send } = latest.current;
+    const typed = textRef.current;
+    editingRef.current = false;
+    setEditingBoth(false);
+    const got = settleTypedPrice(typed, startTextRef.current, before, floor, cap);
+    if (got.changed || got.low) setLowNote(got.low ? `Lowest is ${naira(got.amount)}` : null);
+    if (got.changed) committed.current = got.amount;
+    if (sendNow && got.changed) {
+      void Haptics.selectionAsync();
+      send(got.amount);
+    }
+    return got.amount;
+  }
+  const finishRef = useRef(finishTyping);
+  finishRef.current = finishTyping;
+
+  // Android Back closes the keyboard without a blur; the app going away ends it too.
+  useEffect(() => {
+    if (!editing) return;
+    const hide = Keyboard.addListener("keyboardDidHide", () => finishRef.current());
+    const app = AppState.addEventListener("change", (state) => {
+      if (state !== "active") finishRef.current();
+    });
+    return () => {
+      hide.remove();
+      app.remove();
+    };
+  }, [editing]);
+
+  // Leaving the screen mid-typing: abandoned, not committed; only free the screen's button.
+  useEffect(
+    () => () => {
+      editingRef.current = false;
+      latest.current.onEditingChange?.(false);
+    },
+    [],
+  );
+
+  // The price went back to loading: no typing over it.
+  useEffect(() => {
+    if (loading && editingRef.current) {
+      editingRef.current = false;
+      setEditing(false);
+      latest.current.onEditingChange?.(false);
+    }
+  }, [loading]);
+
+  /** -/+: what was typed is committed first, then the step is taken from it (one change sent). */
+  function step(stepFrom: (price: number) => number) {
+    const base = finishTyping(false) ?? amountNgn;
+    const next = stepFrom(base);
     if (next === amountNgn) return;
     void Haptics.selectionAsync();
+    setLowNote(null);
+    committed.current = null;
     onChange(next);
+  }
+
+  function startTyping() {
+    if (loading) return;
+    const start = String(Math.round(amountNgn));
+    textRef.current = start;
+    startTextRef.current = start;
+    setText(start);
+    setLowNote(null);
+    setEditingBoth(true);
   }
 
   return (
@@ -79,7 +181,7 @@ export function PriceCard({
           accessibilityRole="button"
           accessibilityState={{ disabled: atFloor }}
           disabled={atFloor}
-          onPress={() => change(stepPriceDown(amountNgn, minNgn))}
+          onPress={() => step((price) => stepPriceDown(price, minNgn))}
           style={({ pressed }) => [
             styles.round,
             styles.minus,
@@ -95,15 +197,43 @@ export function PriceCard({
           </View>
         ) : (
           <PriceDrop>
-            <Text
-              accessibilityLiveRegion="polite"
-              adjustsFontSizeToFit
-              maxFontSizeMultiplier={1}
-              minimumFontScale={0.5}
-              numberOfLines={1}
-              style={styles.figure}>
-              {naira(amountNgn)}
-            </Text>
+            {editing ? (
+              <TextInput
+                accessibilityLabel="Type your offer in naira"
+                autoFocus
+                keyboardType="number-pad"
+                maxFontSizeMultiplier={1}
+                maxLength={7}
+                onBlur={() => finishTyping()}
+                onChangeText={(value) => {
+                  const digits = value.replace(/[^0-9]/g, "");
+                  textRef.current = digits;
+                  setText(digits);
+                }}
+                onSubmitEditing={() => finishTyping()}
+                returnKeyType="done"
+                selectTextOnFocus
+                style={[styles.figure, styles.figureInput]}
+                value={text}
+              />
+            ) : (
+              <Pressable
+                accessibilityHint="Tap to type a price"
+                accessibilityLabel={`${label} ${naira(amountNgn)}`}
+                accessibilityLiveRegion="polite"
+                accessibilityRole="button"
+                onPress={startTyping}
+                style={styles.figureTap}>
+                <Text
+                  adjustsFontSizeToFit
+                  maxFontSizeMultiplier={1}
+                  minimumFontScale={0.5}
+                  numberOfLines={1}
+                  style={styles.figure}>
+                  {naira(amountNgn)}
+                </Text>
+              </Pressable>
+            )}
           </PriceDrop>
         )}
 
@@ -112,11 +242,19 @@ export function PriceCard({
           accessibilityRole="button"
           accessibilityState={{ disabled: loading }}
           disabled={loading}
-          onPress={() => change(stepPriceUp(amountNgn))}
+          onPress={() => step(stepPriceUp)}
           style={({ pressed }) => [styles.round, styles.plus, loading ? styles.dimmed : null, pressed ? styles.pressed : null]}>
           <Ionicons color={colors.ink} name="add" size={26} />
         </Pressable>
       </View>
+
+      {lowNote && !editing ? (
+        <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.2} style={styles.reason}>
+          {lowNote}
+        </Text>
+      ) : note ? (
+        <PriceCardNote>{note}</PriceCardNote>
+      ) : null}
 
       {reason && !loading ? (
         <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.reason}>
@@ -125,6 +263,7 @@ export function PriceCard({
       ) : null}
 
       {children}
+
     </View>
   );
 }
@@ -241,6 +380,8 @@ const styles = StyleSheet.create({
   minus: { borderWidth: 2, borderColor: colors.inkLine },
   plus: { backgroundColor: colors.orange },
   figureSlot: { flex: 1, alignItems: "center", justifyContent: "center" },
+  figureTap: { minHeight: 44, justifyContent: "center" },
+  figureInput: { alignSelf: "stretch", minHeight: 60, padding: 0 },
   figure: {
     textAlign: "center",
     fontFamily: fonts.display,

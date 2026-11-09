@@ -30,6 +30,7 @@ import { PerKmChip } from '@/components/PerKmChip';
 import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { AppText, OnLight } from '@/components/app-text';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
+import { leaveToActiveBids } from '@/lib/driver-active-bids';
 import { useDriverSession, type GroupSeat } from '@/lib/driver-session';
 import { estimateEtaMinutes, haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
@@ -112,7 +113,7 @@ function buildRouteStops(params: {
 
 export default function IncomingRequestScreen() {
   const router = useRouter();
-  const { session, acceptRide, bidOnSeat, rejectRide, selectOffer } = useDriverSession();
+  const { session, acceptRide, bidOnSeat, selectOffer } = useDriverSession();
   // Per-seat negotiation state for group rides: which seats we've answered,
   // and which seat's bid input is open.
   const [seatBids, setSeatBids] = useState<Record<string, number>>({});
@@ -188,6 +189,17 @@ export default function IncomingRequestScreen() {
     setBidSent(false);
   }, [offer?.rideId, riderOfferNgn]);
 
+  // A group request: once every seat has an answer, off to Active where the bids wait.
+  const leftRef = useRef(false);
+  useEffect(() => {
+    const seats = offer?.groupMembers ?? [];
+    if (leftRef.current || seats.length === 0) return;
+    if (seats.every((seat) => seatBids[seat.rideId] !== undefined)) {
+      leftRef.current = true;
+      leaveToActiveBids(router);
+    }
+  }, [seatBids, offer?.groupMembers, router]);
+
   // Seat answers belong to one request — a different ride means fresh seats.
   useEffect(() => {
     setSeatBids({});
@@ -225,28 +237,18 @@ export default function IncomingRequestScreen() {
       void stopRideRequestSound();
       await acceptRide(offer.rideId, undefined, currentLocation ?? undefined);
       setBidSent(true);
+      leaveToActiveBids(router);
     } catch (err) {
       Alert.alert('Error', toUserMessage(err, 'Could not accept ride.'));
     }
   };
 
   // Swiping away is non-destructive: the request stays open in the queue.
-  // Turning down the job is the explicit Decline button — a hidden gesture
-  // must never silently reject work.
+  // Drivers cannot turn a request down: it stays until the search ends, the
+  // rider books someone else, or the driver bids.
   const handleDismiss = async () => {
     if (!offer) return;
     void stopRideRequestSound();
-    router.back();
-  };
-
-  const handleDecline = async () => {
-    if (!offer) return;
-    try {
-      void stopRideRequestSound();
-      await rejectRide(offer.rideId);
-    } catch {
-      // ignore — leaving the screen is the outcome either way
-    }
     router.back();
   };
 
@@ -339,6 +341,7 @@ export default function IncomingRequestScreen() {
       setLastBidNgn(amount);
       await acceptRide(offer.rideId, amount, currentLocation ?? undefined);
       setBidSent(true);
+      leaveToActiveBids(router);
     } catch (err) {
       Alert.alert('Error', toUserMessage(err, 'Could not submit bid.'));
     }
@@ -816,17 +819,10 @@ export default function IncomingRequestScreen() {
             </View>
           )}
 
-          {/* Explicit exit — swiping alone is invisible UX. Declining is only
-              offered before any bid; after one, closing keeps the bid alive. */}
-          {!bidSent ? (
-            <Pressable onPress={() => void handleDecline()} style={styles.declineBtn}>
-              <AppText variant="label" color={theme.colors.danger}>Decline ride</AppText>
-            </Pressable>
-          ) : (
-            <Pressable onPress={() => router.back()} style={styles.declineBtn}>
-              <AppText variant="label" color={theme.colors.muted}>Close</AppText>
-            </Pressable>
-          )}
+          {/* Explicit exit — swiping alone is invisible UX. The request stays open in the queue. */}
+          <Pressable onPress={() => void handleDismiss()} style={styles.closeBtn}>
+            <AppText variant="label" color={theme.colors.muted}>Close</AppText>
+          </Pressable>
         </ScrollView>
         </OnLight>
       </Animated.View>
@@ -974,9 +970,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  declineBtn: {
+  closeBtn: {
     alignSelf: 'center',
-    paddingVertical: theme.spacing.sm,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     marginTop: theme.spacing.xs,
   },

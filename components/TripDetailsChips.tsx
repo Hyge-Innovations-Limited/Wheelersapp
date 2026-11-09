@@ -11,22 +11,34 @@ import { theme } from '@/theme';
  * are not missed), and the rider's note. Nothing for a ride booked without
  * them (older apps, chat).
  */
-export function TripDetailsChips({ details, compact = false }: { details?: TripDetails; compact?: boolean }) {
+export function TripDetailsChips({ details, compact = false, noteOnOwnLine = false }: { details?: TripDetails; compact?: boolean; noteOnOwnLine?: boolean }) {
   if (!details) return null;
   // The in-trip panel is small: one line, and nothing when the rider said nothing out of the ordinary.
   if (compact) {
     const parts = [
-      details.passengers > 1 ? peopleLabel(details.passengers) : null,
-      details.luggage ? 'Luggage' : null,
-      details.pet ? 'Pet' : null,
-      details.note ? `“${details.note}”` : null,
-    ].filter(Boolean);
-    if (parts.length === 0) return null;
+      details.passengers > 1 ? { text: peopleLabel(details.passengers), orange: false } : null,
+      details.luggage ? { text: 'Luggage', orange: true } : null,
+      details.pet ? { text: 'Pet', orange: true } : null,
+      details.note && !noteOnOwnLine ? { text: `“${details.note}”`, orange: false } : null,
+    ].filter((part): part is { text: string; orange: boolean } => part !== null);
+    const noteLine = noteOnOwnLine && details.note ? details.note : null;
+    if (parts.length === 0 && !noteLine) return null;
     return (
       <OnLight>
-        <AppText variant="bodySmall" numberOfLines={1} style={styles.compact}>
-          {parts.join(' · ')}
-        </AppText>
+        {parts.length > 0 ? (
+          <AppText variant="bodySmall" numberOfLines={1} style={styles.compact}>
+            {parts.map((part, i) => (
+              <AppText key={part.text} variant="bodySmall" color={part.orange ? theme.colors.orange : undefined}>
+                {i > 0 ? ' · ' : ''}{part.text}
+              </AppText>
+            ))}
+          </AppText>
+        ) : null}
+        {noteLine ? (
+          <AppText variant="bodySmall" numberOfLines={2} style={styles.compact}>
+            {`“${noteLine}”`}
+          </AppText>
+        ) : null}
       </OnLight>
     );
   }

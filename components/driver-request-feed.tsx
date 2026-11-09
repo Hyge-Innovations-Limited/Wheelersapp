@@ -1,5 +1,5 @@
 import { Href, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText, OnLight } from '@/components/app-text';
@@ -15,6 +15,8 @@ import { PerKmChip } from '@/components/PerKmChip';
 import { useDriverSession } from '@/lib/driver-session';
 import { haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
+import { TripDetailsChips } from '@/components/TripDetailsChips';
+import { clearOfferFocus, subscribeOfferFocus } from '@/lib/push-routing';
 import { stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
 import { bidStage, PAYING_LABEL, outcomeLabel, tookRidersPrice, repricedAfterDecline } from '@/lib/bid-card-state';
@@ -46,10 +48,31 @@ function countdown(toMs: number, now: number): string | null {
 const HOME_CARD_WINDOW_MS = RING_WINDOW_MS;
 export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean } = {}) {
   const router = useRouter();
-  const { session, acceptRide, rejectRide, selectOffer, dismissBid, dismissMissedOffer } = useDriverSession();
+  const { session, acceptRide, selectOffer, dismissBid, dismissMissedOffer } = useDriverSession();
   const { currentLocation } = useAppLocation();
   const [now, setNow] = useState(() => Date.now());
   const [busyRideId, setBusyRideId] = useState<string | null>(null);
+  // A tapped "New ride request" push: that request's card goes first.
+  const [focusRideId, setFocusRideId] = useState<string | null>(null);
+  const [focusTick, setFocusTick] = useState(0);
+  useEffect(() => (fullHeight ? subscribeOfferFocus((id) => { setFocusRideId(id); setFocusTick((n) => n + 1); }) : undefined), [fullHeight]);
+  const scrollRef = useRef<ScrollView>(null);
+  const focusSeen = useRef(false);
+  const focusedInQueue = Boolean(focusRideId) && session.offers.some((o) => o.rideId === focusRideId);
+  useEffect(() => {
+    if (!focusRideId) return;
+    focusSeen.current = false;
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    // Not forever: a focus that never shows up (ride gone) is dropped after a while.
+    const timer = setTimeout(() => { clearOfferFocus(); setFocusRideId(null); }, 120000);
+    return () => clearTimeout(timer);
+  }, [focusRideId, focusTick]);
+  useEffect(() => {
+    if (!focusRideId) return;
+    if (focusedInQueue) { focusSeen.current = true; return; }
+    // It was there and has left (taken, cancelled, bid on): stop focusing it.
+    if (focusSeen.current) { clearOfferFocus(); setFocusRideId(null); }
+  }, [focusRideId, focusedInQueue]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -100,16 +123,19 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     router.push('/driver/incoming-request' as Href);
   }
 
+  const focusedRequest = focusRideId ? requests.find((offer) => offer.rideId === focusRideId) : undefined;
   const missed = fullHeight ? session.missedOffers : [];
 
   if (bids.length === 0 && requests.length === 0 && missed.length === 0) return null;
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={fullHeight ? styles.scrollFull : styles.scroll}
       showsVerticalScrollIndicator={false}>
+      {focusedRequest ? renderRequestCard(focusedRequest) : null}
       {bids.map((bid) => renderBidCard(bid))}
-      {requests.map((offer) => renderRequestCard(offer))}
+      {requests.filter((offer) => offer !== focusedRequest).map((offer) => renderRequestCard(offer))}
       {missed.map((entry) => renderMissedCard(entry))}
     </ScrollView>
   );
@@ -168,7 +194,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
     const timeLeft = inAuctionTail ? countdown(offerClockMs, now) : null;
 
     // Declined: the request form again — the rider's current price, Accept, the
-    // three prices, Other amount, Skip — glowing red with "Declined" on it.
+    // three prices, Other amount — glowing red with "Declined" on it.
     if (declined) return renderRequestCard(offer, bid);
 
     // A resolved bid stays as its story — greyed, dismissible — instead of
@@ -298,7 +324,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
   // ── One life-cycle card: the fresh request state ────────────────────────
   /**
    * A request, as a form: Accept at the rider's price, three prices, Other
-   * amount, Skip. `declinedBid`: the rider declined this driver's offer and the
+   * amount. `declinedBid`: the rider declined this driver's offer and the
    * trip is still open — the same form, red, saying so; any tap is a new bid.
    */
   function renderRequestCard(offer: RideOffer, declinedBid?: PendingBid) {
@@ -330,7 +356,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
               <AppText variant="caption" color={repriced ? theme.colors.muted : theme.colors.danger} numberOfLines={1} style={styles.personText}>
                 {repriced
                   ? `Your ${formatNgn(declinedBid.amountNgn)} was declined · rider's new price`
-                  : `Your ${formatNgn(declinedBid.amountNgn)} · send a new offer`}
+                  : `Your ${formatNgn(declinedBid.amountNgn)} was declined`}
               </AppText>
             </View>
           ) : null}
@@ -379,6 +405,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             → {offer.destination.address}
             {offer.isGroupRide ? `  · group · ${offer.riderCount ?? 2} riders` : ''}
           </AppText>
+          <TripDetailsChips details={offer.tripDetails} compact noteOnOwnLine />
         </Pressable>
 
         {/* Group rides negotiate per seat — that lives on the details screen. */}
@@ -426,16 +453,6 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
             <View style={styles.quietRow}>
               <Pressable onPress={otherAmount} style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
                 <AppText variant="label" color={theme.colors.muted}>{bidsPerKm(offer) ? 'Other rate' : 'Other amount'}</AppText>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  void stopRideRequestSound();
-                  // Declined: Skip just clears the card; there is no request to turn down.
-                  if (wasDeclined) dismissBid(offer.rideId);
-                  else void rejectRide(offer.rideId).catch(() => undefined);
-                }}
-                style={({ pressed }) => [styles.quietBtn, pressed && styles.pressed]}>
-                <AppText variant="label" color={theme.colors.muted}>Skip</AppText>
               </Pressable>
             </View>
           </View>
@@ -487,11 +504,6 @@ const styles = StyleSheet.create({
   cardDeclined: {
     borderColor: theme.colors.danger,
     backgroundColor: theme.colors.dangerLight,
-    shadowColor: theme.colors.danger,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 10,
-    elevation: 8,
   },
   declinedBadgeRow: {
     flexDirection: 'row',
@@ -575,11 +587,11 @@ const styles = StyleSheet.create({
   },
   quietRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   quietBtn: {
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.xs,
   },

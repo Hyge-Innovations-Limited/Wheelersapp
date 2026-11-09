@@ -145,6 +145,7 @@ export default function MatchingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** The price being set in the change-price view; null while that view is closed. */
   const [draftNgn, setDraftNgn] = useState<number | null>(null);
+  const [typingPrice, setTypingPrice] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   /** The higher price picked after a search nobody took. */
   const [pickedRetryNgn, setPickedRetryNgn] = useState<number | null>(null);
@@ -691,7 +692,9 @@ export default function MatchingScreen() {
         </View>
 
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={styles.pageBody}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           style={styles.flex}>
           <RStepBar active={offers.length > 0 ? 3 : 2} />
@@ -704,6 +707,14 @@ export default function MatchingScreen() {
             label="New offer"
             minNgn={minOfferNgn}
             onChange={setDraftNgn}
+            note={
+              currentRide?.minOfferNgn !== undefined
+                ? draftNgn <= minOfferNgn
+                  ? "This is the minimum offer for this trip."
+                  : `Minimum offer: ${naira(minOfferNgn)}`
+                : null
+            }
+            onEditingChange={setTypingPrice}
             sideLabel="Current"
             sideValue={riderOfferNgn !== undefined ? naira(riderOfferNgn) : null}>
             <View style={styles.chipRow}>
@@ -724,13 +735,6 @@ export default function MatchingScreen() {
               />
             </View>
             {suggestedLine ? <PriceCardNote strong>{suggestedLine}</PriceCardNote> : null}
-            {currentRide?.minOfferNgn !== undefined ? (
-              <PriceCardNote>
-                {draftNgn <= minOfferNgn
-                  ? "This is the minimum offer for this trip."
-                  : `Minimum offer: ${naira(minOfferNgn)}`}
-              </PriceCardNote>
-            ) : null}
           </PriceCard>
 
           {lowest !== null && highest !== null ? (
@@ -768,6 +772,7 @@ export default function MatchingScreen() {
 
         <View style={styles.footer}>
           <RButton
+            disabled={typingPrice}
             loading={isUpdating}
             onPress={() => void handleUpdatePrice()}
             title={`${restarting ? "Search again at" : "Update price to"} ${naira(draftNgn)}`}
