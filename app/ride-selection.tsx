@@ -694,7 +694,7 @@ export default function RideSelectionScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingHorizontal: rider.gutter, paddingTop: 12, paddingBottom: 16 },
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 12 },
-  title: { flex: 1, fontSize: 26, lineHeight: 30 },
+  title: { flex: 1, fontSize: 22, lineHeight: 25 },
   scroll: { flex: 1 },
   body: { gap: 14, paddingBottom: 16 },
 
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
-  estimateFigure: { fontSize: 36, lineHeight: 40 },
+  estimateFigure: { fontSize: 30, lineHeight: 33 },
 
   whenRow: { flexDirection: "row", gap: 10 },
   when: {
@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
   },
   whenOn: { backgroundColor: colors.ink },
   whenOff: { borderWidth: 2, borderColor: colors.ink },
-  whenText: { fontSize: 15 },
+  whenText: { fontSize: 14 },
 
   infoCard: {
     flexDirection: "row",

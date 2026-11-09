@@ -32,15 +32,15 @@ const { colors, fonts, radius } = rider;
 
 const textStyles = StyleSheet.create({
   /** Screen headline. */
-  display: { fontFamily: fonts.display, fontSize: 36, lineHeight: 38, letterSpacing: -1 },
-  title: { fontFamily: fonts.display, fontSize: 28, lineHeight: 32, letterSpacing: -0.6 },
-  heading: { fontFamily: fonts.display, fontSize: 22, lineHeight: 26, letterSpacing: -0.4 },
+  display: { fontFamily: fonts.display, fontSize: 30, lineHeight: 32, letterSpacing: -1 },
+  title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 27, letterSpacing: -0.6 },
+  heading: { fontFamily: fonts.display, fontSize: 20, lineHeight: 24, letterSpacing: -0.4 },
   /** Prices and other figures: digits keep their width as they change. */
-  figure: { fontFamily: fonts.display, fontSize: 26, lineHeight: 30, fontVariant: ["tabular-nums"] },
-  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 23 },
-  bodyBold: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 22 },
-  small: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
-  smallBold: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20 },
+  figure: { fontFamily: fonts.display, fontSize: 22, lineHeight: 25, fontVariant: ["tabular-nums"] },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
+  bodyBold: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 21 },
+  small: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19 },
+  smallBold: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 19 },
   caption: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 17 },
   /** Small capitals above a group. */
   label: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 17, letterSpacing: 0.5 },
@@ -497,11 +497,11 @@ const styles = StyleSheet.create({
   },
   buttonLg: { height: 60, borderRadius: radius.lg },
   buttonMd: { height: 52, borderRadius: radius.md },
-  buttonLgText: { fontFamily: fonts.heavy, fontSize: 18 },
-  buttonMdText: { fontFamily: fonts.bold, fontSize: 16 },
+  buttonLgText: { fontFamily: fonts.heavy, fontSize: 16 },
+  buttonMdText: { fontFamily: fonts.bold, fontSize: 15 },
 
   link: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
-  linkText: { fontFamily: fonts.semibold, fontSize: 15 },
+  linkText: { fontFamily: fonts.semibold, fontSize: 14 },
 
   back: {
     width: 44,
@@ -526,10 +526,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: radius.pill,
   },
-  pillText: { fontFamily: fonts.bold, fontSize: 14 },
+  pillText: { fontFamily: fonts.bold, fontSize: 13 },
 
   field: { gap: 8 },
-  fieldLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.ink },
+  fieldLabel: { fontFamily: fonts.semibold, fontSize: 13, color: colors.ink },
   fieldLabelNote: { fontFamily: fonts.medium, color: colors.muted },
   input: {
     height: 58,
@@ -539,14 +539,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     paddingHorizontal: 16,
     fontFamily: fonts.semibold,
-    fontSize: 18,
+    fontSize: 16,
     color: colors.ink,
   },
   inputError: { borderColor: colors.danger },
   inputValid: { borderColor: colors.green, paddingRight: 48 },
   inputTick: { position: "absolute", right: 14, top: 0, bottom: 0, justifyContent: "center" },
-  fieldHint: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.muted },
-  fieldError: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.danger },
+  fieldHint: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted },
+  fieldError: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.danger },
 
   avatar: { backgroundColor: colors.tint },
   avatarInitials: { overflow: "hidden", backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 8 },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
   rowText: { flex: 1, minWidth: 0 },
-  rowTitle: { fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
-  rowSubtitle: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.muted },
+  rowTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink },
+  rowSubtitle: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted },
   iconDot: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 });

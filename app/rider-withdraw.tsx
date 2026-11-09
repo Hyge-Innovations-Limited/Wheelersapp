@@ -919,13 +919,13 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.72 },
   centered: { textAlign: "center", alignSelf: "center" },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { flex: 1, fontSize: 26 },
+  headerTitle: { flex: 1, fontSize: 22 },
   section: { gap: 8 },
   spacer: { flexGrow: 1, minHeight: 8 },
 
   amountCard: { padding: 20, borderRadius: 24, gap: 14 },
   amountTop: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
-  balanceText: { fontFamily: rider.fonts.regular, fontSize: 14, color: rider.colors.onInkMuted },
+  balanceText: { fontFamily: rider.fonts.regular, fontSize: 13, color: rider.colors.onInkMuted },
   balanceValue: {
     fontFamily: rider.fonts.bold,
     color: rider.colors.cream,
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
   quickOn: { borderColor: rider.colors.orange, backgroundColor: rider.colors.orange },
   quickText: {
     fontFamily: rider.fonts.bold,
-    fontSize: 15,
+    fontSize: 14,
     color: rider.colors.cream,
     fontVariant: ["tabular-nums"],
   },
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
   changeButton: { minHeight: 44, minWidth: 44, alignItems: "center", justifyContent: "center" },
   changeText: {
     fontFamily: rider.fonts.bold,
-    fontSize: 15,
+    fontSize: 14,
     color: rider.colors.orangeText,
     textDecorationLine: "underline",
   },
@@ -1019,8 +1019,8 @@ const styles = StyleSheet.create({
   receiveCard: { gap: 2 },
   receiveFigure: {
     fontFamily: rider.fonts.display,
-    fontSize: 40,
-    lineHeight: 46,
+    fontSize: 34,
+    lineHeight: 39,
     letterSpacing: -1,
     color: rider.colors.orange,
     fontVariant: ["tabular-nums"],

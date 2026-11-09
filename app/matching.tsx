@@ -1225,21 +1225,21 @@ const styles = StyleSheet.create({
   page: { flex: 1, paddingHorizontal: rider.gutter, paddingTop: 12, paddingBottom: 12, gap: 12 },
   pageBody: { gap: 14, paddingBottom: 16 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { flex: 1, fontSize: 26, lineHeight: 30 },
+  headerTitle: { flex: 1, fontSize: 22, lineHeight: 25 },
   footer: { gap: 6 },
   footerRow: { flexDirection: "row", gap: 10 },
   titleBlock: { gap: 4 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  clock: { fontSize: 22, lineHeight: 28 },
+  clock: { fontSize: 20, lineHeight: 25 },
 
   chipRow: { flexDirection: "row", gap: 8 },
   askedCard: { gap: 8, paddingVertical: 14, borderRadius: rider.radius.lg },
   askedRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
 
-  noDriverTitle: { fontSize: 34, lineHeight: 37 },
+  noDriverTitle: { fontSize: 28, lineHeight: 30 },
   tripCard: { gap: 4, paddingVertical: 14, borderRadius: rider.radius.lg },
   retryCard: { gap: 12, padding: 18 },
-  retryLabel: { fontSize: 15 },
+  retryLabel: { fontSize: 14 },
   retryRow: { flexDirection: "row", gap: 10 },
   retryOption: {
     flex: 1,
@@ -1252,7 +1252,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   retryOptionOn: { borderColor: colors.orange, backgroundColor: colors.orange },
-  retryOptionText: { fontFamily: fonts.display, fontSize: 20, fontVariant: ["tabular-nums"] },
+  retryOptionText: { fontFamily: fonts.display, fontSize: 18, fontVariant: ["tabular-nums"] },
   retryOther: { alignSelf: "flex-start", paddingHorizontal: 0 },
 
   confirming: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 },
@@ -1273,7 +1273,7 @@ const styles = StyleSheet.create({
   offerCard: { gap: 12, paddingVertical: 16, paddingHorizontal: 18 },
   offerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   offerWho: { flex: 1, minWidth: 0, gap: 2 },
-  offerFigure: { fontSize: 36, lineHeight: 40 },
+  offerFigure: { fontSize: 30, lineHeight: 33 },
   offerMeta: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 8 },
   raise: { gap: 8 },
   waiting: {

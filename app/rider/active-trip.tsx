@@ -417,14 +417,14 @@ const styles = StyleSheet.create({
   },
   sheetContent: { flexGrow: 1, paddingHorizontal: rider.gutter, paddingTop: 22, gap: 14 },
   headline: { gap: 4 },
-  title: { fontSize: 26, lineHeight: 30 },
-  sub: { fontSize: 15, lineHeight: 21 },
+  title: { fontSize: 22, lineHeight: 25 },
+  sub: { fontSize: 14, lineHeight: 20 },
   track: { height: 8, borderRadius: 4, backgroundColor: colors.line, overflow: "hidden" },
   fill: { height: 8, borderRadius: 4, backgroundColor: colors.orange },
 
   driver: { flexDirection: "row", alignItems: "center", gap: 12 },
   driverText: { flex: 1, minWidth: 0, gap: 2 },
-  driverName: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24 },
+  driverName: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 21 },
   plate: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.ink,
   },
-  plateText: { fontFamily: fonts.displayBold, fontSize: 17, lineHeight: 22, letterSpacing: 0.7 },
+  plateText: { fontFamily: fonts.displayBold, fontSize: 16, lineHeight: 21, letterSpacing: 0.7 },
 
   code: {
     flexDirection: "row",
@@ -448,8 +448,8 @@ const styles = StyleSheet.create({
   codeNote: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   codeDigits: {
     fontFamily: fonts.display,
-    fontSize: 42,
-    lineHeight: 48,
+    fontSize: 36,
+    lineHeight: 41,
     letterSpacing: 5,
     fontVariant: ["tabular-nums"],
     flexShrink: 0,
@@ -493,8 +493,8 @@ const styles = StyleSheet.create({
   },
   priceText: { flex: 1, minWidth: 0 },
   priceLabel: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
-  priceTo: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20 },
-  priceAmount: { fontSize: 24, lineHeight: 28, flexShrink: 0 },
+  priceTo: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19 },
+  priceAmount: { fontSize: 21, lineHeight: 24, flexShrink: 0 },
 
   stops: {
     flexDirection: "row",

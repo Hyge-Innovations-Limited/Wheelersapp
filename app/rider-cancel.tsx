@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, paddingHorizontal: rider.gutter, paddingTop: 12, paddingBottom: 24, gap: 14 },
   pressed: { opacity: 0.72 },
   head: { gap: 8 },
-  title: { fontSize: 34, lineHeight: 37 },
+  title: { fontSize: 28, lineHeight: 30 },
   reasons: { gap: 8 },
   reason: {
     flexDirection: "row",
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   reasonOn: { borderColor: colors.ink },
-  reasonText: { flex: 1, fontFamily: rider.fonts.semibold, fontSize: 16, lineHeight: 22 },
+  reasonText: { flex: 1, fontFamily: rider.fonts.semibold, fontSize: 15, lineHeight: 21 },
   note: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: colors.orangeSoft },
   spacer: { flexGrow: 1, minHeight: 4 },
 });

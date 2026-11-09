@@ -36,7 +36,7 @@ export function TransactionRow({ transaction, last }: { transaction: WalletTrans
 const styles = StyleSheet.create({
   amount: {
     fontFamily: rider.fonts.bold,
-    fontSize: 17,
+    fontSize: 16,
     color: rider.colors.ink,
     fontVariant: ["tabular-nums"],
   },

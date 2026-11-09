@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   container: { gap: 16, paddingTop: 12, paddingBottom: 16 },
   pressed: { opacity: 0.72 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { flex: 1, fontSize: 26 },
+  headerTitle: { flex: 1, fontSize: 22 },
 
   accountCard: { padding: 20, borderRadius: 24, gap: 14 },
   accountCopy: { gap: 2 },
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     color: rider.colors.orange,
     fontVariant: ["tabular-nums"],
   },
-  accountName: { fontSize: 15, lineHeight: 21 },
+  accountName: { fontSize: 14, lineHeight: 20 },
   accountActions: { flexDirection: "row", gap: 10 },
   accountAction: { flex: 1 },
 
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepNumberText: { fontFamily: rider.fonts.display, fontSize: 15, color: rider.colors.orange },
+  stepNumberText: { fontFamily: rider.fonts.display, fontSize: 14, color: rider.colors.orange },
   stepText: { flex: 1 },
 
   needed: { paddingVertical: 14, borderRadius: rider.radius.lg, gap: 2 },

@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   lockRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   block: { gap: 12 },
   field: { gap: 6 },
-  label: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.ink },
+  label: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.ink },
   input: {
     height: 58,
     borderRadius: 16,
@@ -228,10 +228,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     textAlign: "center",
     fontFamily: fonts.bold,
-    fontSize: 24,
+    fontSize: 21,
     color: colors.ink,
   },
   inputFull: { borderColor: colors.green },
-  error: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.danger },
-  saved: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.green },
+  error: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.danger },
+  saved: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.green },
 });

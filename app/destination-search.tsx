@@ -1239,7 +1239,7 @@ const styles = StyleSheet.create({
   flexText: { flex: 1, minWidth: 0 },
 
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  title: { flex: 1, fontSize: 24, lineHeight: 28 },
+  title: { flex: 1, fontSize: 21, lineHeight: 24 },
 
   card: {
     paddingVertical: 6,
@@ -1268,7 +1268,7 @@ const styles = StyleSheet.create({
     height: 44,
     padding: 0,
     fontFamily: fonts.semibold,
-    fontSize: 16,
+    fontSize: 15,
     letterSpacing: 0,
     color: colors.ink,
   },
@@ -1306,7 +1306,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resultIconInk: { backgroundColor: colors.ink },
-  nothing: { paddingVertical: 16, fontSize: 15, lineHeight: 22 },
+  nothing: { paddingVertical: 16, fontSize: 14, lineHeight: 21 },
   searchError: {
     flexDirection: "row",
     alignItems: "center",

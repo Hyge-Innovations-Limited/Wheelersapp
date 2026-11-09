@@ -112,6 +112,6 @@ const styles = StyleSheet.create({
   words: { gap: 10 },
   stats: { flexDirection: "row", gap: 10 },
   stat: { flex: 1, padding: 14, borderRadius: 18, gap: 2 },
-  statFigure: { fontSize: 22, lineHeight: 26 },
+  statFigure: { fontSize: 20, lineHeight: 24 },
   spacer: { flexGrow: 1, minHeight: 12 },
 });

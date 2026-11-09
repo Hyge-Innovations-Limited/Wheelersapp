@@ -147,5 +147,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   phone: { gap: 2 },
   spacer: { flexGrow: 1, minHeight: 8 },
-  error: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.danger },
+  error: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.danger },
 });

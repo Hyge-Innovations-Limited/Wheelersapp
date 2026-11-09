@@ -446,8 +446,8 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: "ClashDisplay_700Bold",
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 28,
+    lineHeight: 31,
     letterSpacing: -1.1,
   },
   heroSub: {

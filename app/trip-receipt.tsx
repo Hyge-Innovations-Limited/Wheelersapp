@@ -242,7 +242,7 @@ export default function TripReceiptScreen() {
 const styles = StyleSheet.create({
   screen: { paddingTop: 10, gap: 14 },
   head: { gap: 4 },
-  title: { fontSize: 30, lineHeight: 33 },
+  title: { fontSize: 26, lineHeight: 29 },
   spacer: { flexGrow: 1 },
   stretch: { alignSelf: "stretch", marginTop: 8 },
 
@@ -260,8 +260,8 @@ const styles = StyleSheet.create({
   rows: { paddingVertical: 4, paddingHorizontal: 16, borderRadius: 20 },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 16, paddingVertical: 10 },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  rowLabel: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, flexShrink: 0 },
-  rowValue: { flex: 1, textAlign: "right", fontFamily: fonts.bold, fontSize: 15, lineHeight: 21 },
+  rowLabel: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, flexShrink: 0 },
+  rowValue: { flex: 1, textAlign: "right", fontFamily: fonts.bold, fontSize: 14, lineHeight: 20 },
 
   actions: { flexDirection: "row", gap: 10 },
   action: { flex: 1 },

@@ -272,14 +272,14 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, paddingHorizontal: rider.gutter, paddingTop: 16, paddingBottom: 16, gap: 14 },
   pressed: { opacity: 0.72 },
   head: { gap: 10 },
-  tripLine: { fontSize: 15, lineHeight: 21 },
+  tripLine: { fontSize: 14, lineHeight: 20 },
 
   paid: { padding: 18, gap: 6 },
   paidRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   paidAmount: {
     fontFamily: fonts.display,
-    fontSize: 40,
-    lineHeight: 46,
+    fontSize: 34,
+    lineHeight: 39,
     letterSpacing: -0.8,
     fontVariant: ["tabular-nums"],
     flexShrink: 0,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   rate: { gap: 12 },
   rateHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   rateText: { flex: 1, minWidth: 0 },
-  rateTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24 },
+  rateTitle: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 21 },
   stars: { flexDirection: "row", gap: 8 },
   star: {
     flex: 1,
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tagOn: { backgroundColor: colors.ink },
-  tagText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19 },
+  tagText: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18 },
 
   again: { flexDirection: "row", gap: 10 },
   againCard: {

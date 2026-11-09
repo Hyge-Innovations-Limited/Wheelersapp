@@ -195,10 +195,10 @@ const styles = StyleSheet.create({
   },
   boxCurrent: { borderColor: rider.colors.ink },
   boxError: { borderColor: rider.colors.danger },
-  digit: { fontFamily: rider.fonts.display, fontSize: 28, color: rider.colors.ink },
+  digit: { fontFamily: rider.fonts.display, fontSize: 24, color: rider.colors.ink },
   // Kept on screen so the keyboard and SMS autofill work; the boxes show what is typed.
   hiddenInput: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.01, color: "transparent" },
-  error: { fontFamily: rider.fonts.semibold, fontSize: 14, lineHeight: 19, color: rider.colors.danger },
+  error: { fontFamily: rider.fonts.semibold, fontSize: 13, lineHeight: 18, color: rider.colors.danger },
   links: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   spacer: { flexGrow: 1, minHeight: 12 },
 });

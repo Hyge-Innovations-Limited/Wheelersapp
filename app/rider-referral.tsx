@@ -385,8 +385,8 @@ const styles = StyleSheet.create({
   codeCard: { gap: 10, padding: 20 },
   code: {
     fontFamily: fonts.display,
-    fontSize: 40,
-    lineHeight: 46,
+    fontSize: 34,
+    lineHeight: 39,
     letterSpacing: 2,
     color: colors.orange,
     fontVariant: ["tabular-nums"],
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
 
   stats: { flexDirection: "row", gap: 10 },
   stat: { flex: 1, padding: 14, borderRadius: 18, gap: 2 },
-  statValue: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28, color: colors.ink, fontVariant: ["tabular-nums"] },
+  statValue: { fontFamily: fonts.display, fontSize: 21, lineHeight: 24, color: colors.ink, fontVariant: ["tabular-nums"] },
   statValueOnInk: { color: colors.orange },
 
   errorBox: { gap: 10 },

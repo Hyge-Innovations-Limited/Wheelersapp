@@ -214,8 +214,8 @@ const styles = StyleSheet.create({
   accountCopy: { gap: 2 },
   accountNumber: {
     fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 26,
+    lineHeight: 31,
     letterSpacing: 1,
     color: colors.orange,
     fontVariant: ["tabular-nums"],

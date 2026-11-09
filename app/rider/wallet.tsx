@@ -268,8 +268,8 @@ const styles = StyleSheet.create({
   balanceCopy: { gap: 2 },
   balanceFigure: {
     fontFamily: rider.fonts.display,
-    fontSize: 52,
-    lineHeight: 56,
+    fontSize: 44,
+    lineHeight: 47,
     letterSpacing: -1.5,
     color: rider.colors.orange,
     fontVariant: ["tabular-nums"],
@@ -283,8 +283,8 @@ const styles = StyleSheet.create({
   accountCopy: { flex: 1, minWidth: 0 },
   accountNumber: {
     fontFamily: rider.fonts.display,
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 24,
+    lineHeight: 29,
     letterSpacing: 1,
     color: rider.colors.ink,
     fontVariant: ["tabular-nums"],
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  copyText: { fontFamily: rider.fonts.bold, fontSize: 15, color: rider.colors.card },
+  copyText: { fontFamily: rider.fonts.bold, fontSize: 14, color: rider.colors.card },
 
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   empty: { paddingVertical: 12 },

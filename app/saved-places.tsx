@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   flexText: { flex: 1, minWidth: 0 },
 
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  title: { flex: 1, fontSize: 26, lineHeight: 30 },
+  title: { flex: 1, fontSize: 22, lineHeight: 25 },
   intro: { gap: 4 },
 
   place: {
@@ -483,8 +483,8 @@ const styles = StyleSheet.create({
   textAction: { minHeight: 44, minWidth: 44, justifyContent: "center" },
   textActionLabel: {
     fontFamily: fonts.bold,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 19,
     textDecorationLine: "underline",
   },
 
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
   },
   spinner: { alignSelf: "flex-start", marginVertical: 6 },
-  nothing: { fontSize: 15, lineHeight: 22 },
+  nothing: { fontSize: 14, lineHeight: 21 },
   searchError: {
     flexDirection: "row",
     alignItems: "center",

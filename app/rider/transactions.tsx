@@ -72,7 +72,7 @@ export default function RiderTransactionsScreen() {
 const styles = StyleSheet.create({
   container: { gap: 12, paddingTop: 12, paddingBottom: 32 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { flex: 1, fontSize: 26 },
+  headerTitle: { flex: 1, fontSize: 22 },
   list: { minHeight: 240 },
   state: { alignItems: "center", gap: 4, paddingVertical: 40 },
   centered: { textAlign: "center" },

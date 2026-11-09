@@ -119,5 +119,5 @@ const styles = StyleSheet.create({
   block: { gap: 12 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   flex: { flex: 1 },
-  error: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.danger },
+  error: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.danger },
 });

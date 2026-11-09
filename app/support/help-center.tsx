@@ -91,8 +91,8 @@ const styles = StyleSheet.create({
   topicText: {
     flex: 1,
     fontFamily: rider.fonts.semibold,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 21,
     color: rider.colors.ink,
   },
   spacer: { flexGrow: 1, minHeight: 8 },

@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: colors.ink,
   },
-  walletText: { fontFamily: fonts.bold, fontSize: 16, fontVariant: ["tabular-nums"] },
+  walletText: { fontFamily: fonts.bold, fontSize: 15, fontVariant: ["tabular-nums"] },
 
   sheet: {
     position: "absolute",
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.ink,
   },
-  searchText: { fontFamily: fonts.medium, fontSize: 17 },
+  searchText: { fontFamily: fonts.medium, fontSize: 16 },
   later: {
     flexDirection: "row",
     alignItems: "center",
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.orangeSoft,
   },
-  scheduledTitle: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20 },
+  scheduledTitle: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19 },
 
   group: { gap: 8 },
   pairRow: { flexDirection: "row", gap: 10 },
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   chipWide: { flex: 1, maxWidth: undefined },
-  chipText: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20 },
+  chipText: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19 },
   addChip: {
     width: 52,
     height: 52,

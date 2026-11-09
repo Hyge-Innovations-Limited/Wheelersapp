@@ -550,7 +550,7 @@ function Empty({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingTop: 10, paddingBottom: 0, gap: 14 },
-  title: { fontSize: 30, lineHeight: 34 },
+  title: { fontSize: 26, lineHeight: 29 },
   grow: { flex: 1, minWidth: 0, gap: 2 },
   spacer: { flexGrow: 1 },
   pressed: { opacity: 0.72 },
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
   switch: { flexDirection: "row", padding: 4, borderRadius: radius.md, backgroundColor: colors.tint },
   switchItem: { flex: 1, height: 44, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
   switchItemOn: { backgroundColor: colors.ink },
-  switchText: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20 },
+  switchText: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19 },
 
   notice: {
     flexDirection: "row",
@@ -578,21 +578,21 @@ const styles = StyleSheet.create({
   upcoming: { padding: 18, gap: 12 },
   upcomingTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   upcomingRoute: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  upcomingPrice: { fontSize: 24, lineHeight: 28, flexShrink: 0 },
+  upcomingPrice: { fontSize: 21, lineHeight: 24, flexShrink: 0 },
   cancel: { alignSelf: "flex-start", minHeight: 44, minWidth: 44, justifyContent: "center" },
-  cancelText: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, textDecorationLine: "underline" },
+  cancelText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, textDecorationLine: "underline" },
 
   featured: { gap: 12 },
   featuredTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
-  featuredRoute: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 22 },
-  featuredPrice: { fontSize: 22, lineHeight: 26, flexShrink: 0 },
+  featuredRoute: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 21 },
+  featuredPrice: { fontSize: 20, lineHeight: 24, flexShrink: 0 },
   featuredActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   featuredButton: { flex: 1, height: 48, paddingHorizontal: 8, borderRadius: 14 },
 
   row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 12 },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  rowReason: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },
-  rowPrice: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, fontVariant: ["tabular-nums"], flexShrink: 0 },
+  rowReason: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19 },
+  rowPrice: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 21, fontVariant: ["tabular-nums"], flexShrink: 0 },
 
   center: { flexGrow: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 32 },
   centerText: { textAlign: "center" },

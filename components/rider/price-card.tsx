@@ -372,8 +372,8 @@ export function PriceCardChip({
 const styles = StyleSheet.create({
   card: { padding: 18, borderRadius: 24, backgroundColor: colors.ink, gap: 12 },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 },
-  label: { fontFamily: fonts.regular, fontSize: 15, color: colors.onInkMuted },
-  side: { flexShrink: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.onInkMuted },
+  label: { fontFamily: fonts.regular, fontSize: 14, color: colors.onInkMuted },
+  side: { flexShrink: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.onInkMuted },
   sideValue: { fontFamily: fonts.bold, color: colors.cream, fontVariant: ["tabular-nums"] },
   stepper: { flexDirection: "row", alignItems: "center", gap: 12 },
   round: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
@@ -385,8 +385,8 @@ const styles = StyleSheet.create({
   figure: {
     textAlign: "center",
     fontFamily: fonts.display,
-    fontSize: 54,
-    lineHeight: 60,
+    fontSize: 46,
+    lineHeight: 51,
     letterSpacing: -1.6,
     color: colors.orange,
     fontVariant: ["tabular-nums"],
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     color: colors.onInkSoft,
     fontVariant: ["tabular-nums"],
   },
-  note: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.onInkMuted },
+  note: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.onInkMuted },
   noteStrong: { fontFamily: fonts.semibold, color: colors.cream },
   chip: {
     flex: 1,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  chipText: { fontFamily: fonts.bold, fontSize: 15, color: colors.cream, fontVariant: ["tabular-nums"] },
+  chipText: { fontFamily: fonts.bold, fontSize: 14, color: colors.cream, fontVariant: ["tabular-nums"] },
   dimmed: { opacity: 0.4 },
   pressed: { opacity: 0.72 },
 });

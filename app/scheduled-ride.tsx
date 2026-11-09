@@ -249,8 +249,8 @@ const styles = StyleSheet.create({
 
   head: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12 },
   headWords: { flex: 1, minWidth: 0, gap: 2 },
-  title: { fontSize: 30, lineHeight: 33 },
-  price: { fontSize: 26, lineHeight: 33, flexShrink: 0 },
+  title: { fontSize: 26, lineHeight: 29 },
+  price: { fontSize: 22, lineHeight: 28, flexShrink: 0 },
 
   route: { flexDirection: "row", gap: 14, paddingVertical: 12, paddingHorizontal: 16, borderRadius: rider.radius.lg },
   routeMarks: { alignItems: "center", paddingTop: 5, paddingBottom: 5 },
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   markLine: { width: 2, flexGrow: 1, marginVertical: 4, backgroundColor: colors.line },
   markTo: { width: 12, height: 12, borderRadius: 3, backgroundColor: colors.orange },
   routeWords: { flex: 1, minWidth: 0, gap: 8 },
-  address: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 21 },
+  address: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20 },
 
   nextLabel: { paddingBottom: 8 },
   step: { flexDirection: "row", gap: 12 },
@@ -271,9 +271,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepNum: { fontFamily: fonts.display, fontSize: 14, lineHeight: 18 },
+  stepNum: { fontFamily: fonts.display, fontSize: 13, lineHeight: 17 },
   stepLine: { width: 2, flexGrow: 1, backgroundColor: colors.line },
   stepWords: { flex: 1, minWidth: 0, gap: 2 },
   stepWordsGap: { paddingBottom: 12 },
-  stepTitle: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 21 },
+  stepTitle: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20 },
 });

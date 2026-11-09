@@ -308,11 +308,11 @@ const styles = StyleSheet.create({
     borderRadius: 90,
     backgroundColor: colors.orange,
   },
-  name: { fontFamily: fonts.display, fontSize: 34, lineHeight: 40, letterSpacing: -0.6, textAlign: "center" },
+  name: { fontFamily: fonts.display, fontSize: 28, lineHeight: 33, letterSpacing: -0.6, textAlign: "center" },
   status: {
     fontFamily: fonts.display,
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 25,
     fontVariant: ["tabular-nums"],
     textAlign: "center",
   },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   endIcon: { transform: [{ rotate: "135deg" }] },
-  endText: { fontFamily: fonts.heavy, fontSize: 18, lineHeight: 24 },
+  endText: { fontFamily: fonts.heavy, fontSize: 16, lineHeight: 21 },
 
   barWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   bar: {

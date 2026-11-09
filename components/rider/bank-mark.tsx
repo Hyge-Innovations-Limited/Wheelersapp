@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   initialsDisc: { backgroundColor: colors.orangeSoft, borderColor: "transparent" },
-  logo: { width: "100%", height: "100%" },
+  // Inset so a square logo's corners are not cut by the circle.
+  logo: { width: "72%", height: "72%" },
   initials: { fontFamily: fonts.heavy, color: colors.orangeText },
 });

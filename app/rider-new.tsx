@@ -170,5 +170,5 @@ const styles = StyleSheet.create({
   names: { flexDirection: "row", gap: 10 },
   name: { flex: 1 },
   spacer: { flexGrow: 1, minHeight: 4 },
-  error: { fontFamily: rider.fonts.semibold, fontSize: 14, lineHeight: 19, color: rider.colors.danger },
+  error: { fontFamily: rider.fonts.semibold, fontSize: 13, lineHeight: 18, color: rider.colors.danger },
 });

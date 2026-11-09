@@ -335,11 +335,11 @@ const styles = StyleSheet.create({
   container: { gap: 14, paddingTop: 12, paddingBottom: 16 },
   pressed: { opacity: 0.72 },
   legal: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
-  legalDot: { fontFamily: rider.fonts.semibold, fontSize: 15, color: rider.colors.muted },
+  legalDot: { fontFamily: rider.fonts.semibold, fontSize: 14, color: rider.colors.muted },
 
   identity: { flexDirection: "row", alignItems: "center", gap: 14 },
   identityCopy: { flex: 1, minWidth: 0, gap: 2 },
-  contact: { fontSize: 15, lineHeight: 21, fontVariant: ["tabular-nums"] },
+  contact: { fontSize: 14, lineHeight: 20, fontVariant: ["tabular-nums"] },
   editButton: {
     height: 44,
     paddingHorizontal: 14,
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  editText: { fontFamily: rider.fonts.bold, fontSize: 15, color: rider.colors.ink },
+  editText: { fontFamily: rider.fonts.bold, fontSize: 14, color: rider.colors.ink },
 
   walletTile: {
     flexDirection: "row",
@@ -364,8 +364,8 @@ const styles = StyleSheet.create({
   },
   walletFigure: {
     fontFamily: rider.fonts.display,
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 20,
+    lineHeight: 24,
     color: rider.colors.orange,
     fontVariant: ["tabular-nums"],
   },

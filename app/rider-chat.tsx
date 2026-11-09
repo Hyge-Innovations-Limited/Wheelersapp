@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
   },
   headerText: { flex: 1, minWidth: 0 },
-  name: { fontSize: 20, lineHeight: 24 },
+  name: { fontSize: 18, lineHeight: 22 },
   call: {
     width: 44,
     height: 44,
@@ -448,8 +448,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 18,
     borderBottomRightRadius: 18,
   },
-  textMine: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, color: colors.ink },
-  textTheirs: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.ink },
+  textMine: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.ink },
+  textTheirs: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink },
   time: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 15, color: colors.muted },
 
   banner: { paddingHorizontal: rider.gutter, paddingVertical: 8 },
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  chipText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19 },
+  chipText: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18 },
 
   composer: {
     flexDirection: "row",
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     borderColor: colors.ink,
     backgroundColor: colors.cream,
     fontFamily: fonts.regular,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.ink,
   },
   send: {

@@ -447,7 +447,7 @@ function Dial({
 const styles = StyleSheet.create({
   screen: { paddingTop: 10, gap: 16 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  title: { fontSize: 26, lineHeight: 30 },
+  title: { fontSize: 22, lineHeight: 25 },
   group: { gap: 8 },
   spacer: { flexGrow: 1 },
   pressed: { opacity: 0.72 },
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   },
   dayOn: { backgroundColor: colors.ink },
   dayTop: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 16 },
-  dayNum: { fontFamily: fonts.display, fontSize: 20, lineHeight: 24, fontVariant: ["tabular-nums"] },
+  dayNum: { fontFamily: fonts.display, fontSize: 18, lineHeight: 22, fontVariant: ["tabular-nums"] },
 
   times: { flexDirection: "row", flexWrap: "wrap", gap: TIME_GAP, minHeight: 48 },
   time: {
@@ -481,16 +481,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   timeOn: { borderColor: colors.orange, backgroundColor: colors.orange },
-  timeText: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
+  timeText: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19, fontVariant: ["tabular-nums"] },
   timeTextOn: { fontFamily: fonts.heavy },
   another: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center" },
-  anotherText: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20, textDecorationLine: "underline" },
+  anotherText: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19, textDecorationLine: "underline" },
 
   summary: { padding: 18, gap: 10 },
-  summaryWhen: { fontSize: 26, lineHeight: 30, letterSpacing: -0.5 },
+  summaryWhen: { fontSize: 22, lineHeight: 25, letterSpacing: -0.5 },
   summaryRoute: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  summaryRouteText: { flex: 1, fontSize: 15, lineHeight: 20 },
-  summaryPrice: { fontSize: 20, lineHeight: 24, flexShrink: 0 },
+  summaryRouteText: { flex: 1, fontSize: 14, lineHeight: 19 },
+  summaryPrice: { fontSize: 18, lineHeight: 22, flexShrink: 0 },
   notes: { gap: 6 },
 
   sheetWrap: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(13,13,13,0.5)" },
@@ -519,13 +519,13 @@ const styles = StyleSheet.create({
   },
   dialValue: {
     fontFamily: fonts.display,
-    fontSize: 44,
-    lineHeight: 56,
+    fontSize: 38,
+    lineHeight: 48,
     fontVariant: ["tabular-nums"],
     textAlign: "center",
     minWidth: 76,
   },
-  dialColon: { fontFamily: fonts.display, fontSize: 40, lineHeight: 56, marginBottom: 20 },
+  dialColon: { fontFamily: fonts.display, fontSize: 34, lineHeight: 48, marginBottom: 20 },
   halves: { gap: 8, marginLeft: 6, marginBottom: 20 },
   half: {
     width: 64,
@@ -538,5 +538,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   halfOn: { backgroundColor: colors.ink },
-  halfText: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 20 },
+  halfText: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 19 },
 });

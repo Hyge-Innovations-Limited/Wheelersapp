@@ -274,16 +274,16 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: "row", marginHorizontal: 20, padding: 4, borderRadius: 16, backgroundColor: rider.colors.tint },
   tab: { flex: 1, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   tabOn: { backgroundColor: rider.colors.ink },
-  tabText: { fontFamily: rider.fonts.bold, fontSize: 15, color: rider.colors.ink },
+  tabText: { fontFamily: rider.fonts.bold, fontSize: 14, color: rider.colors.ink },
   tabTextOn: { color: rider.colors.cream },
   // Only the room above the buttons: the text never pushes Accept off the screen.
   scroll: { flex: 1 },
   body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28, gap: 18 },
   section: { gap: 8 },
-  sectionTitle: { fontSize: 17 },
+  sectionTitle: { fontSize: 16 },
   paragraph: { color: rider.colors.ink },
   web: { minHeight: 44, justifyContent: "center" },
-  webText: { fontFamily: rider.fonts.bold, fontSize: 15, color: rider.colors.orangeText, textDecorationLine: "underline" },
+  webText: { fontFamily: rider.fonts.bold, fontSize: 14, color: rider.colors.orangeText, textDecorationLine: "underline" },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -293,5 +293,5 @@ const styles = StyleSheet.create({
     backgroundColor: rider.colors.card,
   },
   notYet: { opacity: 0.55 },
-  hint: { fontFamily: rider.fonts.medium, fontSize: 14, lineHeight: 19, color: rider.colors.muted, textAlign: "center" },
+  hint: { fontFamily: rider.fonts.medium, fontSize: 13, lineHeight: 18, color: rider.colors.muted, textAlign: "center" },
 });
