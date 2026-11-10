@@ -28,7 +28,7 @@ function build(file) {
 }
 
 const { reduceDriverSession, recordBid, applyActiveRideSnapshot, defaultDriverSession } = build('lib/driver-session-reducer.ts');
-const { tripDetailsOut, parseTripDetails, peopleLabel, DEFAULT_TRIP_DETAILS } = build('lib/trip-details.ts');
+const { tripDetailsOut, parseTripDetails, peopleLabel, nextPassengers, DEFAULT_TRIP_DETAILS } = build('lib/trip-details.ts');
 
 const PICKUP = { lat: 6.6018, lng: 3.3515, address: '102 Opebi Rd, Ikeja' };
 const DEST = { lat: 6.4969, lng: 3.3556, address: '15 Aiyetoro St, Surulere' };
@@ -99,4 +99,8 @@ test('a search brought back from the server (app restarted) keeps its details, s
   assert.deepEqual(restoredRideFrom(ride).tripDetails, DETAILS);
   const { tripDetails: _, ...older } = ride;
   assert.equal(restoredRideFrom(older).tripDetails, undefined, 'an older server: none');
+});
+
+test('the People chip: each tap adds one, past 4 it goes back to 1', () => {
+  assert.deepEqual([1, 2, 3, 4].map(nextPassengers), [2, 3, 4, 1]);
 });

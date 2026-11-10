@@ -145,7 +145,9 @@ export default function MatchingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** The price being set in the change-price view; null while that view is closed. */
   const [draftNgn, setDraftNgn] = useState<number | null>(null);
-  const [typingPrice, setTypingPrice] = useState(false);
+  // While the rider types a new price: what it would be, so the button shows it; a tap sends it (priceCommitRef).
+  const [typedDraftNgn, setTypedDraftNgn] = useState<number | null>(null);
+  const priceCommitRef = useRef<(() => number | null) | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   /** The higher price picked after a search nobody took. */
   const [pickedRetryNgn, setPickedRetryNgn] = useState<number | null>(null);
@@ -445,31 +447,33 @@ export default function MatchingScreen() {
   /** A new price goes to every driver nearby and the search window starts again. */
   const handleUpdatePrice = useCallback(async () => {
     if (draftNgn === null) return;
+    // Tapped with the keyboard still open: what is typed is the price (₦50 rounding, never under the minimum).
+    const priceNgn = priceCommitRef.current?.() ?? draftNgn;
     if (timedOut || !currentRide) {
-      void askThenSearchAgain(draftNgn);
+      void askThenSearchAgain(priceNgn);
       return;
     }
-    if (draftNgn === riderOfferNgn) {
+    if (priceNgn === riderOfferNgn) {
       setDraftNgn(null);
       return;
     }
     // Auto-booking was agreed at a lower price: a higher one is asked about
     // first (when the wallet covers it); nothing is booked at it unasked.
-    if (raiseNeedsAutoBookAnswer({ autoAcceptChosen: currentRide.autoAcceptChosen, agreedNgn: riderOfferNgn, newNgn: draftNgn })) {
+    if (raiseNeedsAutoBookAnswer({ autoAcceptChosen: currentRide.autoAcceptChosen, agreedNgn: riderOfferNgn, newNgn: priceNgn })) {
       if (checkingWalletRef.current) return;
       checkingWalletRef.current = true;
       setIsUpdating(true);
       const balanceNgn = await fetchFreshBalanceNgn(() => getAccessTokenWithRetry(getAccessToken));
       checkingWalletRef.current = false;
       setIsUpdating(false);
-      if (shouldAskAutoBook({ balanceNgn, priceNgn: draftNgn, scheduled: false })) {
-        setRaiseAsk(draftNgn);
+      if (shouldAskAutoBook({ balanceNgn, priceNgn, scheduled: false })) {
+        setRaiseAsk(priceNgn);
         return;
       }
       // The wallet does not cover it (or cannot be had): auto-booking goes off first.
       await setAutoBook(false).catch(() => undefined);
     }
-    await sendPrice(draftNgn);
+    await sendPrice(priceNgn);
   }, [draftNgn, timedOut, currentRide, riderOfferNgn, askThenSearchAgain, getAccessToken, setAutoBook, sendPrice]);
 
 
@@ -714,7 +718,8 @@ export default function MatchingScreen() {
                   : `Minimum offer: ${naira(minOfferNgn)}`
                 : null
             }
-            onEditingChange={setTypingPrice}
+            commitRef={priceCommitRef}
+            onTypedAmount={setTypedDraftNgn}
             sideLabel="Current"
             sideValue={riderOfferNgn !== undefined ? naira(riderOfferNgn) : null}>
             <View style={styles.chipRow}>
@@ -772,10 +777,9 @@ export default function MatchingScreen() {
 
         <View style={styles.footer}>
           <RButton
-            disabled={typingPrice}
             loading={isUpdating}
             onPress={() => void handleUpdatePrice()}
-            title={`${restarting ? "Search again at" : "Update price to"} ${naira(draftNgn)}`}
+            title={`${restarting ? "Search again at" : "Update price to"} ${naira(typedDraftNgn ?? draftNgn)}`}
           />
           <RLink
             onPress={() => setDraftNgn(null)}

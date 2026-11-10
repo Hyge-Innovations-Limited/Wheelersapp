@@ -37,7 +37,7 @@ export const WHATSAPP_FEE_NGN = 300;
 const commissionRateOf = (version: PricingVersion) => (version === 1 ? V1_COMMISSION_RATE : version === 2 ? V2_COMMISSION_RATE : COMMISSION_RATE);
 export const VAT_RATE = 0.075;
 export const STATE_LEVY_NGN = 30;
-export const MIN_FARE_NGN = 3300;
+export const MIN_FARE_NGN = 2600;
 export const FARE_ROUNDING_INCREMENT = 50;
 /** Old names, for code not yet moved. */
 export const PLATFORM_FEE_RATE = COMMISSION_RATE;

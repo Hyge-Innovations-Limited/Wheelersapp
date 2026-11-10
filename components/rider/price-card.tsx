@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import {
   AppState,
   Animated,
@@ -43,6 +43,8 @@ export function PriceCard({
   minNgn,
   onChange,
   onEditingChange,
+  onTypedAmount,
+  commitRef,
   loading = false,
   reason,
   note,
@@ -55,8 +57,12 @@ export function PriceCard({
   amountNgn: number;
   minNgn: number;
   onChange: (next: number) => void;
-  /** The rider is typing the price: the screen holds its button until they are done. */
+  /** The rider started (true) or finished (false) typing the price. */
   onEditingChange?: (editing: boolean) => void;
+  /** While the rider types: the price it would be (₦50 rounding, never under the minimum); null when typing ends. The screen's button shows it. */
+  onTypedAmount?: (amountNgn: number | null) => void;
+  /** Set by the card: the screen's button calls it first, so a tap with the keyboard open sends what is typed. Returns the price, or null when not typing. */
+  commitRef?: MutableRefObject<(() => number | null) | null>;
   /** The price for this trip is still on its way: no number is shown, and nothing can be changed yet. */
   loading?: boolean;
   /** One small line under the figure: why the price is up ("Busy in this area · +₦1,200"). */
@@ -73,8 +79,8 @@ export function PriceCard({
   const editingRef = useRef(false);
   const textRef = useRef("");
   const startTextRef = useRef("");
-  const latest = useRef({ amountNgn, minNgn, onChange, onEditingChange });
-  latest.current = { amountNgn, minNgn, onChange, onEditingChange };
+  const latest = useRef({ amountNgn, minNgn, onChange, onEditingChange, onTypedAmount, commitRef });
+  latest.current = { amountNgn, minNgn, onChange, onEditingChange, onTypedAmount, commitRef };
 
   // A change that did not come from typing (a chip, the screen) clears the "Lowest is" line.
   useEffect(() => {
@@ -85,6 +91,7 @@ export function PriceCard({
     editingRef.current = next;
     setEditing(next);
     latest.current.onEditingChange?.(next);
+    if (!next) latest.current.onTypedAmount?.(null);
   }
 
   /** Done: runs once however it is reached (Done key, blur, keyboard hidden, background, unmount). */
@@ -105,6 +112,7 @@ export function PriceCard({
   }
   const finishRef = useRef(finishTyping);
   finishRef.current = finishTyping;
+  if (commitRef) commitRef.current = () => finishRef.current();
 
   // Android Back closes the keyboard without a blur; the app going away ends it too.
   useEffect(() => {
@@ -124,6 +132,8 @@ export function PriceCard({
     () => () => {
       editingRef.current = false;
       latest.current.onEditingChange?.(false);
+      latest.current.onTypedAmount?.(null);
+      if (latest.current.commitRef) latest.current.commitRef.current = null;
     },
     [],
   );
@@ -134,6 +144,7 @@ export function PriceCard({
       editingRef.current = false;
       setEditing(false);
       latest.current.onEditingChange?.(false);
+      latest.current.onTypedAmount?.(null);
     }
   }, [loading]);
 
@@ -209,6 +220,7 @@ export function PriceCard({
                   const digits = value.replace(/[^0-9]/g, "");
                   textRef.current = digits;
                   setText(digits);
+                  onTypedAmount?.(settleTypedPrice(digits, startTextRef.current, amountNgn, minNgn).amount);
                 }}
                 onSubmitEditing={() => finishTyping()}
                 returnKeyType="done"
@@ -370,7 +382,7 @@ export function PriceCardChip({
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 18, borderRadius: 24, backgroundColor: colors.ink, gap: 12 },
+  card: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 24, backgroundColor: colors.ink, gap: 8 },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 },
   label: { fontFamily: fonts.regular, fontSize: 14, color: colors.onInkMuted },
   side: { flexShrink: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.onInkMuted },
@@ -393,7 +405,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   reason: {
-    marginTop: -6,
+    marginTop: -2,
     textAlign: "center",
     fontFamily: fonts.semibold,
     fontSize: 13,

@@ -16,7 +16,7 @@ import {
   rider,
 } from "@/components/rider/kit";
 import { PriceCard, PriceShimmer } from "@/components/rider/price-card";
-import { priceReasonLine, samePriceReason } from "@/lib/price-reason";
+import { samePriceReason } from "@/lib/price-reason";
 import { AutoBookSheet } from "@/components/rider/auto-book-sheet";
 import { TripDetailsBox } from "@/components/rider/trip-details-box";
 import { DEFAULT_TRIP_DETAILS, tripDetailsOut, type TripDetails } from "@/lib/trip-details";
@@ -41,7 +41,7 @@ import {
 } from "@/lib/ride-route";
 import { submitScheduledRide } from "@/lib/scheduled-rides";
 
-const { colors, fonts } = rider;
+const { colors } = rider;
 
 /** While the rider is on this screen the price is asked for again this often: traffic and pricing move on the server. */
 const PRICE_REFRESH_MS = 60_000;
@@ -168,7 +168,9 @@ export default function RideSelectionScreen() {
    * is theirs.
    */
   const [offerNgn, setOfferNgn] = useState<number | null>(null);
-  const [typingPrice, setTypingPrice] = useState(false);
+  // While the rider types a price: what it would be, so the button shows it; a tap sends it (priceCommitRef).
+  const [typedOfferNgn, setTypedOfferNgn] = useState<number | null>(null);
+  const priceCommitRef = useRef<(() => number | null) | null>(null);
   // People, luggage, pet, a note: drivers see them before they bid.
   const [tripDetails, setTripDetails] = useState<TripDetails>(DEFAULT_TRIP_DETAILS);
   // Only when the server takes them (TRIP_DETAILS_BOX=on); otherwise no box and nothing sent.
@@ -467,8 +469,9 @@ export default function RideSelectionScreen() {
     // The wallet covers the price (fresh from the server): ask once whether
     // the first driver at it may be booked, and the money held, by itself.
     // Short, or the balance cannot be had: no question, no auto-booking.
+    // Tapped with the keyboard still open: what is typed is the price (₦50 rounding, never under the minimum).
+    const priceNgn = priceCommitRef.current?.() ?? effectiveOfferNgn;
     setIsSubmitting(true);
-    const priceNgn = effectiveOfferNgn;
     const balanceNgn = await fetchFreshBalanceNgn(() => getAccessTokenWithRetry(getAccessToken));
     setIsSubmitting(false);
     if (shouldAskAutoBook({ balanceNgn, priceNgn, scheduled: false })) {
@@ -534,15 +537,21 @@ export default function RideSelectionScreen() {
                   {index < routeRows.length - 1 ? <View style={styles.routeLine} /> : null}
                 </View>
                 <View style={styles.routeText}>
-                  <RText variant="caption" style={styles.routeLabel}>
-                    {row.label}
-                  </RText>
-                  <RText variant="bodyBold" numberOfLines={2}>
+                  <RText variant="bodyBold" numberOfLines={1}>
                     {row.value || "Not set"}
                   </RText>
                 </View>
               </Pressable>
             ))}
+            <View style={styles.routeMeta}>
+              {distanceLabel && tripMinutes !== null ? (
+                <RText variant="smallBold" color={colors.muted} style={styles.tabular}>
+                  {distanceLabel} · About {tripMinutes} min
+                </RText>
+              ) : (
+                <PriceShimmer height={16} onInk={false} width={120} />
+              )}
+            </View>
           </View>
           <RLink
             accessibilityLabel="Edit route"
@@ -552,19 +561,6 @@ export default function RideSelectionScreen() {
             title="Edit"
           />
         </RCard>
-
-        <View style={styles.chips}>
-          <View style={styles.chip}>
-            {distanceLabel ? <RText variant="smallBold">{distanceLabel}</RText> : <PriceShimmer height={16} onInk={false} width={56} />}
-          </View>
-          <View style={styles.chip}>
-            {tripMinutes !== null ? (
-              <RText variant="smallBold">About {tripMinutes} min</RText>
-            ) : (
-              <PriceShimmer height={16} onInk={false} width={72} />
-            )}
-          </View>
-        </View>
 
         {tripBoxOn ? <TripDetailsBox onChange={setTripDetails} value={tripDetails} /> : null}
 
@@ -627,8 +623,8 @@ export default function RideSelectionScreen() {
               loading={isPriceLoading}
               minNgn={minOfferNgn}
               onChange={setOfferNgn}
-              onEditingChange={setTypingPrice}
-              reason={priceReasonLine(resolvedEstimate?.priceReason)}
+              commitRef={priceCommitRef}
+              onTypedAmount={setTypedOfferNgn}
               sideLabel="Suggested price"
               note={
                 isPriceLoading
@@ -669,11 +665,11 @@ export default function RideSelectionScreen() {
         <RButton
           // Until the server's price for this route is in, the figure is a
           // guess that may be under the minimum: nothing is sent at a guess.
-          disabled={isPriceLoading || typingPrice}
+          disabled={isPriceLoading}
           loading={isSubmitting}
           onPress={() => void handleBookRide()}
           title={
-            isPriceLoading ? "Getting your price…" : scheduledAt ? "Schedule ride" : `Find drivers at ${naira(effectiveOfferNgn)}`
+            isPriceLoading ? "Getting your price…" : scheduledAt ? "Schedule ride" : `Find drivers at ${naira(typedOfferNgn ?? effectiveOfferNgn)}`
           }
         />
       </View>
@@ -696,7 +692,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 12 },
   title: { flex: 1, fontSize: 22, lineHeight: 25 },
   scroll: { flex: 1 },
-  body: { gap: 14, paddingBottom: 16 },
+  body: { gap: 12, paddingBottom: 16 },
 
   routeCard: { flexDirection: "row", gap: 8, paddingVertical: 14, borderRadius: 20 },
   routeRows: { flex: 1, minWidth: 0 },
@@ -707,18 +703,11 @@ const styles = StyleSheet.create({
   routeDotStop: { borderRadius: 6, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.card },
   routeDotDestination: { borderRadius: 3, backgroundColor: colors.orange },
   routeLine: { flex: 1, width: 2, minHeight: 14, marginVertical: 4, backgroundColor: colors.line },
-  routeText: { flex: 1, minWidth: 0, paddingBottom: 10 },
-  routeLabel: { fontFamily: fonts.regular },
+  routeText: { flex: 1, minWidth: 0, paddingBottom: 8 },
+  routeMeta: { paddingLeft: 26, paddingTop: 2 },
+  tabular: { fontVariant: ["tabular-nums"] },
   routeEdit: { alignSelf: "center" },
   routeRowPressed: { opacity: 0.55 },
-
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: rider.radius.pill,
-    backgroundColor: colors.tint,
-  },
 
   estimateCard: {
     flexDirection: "row",

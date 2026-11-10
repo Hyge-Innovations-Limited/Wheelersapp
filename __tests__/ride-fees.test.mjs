@@ -38,7 +38,7 @@ test('version 3, ₦350/km on 10 km: the rider sees ₦4,150, the driver gets th
   assert.equal(f.driverPayoutNgn, 3028.14, 'as the server settles it');
   const v2 = rideFees(4150, 2);
   assert.deepEqual([v2.commissionNgn, v2.whatsappFeeNgn, v2.driverPayoutNgn], [353.49, 0, 3151.39], 'a version 2 ride keeps 10% and no WhatsApp fee');
-  assert.equal(fareFromRatePerKmNgn(300, 2), 3300, 'never under the minimum fare');
+  assert.equal(fareFromRatePerKmNgn(300, 2), 2600, 'never under the minimum fare (₦2,600 from 10 Nov 2026)');
 });
 
 test('a ride agreed before the change: booking fee first, then 4% and 7.5% of the share, then the levy', () => {

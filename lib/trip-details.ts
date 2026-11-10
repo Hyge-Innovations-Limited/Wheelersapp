@@ -17,6 +17,11 @@ export type TripDetails = {
 export const TRIP_PASSENGERS_MAX = 4;
 export const TRIP_NOTE_MAX = 60;
 
+/** The People chip on Set your price: each tap adds one; past the most it goes back to 1. */
+export function nextPassengers(passengers: number): number {
+  return passengers >= TRIP_PASSENGERS_MAX ? 1 : passengers + 1;
+}
+
 /** Luggage and pet start on Yes (Timi, 8 Nov): the rider taps No when they have none. */
 export const DEFAULT_TRIP_DETAILS: TripDetails = { passengers: 1, luggage: true, pet: true };
 

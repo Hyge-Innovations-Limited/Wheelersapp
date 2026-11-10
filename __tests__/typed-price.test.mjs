@@ -55,3 +55,11 @@ test('settling then stepping: the step is taken from the typed price', async () 
   const { amount } = settleTypedPrice('9000', '5000', 5000, 1000);
   assert.equal(amount + 100, 9100);
 });
+
+// The button under the price follows what is typed (Timi, 10 Nov 2026): the same number the commit would give.
+test('while typing, the button shows what the commit would send', () => {
+  assert.equal(settleTypedPrice('5730', '5000', 5000, 3650).amount, 5750);
+  assert.equal(settleTypedPrice('1000', '5000', 5000, 3650).amount, 3650, 'under the minimum: the minimum');
+  assert.equal(settleTypedPrice('', '5000', 5000, 3650).amount, 5000, 'nothing usable yet: the price it had');
+  assert.equal(settleTypedPrice('5000', '5000', 5000, 3650).amount, 5000, 'unedited');
+});
