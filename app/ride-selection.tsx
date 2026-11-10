@@ -537,7 +537,7 @@ export default function RideSelectionScreen() {
                   {index < routeRows.length - 1 ? <View style={styles.routeLine} /> : null}
                 </View>
                 <View style={styles.routeText}>
-                  <RText variant="bodyBold" numberOfLines={1}>
+                  <RText variant="bodyBold" numberOfLines={2}>
                     {row.value || "Not set"}
                   </RText>
                 </View>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { TripIcon, type TripIconName } from "@/components/trip-details-icons";
@@ -15,6 +15,7 @@ const { colors, fonts, radius } = rider;
 export function TripDetailsBox({ value, onChange }: { value: TripDetails; onChange: (next: TripDetails) => void }) {
   const set = (patch: Partial<TripDetails>) => onChange({ ...value, ...patch });
   const [noteOpen, setNoteOpen] = useState(false);
+  const noteField = useRef<TextInput>(null);
   const note = value.note ?? "";
   const showNote = noteOpen || note.length > 0;
 
@@ -34,11 +35,15 @@ export function TripDetailsBox({ value, onChange }: { value: TripDetails; onChan
           icon="note"
           label="Note"
           on={note.length > 0}
-          onPress={() => setNoteOpen(true)}
+          onPress={() => {
+            setNoteOpen(true);
+            noteField.current?.focus();   // already open: straight back to typing
+          }}
         />
       </View>
       {showNote ? (
         <TextInput
+          ref={noteField}
           accessibilityLabel="Note for driver"
           autoFocus={noteOpen && note.length === 0}
           maxFontSizeMultiplier={1.2}
