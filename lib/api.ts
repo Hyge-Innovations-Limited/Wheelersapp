@@ -672,6 +672,16 @@ async function postJson<TResponse>(
   });
 }
 
+/** The phone this person uses (lib/device-report.ts): collected for their admin profile. The server answers 204. */
+export async function reportDevice(accessToken: string, report: Record<string, unknown>): Promise<void> {
+  if (!apiBaseUrl) return;
+  await fetch(`${apiBaseUrl.replace(/\/+$/, "")}/device/app`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify(report),
+  });
+}
+
 async function getJson<TResponse>(
   path: string,
   options?: { accessToken?: string; fallbackError: string },

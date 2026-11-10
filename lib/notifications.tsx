@@ -1,3 +1,4 @@
+import { reportDevice } from "@/lib/device-report";
 import { useAuth } from "@/lib/auth";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
@@ -279,6 +280,8 @@ export function AppNotificationsProvider({ children }: { children: ReactNode }) 
         }
 
         await refreshNotifications();
+        // Which phone they use, once per app run (their admin profile; lib/device-report.ts).
+        void reportDevice(accessToken);
 
         if (!existingPermissions.granted) {
           return;
