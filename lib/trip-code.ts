@@ -8,7 +8,9 @@
 export type StartResult =
   | { kind: 'started'; rideId?: string }
   | { kind: 'refused'; code: string; message: string }
-  | { kind: 'unlocked'; rideId: string };
+  | { kind: 'unlocked'; rideId: string }
+  /** The rider's wallet could not cover the waiting fee: the driver is asked before the trip starts. */
+  | { kind: 'waiting'; minutes: number; amountNgn: number; stoppedAt: string | null };
 
 type Listener = (result: StartResult) => void;
 const listeners = new Set<Listener>();

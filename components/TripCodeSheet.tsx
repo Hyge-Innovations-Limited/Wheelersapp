@@ -55,6 +55,9 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
       // Support unlocked it: start without the code.
       setSending(true);
       void onSubmit('').catch(() => setSending(false));
+    } else if (result.kind === 'waiting') {
+      // The code was right; the screen asks about the waiting fee next.
+      setSending(false);
     } else if (result.kind === 'refused') {
       setSending(false);
       setCode('');

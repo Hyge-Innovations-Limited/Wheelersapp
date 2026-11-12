@@ -12,6 +12,7 @@ import type { DriverActiveRide, RideEstimateWaypoint, RideRouteGeometry } from '
 import { outcomeFromServerStatus } from '@/lib/bid-card-state';
 import { pricingVersionOf, type PricingVersion } from '@/lib/ride-fees';
 import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
+import { DEFAULT_WAITING, parseWaiting, parseWaitingResult, type WaitingInfo, type WaitingResult } from '@/lib/waiting';
 
 export type DriverStatus =
   | 'offline'
@@ -135,6 +136,10 @@ export type DriverRide = {
   routeChange?: { change?: string; fareNgn?: number; key: string; at?: number };
   /** People, luggage, pet and the rider's note, for the pickup. Absent: booked without them. */
   tripDetails?: TripDetails;
+  /** Waiting at the pickup: the server's terms and clock (from the snapshot), or this phone's Arrived until then. */
+  waiting?: WaitingInfo;
+  /** What the waiting came to, from the trip's completion: a line on the driver's sheet. */
+  waitingResult?: WaitingResult | null;
 };
 
 /**
@@ -651,6 +656,7 @@ function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
     riderName: ride.riderName ?? undefined,
     tripCodeRequired: ride.tripCodeRequired === true,
     tripDetails: parseTripDetails(ride.tripDetails),
+    waiting: parseWaiting(ride.waiting),
   };
 }
 
@@ -811,6 +817,8 @@ export function applyActiveRideSnapshot(
             tripCodeRequired: snapshot.tripCodeRequired,
             startedAt: prev.currentRide.startedAt ?? snapshot.startedAt,
             tripDetails: snapshot.tripDetails ?? prev.currentRide.tripDetails,
+            // The server's clock wins over the one this phone started at Arrived.
+            waiting: snapshot.waiting ?? prev.currentRide.waiting,
           }
         : snapshot,
   };
@@ -1226,7 +1234,15 @@ export function reduceDriverSession(
   }
 
   if (type === 'ride:arrived:ack') {
-    return { ...prev, status: 'arrived' };
+    // The meter starts now on this phone; the next snapshot brings the server's own time and terms.
+    const ride = prev.currentRide;
+    return {
+      ...prev,
+      status: 'arrived',
+      currentRide: ride && !ride.waiting
+        ? { ...ride, waiting: { ...DEFAULT_WAITING, arrivedAtMs: now, stoppedAtMs: null, skewMs: 0 } }
+        : ride,
+    };
   }
 
   if (type === 'ride:start:accepted' || type === 'ride:started') {
@@ -1258,6 +1274,8 @@ export function reduceDriverSession(
             completedFareNgn: getNumber(payload.fareNgn) ?? prev.currentRide.fareNgn,
             distanceKm: getNumber(payload.distanceKm),
             durationSeconds: getNumber(payload.durationSeconds),
+            // Only the completion carries it (the end ack does not): kept once it came.
+            waitingResult: parseWaitingResult(payload) ?? prev.currentRide.waitingResult ?? null,
           }
         : prev.currentRide,
     };

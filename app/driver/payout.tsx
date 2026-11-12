@@ -32,7 +32,9 @@ export default function DriverPayoutScreen() {
   const fees = rideFees(grossFare, pricingVersionOf(ride?.pricingVersion));
   // Versions 2 and 3: the booking fee and VAT were inside the rider's fare. (Version 4 has its own lines; 1 is the oldest.)
   const perKmPricing = fees.pricingVersion === 2 || fees.pricingVersion === 3;
-  const finalPayout = fees.driverPayoutNgn;
+  // Waiting time is all the driver's (no fees on it): added when the rider's wallet paid it, else shown as not paid.
+  const waiting = ride?.waitingResult ?? null;
+  const finalPayout = fees.driverPayoutNgn + (waiting?.paid ? waiting.feeNgn : 0);
 
   const handleNextRide = () => {
     clearCompleted();
@@ -111,6 +113,13 @@ export default function DriverPayoutScreen() {
             <SummaryRow color={theme.colors.danger} label="Booking fee" value={`-${formatNgn(fees.bookingFeeNgn)}`} />
           </>
         )}
+        {waiting ? (
+          <SummaryRow
+            color={waiting.paid ? theme.colors.green : theme.colors.muted}
+            label={`Waiting time · ${waiting.minutes} min`}
+            value={waiting.paid ? `+${formatNgn(waiting.feeNgn)}` : `${formatNgn(waiting.feeNgn)} not paid`}
+          />
+        ) : null}
         {ride?.distanceKm != null && (
           <SummaryRow label="Distance" value={`${ride.distanceKm.toFixed(1)} km`} />
         )}

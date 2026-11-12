@@ -42,7 +42,8 @@ import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } fr
 import { invalidateWalletCache } from '@/lib/wallet-overview';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { isDriverApp } from '@/lib/app-variant';
-import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom } from '@/lib/rider-active-ride';
+import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom, waitingFields } from '@/lib/rider-active-ride';
+import { DEFAULT_WAITING, type WaitingInfo } from '@/lib/waiting';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
 import {
@@ -123,6 +124,10 @@ export type RiderRideState = {
   status: RideStatus;
   /** The 4 digits to give the driver at pickup; they cannot start the trip without them. */
   tripCode?: string;
+  /** The driver is at the pickup: the waiting meter (lib/waiting.ts), on the server's clock once it is read. */
+  waiting?: WaitingInfo;
+  /** What the waiting came to, once the trip started ("Waiting time: 4 min · ₦280, paid from your wallet."). */
+  waitingLine?: string;
   itinerary: RideItinerary;
   fareEstimateNgn?: number;
   plannedDistanceKm?: number;
@@ -459,6 +464,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
   const restoreActiveRideRef = useRef<(options?: { confirmCheck?: boolean }) => Promise<void>>(async () => undefined);
   const refreshOffersRef = useRef<() => Promise<void>>(async () => undefined);
+  const refreshWaitingRef = useRef<() => Promise<void>>(async () => undefined);
   /** 20 s checks in a row that found the chosen driver's offer still open on the server. */
   const confirmChecksRef = useRef(0);
   /** The driver whose accept went out and is being confirmed; set the moment it is sent. */
@@ -859,6 +865,18 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // The driver is at the pickup: the waiting meter starts now, then takes the server's terms and clock.
+      if (type === 'ride:driver_arrived') {
+        const arrivedRideId = getString(payload.rideId);
+        setRideState((previous) =>
+          previous && previous.status === 'matched' && !previous.waiting && (!arrivedRideId || previous.rideId === arrivedRideId)
+            ? { ...previous, waiting: { ...DEFAULT_WAITING, arrivedAtMs: Date.now(), stoppedAtMs: null, skewMs: 0 } }
+            : previous,
+        );
+        void refreshWaitingRef.current();
+        return;
+      }
+
       if (type === 'ride:started') {
         setError(null);
         setRideState((previous) => {
@@ -870,6 +888,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
             ...previous,
             status: 'active',
             startedAt: getString(payload.startedAt) ?? previous.startedAt,
+            waitingLine: getString(payload.waitingLine) ?? previous.waitingLine,
           };
         });
         return;
@@ -1722,10 +1741,31 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           } as RiderRideState;
         }
         if (!restored || previous.rideId !== restored.rideId) return previous;
-        return { ...previous, tripCode: previous.tripCode ?? restored.tripCode };
+        return {
+          ...previous,
+          tripCode: previous.tripCode ?? restored.tripCode,
+          waiting: restored.waiting ?? previous.waiting,
+          waitingLine: restored.waitingLine ?? previous.waitingLine,
+        };
       });
     } catch {
       /* the next reconnect tries again */
+    }
+  };
+
+  // The waiting meter's terms and the server's clock (once, when the driver arrives): GET /rides/active.
+  refreshWaitingRef.current = async () => {
+    if (isDriverApp || !isBackendConfigured()) return;
+    try {
+      const accessToken = await getAccessTokenWithRetry(getAccessToken);
+      if (!accessToken) return;
+      const { ride } = await getRiderActiveRide({ accessToken });
+      if (!ride) return;
+      const fields = waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched');
+      if (!fields.waiting && !fields.waitingLine) return;
+      setRideState((previous) => (previous && previous.rideId === ride.id ? { ...previous, ...fields } : previous));
+    } catch {
+      /* the meter runs on this phone's clock until the next read */
     }
   };
 

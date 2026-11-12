@@ -2075,6 +2075,8 @@ export interface DriverActiveRide {
   tripCodeRequired?: boolean;
   /** People, luggage, pet and the rider's note. Absent: booked without them, or an older server. */
   tripDetails?: unknown;
+  /** Waiting time (lib/waiting.ts parseWaiting): terms, arrival, the meter stop. Absent: not arrived, or an older server. */
+  waiting?: unknown;
   matchedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;
@@ -2294,6 +2296,8 @@ export interface RiderActiveRideDetail {
   } | null;
   /** The rider's own trip code, until the driver has used it. */
   tripCode?: string | null;
+  /** Waiting time (lib/waiting.ts): terms, arrival and the meter while the driver waits; the fee once started. */
+  waiting?: unknown;
   /** What the rider is offering. */
   riderOfferNgn?: number | null;
   /** The rider said yes to auto-booking this search (newer servers). */

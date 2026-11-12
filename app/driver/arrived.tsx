@@ -15,12 +15,13 @@ import { onStartResult } from '@/lib/trip-code';
 import { TripChatButton } from '@/components/TripChatButton';
 import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { TripProgressBar } from '@/components/TripProgressBar';
+import { WaitingUnpaidSheet } from '@/components/WaitingUnpaidSheet';
 import { useDriverSession } from '@/lib/driver-session';
+import { DEFAULT_WAITING, minutesSeconds, waitingClock } from '@/lib/waiting';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
 import { toUserMessage } from '@/lib/error-messages';
 
-const FREE_WAIT_SECONDS = 180; // 3 minutes
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -32,16 +33,25 @@ export default function DriverArrivedScreen() {
   const responsive = useResponsive();
   const ride = session.currentRide;
 
+  // Only until the server's arrival time comes with the ride (an older server, or the first seconds).
   const arrivedAtRef = useRef(Date.now());
-  const [waitProgress, setWaitProgress] = useState(0);
-  const [waitSeconds, setWaitSeconds] = useState(0);
+  const [nowMs, setNowMs] = useState(Date.now());
   const [copied, setCopied] = useState(false);
   const [codeSheetOpen, setCodeSheetOpen] = useState(false);
+  // The rider's wallet could not cover the waiting: the driver is asked before the trip starts.
+  const [unpaid, setUnpaid] = useState<{ minutes: number; amountNgn: number } | null>(null);
+  const [startingAnyway, setStartingAnyway] = useState(false);
 
   // The server asked for the code this app did not know was needed (a
   // resync, an older snapshot): open the keypad then.
   useEffect(() => onStartResult((result) => {
     if (result.kind === 'refused' && !codeSheetOpen) setCodeSheetOpen(true);
+    if (result.kind === 'waiting') {
+      setCodeSheetOpen(false);
+      setStartingAnyway(false);
+      setUnpaid({ minutes: result.minutes, amountNgn: result.amountNgn });
+    }
+    if (result.kind === 'started') setUnpaid(null);
   }), [codeSheetOpen]);
 
   useEffect(() => {
@@ -50,11 +60,7 @@ export default function DriverArrivedScreen() {
       return;
     }
 
-    const tick = () => {
-      const elapsed = (Date.now() - arrivedAtRef.current) / 1000;
-      setWaitProgress(Math.min(1, elapsed / FREE_WAIT_SECONDS));
-      setWaitSeconds(Math.floor(elapsed));
-    };
+    const tick = () => setNowMs(Date.now());
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
@@ -122,10 +128,27 @@ export default function DriverArrivedScreen() {
   const avatarSize = responsive.scale(44);
   const actionHeight = responsive.scale(42);
 
-  const remainingSeconds = Math.max(0, FREE_WAIT_SECONDS - waitSeconds);
-  const remainingMin = Math.floor(remainingSeconds / 60);
-  const remainingSec = remainingSeconds % 60;
-  const waitOverdue = waitSeconds >= FREE_WAIT_SECONDS;
+  // Time only, on the server's clock: the money is between the rider and Wheelers until the end of the trip.
+  const waitInfo = ride.waiting ?? { ...DEFAULT_WAITING, arrivedAtMs: arrivedAtRef.current, stoppedAtMs: null, skewMs: 0 };
+  const wait = waitingClock(waitInfo, nowMs);
+  const waitOverdue = !wait.free;
+  const waitProgress = waitInfo.freeSeconds > 0 ? Math.min(1, wait.waitedSeconds / waitInfo.freeSeconds) : 1;
+  const waitLabel = wait.stopped
+    ? `Waiting stopped · ${minutesSeconds(wait.waitedSeconds)}`
+    : wait.free
+      ? `Free wait: ${minutesSeconds(wait.freeLeftSeconds)} left`
+      : `Waiting ${minutesSeconds(wait.waitedSeconds)}`;
+  const waitColor = wait.stopped ? theme.colors.mutedLight : wait.free ? theme.colors.green : theme.colors.orange;
+
+  const startAnyway = async () => {
+    setStartingAnyway(true);
+    try {
+      await startTrip(ride.rideId, undefined, { startAnyway: true });
+    } catch (err) {
+      setStartingAnyway(false);
+      Alert.alert('Error', toUserMessage(err, 'Could not start trip. Please try again.'));
+    }
+  };
 
   return (
     <AppScreen backgroundColor={theme.colors.offWhite} scroll contentStyle={styles.container}>
@@ -199,14 +222,7 @@ export default function DriverArrivedScreen() {
 
       {/* Wait timer */}
       <View style={styles.waitSection}>
-        <TripProgressBar
-          fillColor={waitOverdue ? theme.colors.danger : theme.colors.green}
-          label={waitOverdue
-            ? 'Free wait time exceeded'
-            : `Free wait: ${remainingMin}:${remainingSec.toString().padStart(2, '0')} left`
-          }
-          progress={waitProgress}
-        />
+        <TripProgressBar fillColor={waitColor} label={waitLabel} progress={waitProgress} />
       </View>
 
       <AppButton title="Start trip" onPress={handleStartTrip} />
@@ -217,6 +233,14 @@ export default function DriverArrivedScreen() {
         onClose={() => setCodeSheetOpen(false)}
         onSubmit={(code) => startTrip(ride.rideId, code || undefined)}
         onStarted={() => setCodeSheetOpen(false)}
+      />
+      <WaitingUnpaidSheet
+        visible={unpaid !== null}
+        minutes={unpaid?.minutes ?? 0}
+        amountNgn={unpaid?.amountNgn ?? 0}
+        starting={startingAnyway}
+        onYes={() => void startAnyway()}
+        onNo={() => setUnpaid(null)}
       />
       {waitOverdue ? (
         <AppButton title="Rider didn't show — cancel trip" variant="danger" onPress={handleNoShow} />

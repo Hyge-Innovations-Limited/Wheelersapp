@@ -141,7 +141,7 @@ type DriverSessionContextValue = {
   closeOffer: () => void;
   arriveAtPickup: (rideId: string) => Promise<void>;
   /** `tripCode`: the 4 digits the rider gave, when the server asks for them. */
-  startTrip: (rideId: string, tripCode?: string) => Promise<void>;
+  startTrip: (rideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => Promise<void>;
   endTrip: (rideId: string) => Promise<void>;
   sendGps: (lat: number, lng: number) => void;
   sendChatMessage: (rideId: string, content: string) => Promise<void>;
@@ -248,6 +248,26 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Waiting time the rider's wallet could not cover: the driver is asked (Yes, start / No). The meter stopped.
+      if (type === 'error' && payload.requestType === 'ride:start' && payload.code === 'WAITING_UNPAID') {
+        const details = (payload.details && typeof payload.details === 'object' ? payload.details : {}) as Record<string, unknown>;
+        const stoppedAt = getString(details.stoppedAt) ?? null;
+        const stoppedAtMs = stoppedAt ? Date.parse(stoppedAt) : NaN;
+        if (Number.isFinite(stoppedAtMs)) {
+          setSession((prev) =>
+            prev.currentRide?.waiting
+              ? { ...prev, currentRide: { ...prev.currentRide, waiting: { ...prev.currentRide.waiting, stoppedAtMs } } }
+              : prev,
+          );
+        }
+        emitStartResult({
+          kind: 'waiting',
+          minutes: typeof details.minutes === 'number' ? details.minutes : 0,
+          amountNgn: typeof details.amountNgn === 'number' ? details.amountNgn : 0,
+          stoppedAt,
+        });
+        return;
+      }
       // The trip code: a refusal goes to the keypad, not an alert over it.
       if (type === 'error' && payload.requestType === 'ride:start' && isTripCodeError(payload.code)) {
         emitStartResult({ kind: 'refused', code: payload.code as string, message: getString(payload.message) ?? 'Ask the rider for their trip code.' });
@@ -779,13 +799,16 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   );
 
   const startTrip = useCallback(
-    async (rideId: string, tripCode?: string) => {
+    async (rideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => {
       const ride = sessionRef.current.currentRide;
       await sendEnvelope('ride:start', {
         rideId,
         riderId: ride?.riderId ?? '',
         lockedFareNgn: ride?.fareNgn ?? 0,
         ...(tripCode ? { tripCode } : {}),
+        // This app can ask the driver about waiting the rider's wallet could not cover (and "Yes, start").
+        canConfirmWaiting: true,
+        ...(options?.startAnyway ? { startAnyway: true } : {}),
       });
     },
     [sendEnvelope],

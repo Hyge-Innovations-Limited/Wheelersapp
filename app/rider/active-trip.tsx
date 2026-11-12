@@ -18,6 +18,7 @@ import { EmergencyButton } from "@/components/emergency-button";
 import { LiveMap } from "@/components/live-map";
 import { RAvatar, RBack, RLink, RText, naira, rider } from "@/components/rider/kit";
 import { useCallDriver } from "@/components/rider/use-call-driver";
+import { WaitingCard, WaitingLine } from "@/components/rider/waiting-card";
 import { estimateEtaMinutes } from "@/lib/geo";
 import { useAppLocation } from "@/lib/location";
 import {
@@ -251,6 +252,10 @@ export default function RiderActiveTripScreen() {
             ) : null}
           </View>
         ) : null}
+
+        {/* Waiting time: the free minutes, then the fee, while the driver is at the pickup; after, what it came to. */}
+        {matched && currentRide.waiting ? <WaitingCard waiting={currentRide.waiting} /> : null}
+        {active && currentRide.waitingLine ? <WaitingLine text={currentRide.waitingLine} /> : null}
 
         {/* The trip code, until the trip starts: the driver cannot start without it. */}
         {currentRide.tripCode && matched ? (

@@ -2,6 +2,7 @@ import type { RiderActiveRideDetail } from '@/lib/api';
 import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
 import { profileFrom, type DriverProfile } from '@/lib/driver-photo';
 import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ride-offers';
+import { parseWaiting, parseWaitingResult, waitingLineForRider, type WaitingInfo } from '@/lib/waiting';
 
 /**
  * The rider's trip as the server has it, turned into what the ride screen
@@ -40,6 +41,10 @@ export type RestoredRide = {
   bidsCloseAt?: string;
   offers?: RestoredOffer[];
   tripCode?: string;
+  /** The driver is at the pickup: the meter (lib/waiting.ts). Absent: not arrived, or an older server. */
+  waiting?: WaitingInfo;
+  /** What the waiting came to, once the trip started. */
+  waitingLine?: string;
   itinerary: { pickup: string; stops: string[] };
   fareEstimateNgn?: number;
   /** People, luggage, pet and a note the search went out with (newer servers). */
@@ -103,6 +108,16 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
   };
 }
 
+/** The meter while the driver waits (matched), or the fee's line once the trip started (active). */
+export function waitingFields(value: unknown, status: 'matched' | 'active', now = Date.now()): { waiting?: WaitingInfo; waitingLine?: string } {
+  if (status === 'matched') {
+    const waiting = parseWaiting(value, now);
+    return waiting ? { waiting } : {};
+  }
+  const line = waitingLineForRider(parseWaitingResult(value));
+  return line ? { waitingLine: line } : {};
+}
+
 export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined, now = Date.now()): RestoredRide | null {
   if (!ride) return null;
   if (!ride.driver) return restoredSearchFrom(ride, now);
@@ -114,6 +129,7 @@ export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined,
     status,
     restored: true,
     ...(ride.tripCode && status === 'matched' ? { tripCode: ride.tripCode } : {}),
+    ...waitingFields(ride.waiting, status, now),
     itinerary: itineraryOf(ride),
     fareEstimateNgn: ride.agreedFareNgn ?? ride.fareEstimateNgn ?? undefined,
     ...(ride.startedAt ? { startedAt: ride.startedAt } : {}),
