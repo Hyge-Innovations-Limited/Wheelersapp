@@ -10,6 +10,8 @@ import { toUserMessage } from "@/lib/error-messages";
 import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } from "@/lib/ride-route";
 import { useRideSession } from "@/lib/ride-session";
 import { useGoHome } from "@/hooks/use-go-home";
+import { SafetySheet } from "@/components/rider/safety-sheets";
+import { loadSafetySeen, markSafetySeen, safetySeen } from "@/lib/safety-seen";
 
 const { colors, fonts } = rider;
 
@@ -37,6 +39,20 @@ export default function TripRatingScreen() {
 
   const rideId = currentRide?.rideId ?? null;
   const hasRide = Boolean(currentRide);
+
+  // "Before you go" (Timi, 14 Nov 2026): three safety tips over the end of a completed trip, once per trip.
+  const afterTips = currentRide?.status === "completed" ? currentRide.safety?.after ?? [] : [];
+  const [afterOpen, setAfterOpen] = useState(false);
+  useEffect(() => {
+    if (!isFocused || !rideId || afterTips.length === 0) return;
+    let live = true;
+    void loadSafetySeen().finally(() => {
+      if (!live || safetySeen(`after:${rideId}`)) return;
+      markSafetySeen(`after:${rideId}`);
+      setAfterOpen(true);
+    });
+    return () => { live = false; };
+  }, [isFocused, rideId, afterTips.length]);
 
   // This screen stays mounted between trips: each trip starts with a clean form.
   useEffect(() => {
@@ -249,6 +265,7 @@ export default function TripRatingScreen() {
         onPress={() => router.push("/support/chat")}
         title="Report a problem with this trip"
       />
+      <SafetySheet button="Done" onClose={() => setAfterOpen(false)} tips={afterTips} title={afterOpen ? "Before you go" : null} />
     </RScreen>
   );
 }

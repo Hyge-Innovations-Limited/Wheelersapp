@@ -9,6 +9,7 @@
  */
 
 import { carryProfile, type DriverProfile } from '@/lib/driver-photo';
+import type { DriverCheck } from '@/lib/rider-safety';
 
 export type RideOffer = DriverProfile & {
   driverId: string;
@@ -23,6 +24,8 @@ export type RideOffer = DriverProfile & {
   receivedAt: string;
   /** Set while the rider's own counter to this driver is unanswered. */
   riderCounterNgn?: number;
+  /** What was checked about this driver (only what passed and is in date); none from an older server. */
+  checks?: DriverCheck[];
 };
 
 /**
@@ -40,7 +43,9 @@ export function mergeOffer(offers: RideOffer[], incoming: RideOffer): RideOffer[
   const others = offers.filter((offer) => offer.driverId !== incoming.driverId);
 
   const existing = offers.find((offer) => offer.driverId === incoming.driverId);
-  return [...others, { ...incoming, ...carryProfile(incoming, existing), riderCounterNgn: undefined }].sort(
+  // A re-bid without checks (an older message) keeps the ones the card had.
+  const checks = incoming.checks?.length ? incoming.checks : existing?.checks;
+  return [...others, { ...incoming, ...carryProfile(incoming, existing), ...(checks?.length ? { checks } : {}), riderCounterNgn: undefined }].sort(
     (a, b) =>
       a.counterOfferNgn - b.counterOfferNgn || a.etaSeconds - b.etaSeconds,
   );

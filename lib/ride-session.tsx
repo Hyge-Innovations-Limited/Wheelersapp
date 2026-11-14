@@ -13,6 +13,7 @@ import {
   type RideOffer,
 } from '@/lib/ride-offers';
 import { carryProfile, profileFrom, type DriverProfile } from '@/lib/driver-photo';
+import { parseChecks, parseTips, safetyFields, type TripSafety } from '@/lib/rider-safety';
 import { useAuth } from '@/lib/auth';
 import type { TripDetails } from '@/lib/trip-details';
 import { useAppLocation } from '@/lib/location';
@@ -128,6 +129,10 @@ export type RiderRideState = {
   waiting?: WaitingInfo;
   /** What the waiting came to, once the trip started ("Waiting time: 4 min · ₦280, paid from your wallet."). */
   waitingLine?: string;
+  /** The driver's phone records the trip: "This trip is recorded for your safety." when it starts. */
+  recorded?: boolean;
+  /** Three safety tips for before the trip and after it (from the server, the same as on the ride page). */
+  safety?: TripSafety;
   itinerary: RideItinerary;
   fareEstimateNgn?: number;
   plannedDistanceKm?: number;
@@ -682,6 +687,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           distanceKm: getNumber(payload.distanceKm),
           receivedAt: new Date().toISOString(),
           ...profileFrom(payload),
+          ...(parseChecks(payload.checks).length ? { checks: parseChecks(payload.checks) } : {}),
         };
         if (isForRide(currentRideRef.current, payload)) noteOfferEvent({ at: Date.now(), kind: 'add', offer });
 
@@ -889,6 +895,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
             status: 'active',
             startedAt: getString(payload.startedAt) ?? previous.startedAt,
             waitingLine: getString(payload.waitingLine) ?? previous.waitingLine,
+            recorded: payload.recorded === true || previous.recorded,
           };
         });
         return;
@@ -910,8 +917,20 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
               getNumber(payload.distanceKm) ?? previous.plannedDistanceKm,
             plannedDurationSeconds:
               getNumber(payload.durationSeconds) ?? previous.plannedDurationSeconds,
+            // "Before you go": the server's three tips for this trip.
+            ...(parseTips(payload.safetyTips).length
+              ? { safety: { before: previous.safety?.before ?? [], after: parseTips(payload.safetyTips) } }
+              : {}),
           };
         });
+        return;
+      }
+
+      // The driver's phone started recording the trip (a few seconds after it started).
+      if (type === 'ride:recorded') {
+        setRideState((previous) =>
+          previous && isForRide(previous, payload) ? { ...previous, recorded: true } : previous,
+        );
         return;
       }
 
@@ -1761,13 +1780,22 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       if (!accessToken) return;
       const { ride } = await getRiderActiveRide({ accessToken });
       if (!ride) return;
-      const fields = waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched');
-      if (!fields.waiting && !fields.waitingLine) return;
-      setRideState((previous) => (previous && previous.rideId === ride.id ? { ...previous, ...fields } : previous));
+      const fields = { ...waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched'), ...safetyFields(ride) };
+      if (!fields.waiting && !fields.waitingLine && !fields.safety && fields.recorded === undefined) return;
+      setRideState((previous) => (previous && previous.rideId === ride.id ? { ...previous, ...fields, recorded: fields.recorded || previous.recorded } : previous));
     } catch {
       /* the meter runs on this phone's clock until the next read */
     }
   };
+
+  // A driver is booked: the trip's safety tips (and whether it is recorded), fetched once per ride.
+  const safetyAskedRef = useRef<string | null>(null);
+  const bookedRideId = currentRide && currentRide.status === 'matched' && !currentRide.safety ? currentRide.rideId : null;
+  useEffect(() => {
+    if (!bookedRideId || safetyAskedRef.current === bookedRideId) return;
+    safetyAskedRef.current = bookedRideId;
+    void refreshWaitingRef.current();
+  }, [bookedRideId]);
 
   // The offers as the server has them (after an accept refused as
   // 'offer_changed'): current prices, nobody who has withdrawn. Only for the

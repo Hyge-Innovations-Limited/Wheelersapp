@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { RAvatar } from "@/components/rider/kit";
+import { CheckChips, ChecksSheet } from "@/components/rider/safety-sheets";
+import { CHECK_WORDS } from "@/lib/rider-safety";
 import { avatarCachePolicy, reputationLine } from "@/lib/driver-photo";
 import { naira, rider } from "@/constants/rider-theme";
 import type { RideOffer } from "@/lib/ride-offers";
@@ -48,6 +51,9 @@ export function OfferCard({
   // Every card is the same white card with ink text; the first one is marked with orange.
   const quiet = colors.muted;
   const strong = colors.ink;
+  // What was checked about this driver: ✓ chips; a tap lists each with its month.
+  const checks = offer.checks ?? [];
+  const [checksOpen, setChecksOpen] = useState(false);
 
   return (
     <View style={[styles.card, featured ? styles.cardFeatured : styles.cardPlain]}>
@@ -75,6 +81,19 @@ export function OfferCard({
           {price}
         </Text>
       </View>
+
+      {checks.length > 0 ? (
+        <Pressable
+          accessibilityHint="Shows what was checked"
+          accessibilityLabel={`Checked: ${checks.map((c) => CHECK_WORDS[c.kind].chip).join(", ")}`}
+          accessibilityRole="button"
+          hitSlop={6}
+          onPress={() => setChecksOpen(true)}
+          style={({ pressed }) => (pressed ? styles.pressed : null)}>
+          <CheckChips checks={checks} />
+        </Pressable>
+      ) : null}
+      <ChecksSheet checks={checksOpen ? checks : null} onClose={() => setChecksOpen(false)} />
 
       {comparison || offer.vehiclePlate ? (
         <View style={styles.meta}>

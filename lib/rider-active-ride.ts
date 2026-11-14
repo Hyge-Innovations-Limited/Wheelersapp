@@ -3,6 +3,7 @@ import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
 import { profileFrom, type DriverProfile } from '@/lib/driver-photo';
 import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ride-offers';
 import { parseWaiting, parseWaitingResult, waitingLineForRider, type WaitingInfo } from '@/lib/waiting';
+import { parseChecks, safetyFields, type TripSafety } from '@/lib/rider-safety';
 
 /**
  * The rider's trip as the server has it, turned into what the ride screen
@@ -45,6 +46,10 @@ export type RestoredRide = {
   waiting?: WaitingInfo;
   /** What the waiting came to, once the trip started. */
   waitingLine?: string;
+  /** The driver's phone records the trip (newer servers). */
+  recorded?: boolean;
+  /** The three safety tips for before and after the trip (newer servers). */
+  safety?: TripSafety;
   itinerary: { pickup: string; stops: string[] };
   fareEstimateNgn?: number;
   /** People, luggage, pet and a note the search went out with (newer servers). */
@@ -103,6 +108,7 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
         ...(typeof offer.distanceKm === 'number' ? { distanceKm: offer.distanceKm } : {}),
         receivedAt: offer.receivedAt,
         ...profileFrom(offer),
+        ...(parseChecks((offer as { checks?: unknown }).checks).length ? { checks: parseChecks((offer as { checks?: unknown }).checks) } : {}),
       }))
       .sort((a, b) => a.counterOfferNgn - b.counterOfferNgn || a.etaSeconds - b.etaSeconds),
   };
@@ -130,6 +136,7 @@ export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined,
     restored: true,
     ...(ride.tripCode && status === 'matched' ? { tripCode: ride.tripCode } : {}),
     ...waitingFields(ride.waiting, status, now),
+    ...safetyFields(ride),
     itinerary: itineraryOf(ride),
     fareEstimateNgn: ride.agreedFareNgn ?? ride.fareEstimateNgn ?? undefined,
     ...(ride.startedAt ? { startedAt: ride.startedAt } : {}),

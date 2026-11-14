@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,9 @@ import { LiveMap } from "@/components/live-map";
 import { RAvatar, RBack, RLink, RText, naira, rider } from "@/components/rider/kit";
 import { useCallDriver } from "@/components/rider/use-call-driver";
 import { WaitingCard, WaitingLine } from "@/components/rider/waiting-card";
+import { SafetySheet } from "@/components/rider/safety-sheets";
+import { dueSafetyMoment, type SafetyMoment } from "@/lib/rider-safety";
+import { loadSafetySeen, markSafetySeen, safetySeen } from "@/lib/safety-seen";
 import { estimateEtaMinutes } from "@/lib/geo";
 import { useAppLocation } from "@/lib/location";
 import {
@@ -58,6 +61,20 @@ export default function RiderActiveTripScreen() {
     [params.itinerary],
   );
   const { currentRide, chatMessages } = useRideSession();
+  // Safety (Timi, 14 Nov 2026): "Before you get in" while the driver comes; "Trip started · This trip
+  // is recorded" when it runs and the driver's phone records it. Each once per trip, on this screen only.
+  const [seenReady, setSeenReady] = useState(false);
+  const [safetySheet, setSafetySheet] = useState<SafetyMoment | null>(null);
+  useEffect(() => { void loadSafetySeen().finally(() => setSeenReady(true)); }, []);
+  useEffect(() => {
+    if (!seenReady || safetySheet || !isFocused || !currentRide) return;
+    const due = dueSafetyMoment(currentRide, safetySeen);
+    if (!due) return;
+    markSafetySeen(`${due}:${currentRide.rideId}`);
+    // Started and recorded: "before" is past, never shown after it.
+    if (due === "start") markSafetySeen(`before:${currentRide.rideId}`);
+    setSafetySheet(due);
+  }, [seenReady, safetySheet, isFocused, currentRide]);
   const itinerary = currentRide?.itinerary ?? fallbackItinerary;
   const extraStops = getAdditionalStopCount(itinerary);
   const serializedItinerary = serializeRideItinerary(itinerary);
@@ -356,6 +373,13 @@ export default function RiderActiveTripScreen() {
           <EmergencyButton rideId={currentRide.rideId} role="RIDER" />
         </View>
       </ScrollView>
+      <SafetySheet
+        button={safetySheet === "start" ? "OK" : "Got it"}
+        onClose={() => setSafetySheet(null)}
+        recorded={safetySheet === "start"}
+        tips={safetySheet === "before" ? currentRide.safety?.before : undefined}
+        title={safetySheet === "start" ? "Trip started" : safetySheet === "before" ? "Before you get in" : null}
+      />
     </View>
   );
 }
