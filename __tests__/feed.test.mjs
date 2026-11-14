@@ -108,3 +108,17 @@ test('the driver app has one back button: the shared header uses it on driver sc
   assert.match(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /router\.push\('\/driver\/\(tabs\)\/stations' as Href\)/, 'Stations is on Me');
   assert.doesNotMatch(readFileSync(join(projectRoot, 'app/driver/(tabs)/active.tsx'), 'utf8'), /BackButton/, 'Active is a tab again: no back button');
 });
+
+test('the splash carries "Your price. Your ride. Your safety." in the binary itself (one splash, no second screen): iOS in its image, Android 12+ in its bottom branding spot', () => {
+  const app = JSON.parse(readFileSync(join(projectRoot, 'app.json'), 'utf8'));
+  const plugins = app.expo.plugins;
+  const splashAt = plugins.findIndex((p) => Array.isArray(p) && p[0] === 'expo-splash-screen');
+  const brandingAt = plugins.findIndex((p) => Array.isArray(p) && p[0] === './plugins/withSplashBranding');
+  const splash = plugins[splashAt][1];
+  assert.deepEqual([splash.image, splash.imageWidth, splash.backgroundColor], ['./assets/images/splash-logo.png', 120, '#FF7700'], 'Android keeps the logo-only icon');
+  assert.deepEqual(splash.ios, { image: './assets/images/splash-ios-tagline.png', imageWidth: 300 }, 'iOS: logo where it was, the line under it');
+  assert.ok(brandingAt >= 0 && brandingAt < splashAt, 'listed before expo-splash-screen, so it runs after it and its item is kept');
+  assert.equal(plugins[brandingAt][1].image, './assets/images/splash-branding.png');
+  const splashJs = readFileSync(join(projectRoot, 'app/splash.tsx'), 'utf8');
+  assert.doesNotMatch(splashJs, /LaunchFrame|LOADING_LINE/, 'no second, app-drawn splash');
+});

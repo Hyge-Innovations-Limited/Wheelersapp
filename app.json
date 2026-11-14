@@ -77,11 +77,21 @@
         }
       ],
       [
+        "./plugins/withSplashBranding",
+        {
+          "image": "./assets/images/splash-branding.png"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-logo.png",
           "imageWidth": 120,
-          "backgroundColor": "#FF7700"
+          "backgroundColor": "#FF7700",
+          "ios": {
+            "image": "./assets/images/splash-ios-tagline.png",
+            "imageWidth": 300
+          }
         }
       ],
       [
