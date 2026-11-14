@@ -341,33 +341,6 @@ function SplashBase() {
   );
 }
 
-/** The one line under the logo while the app loads (Timi, 14 Nov 2026): riders and drivers alike. */
-const LOADING_LINE = "Your price. Your ride. Your safety.";
-
-/**
- * The launch frame: the exact image the binary bakes in (splash-logo.png,
- * 120 wide, centred on #FF7700, as app.json's expo-splash-screen), so taking
- * the native splash down shows the same pixels, then the line fades in under
- * the logo without moving it.
- */
-function LaunchFrame() {
-  const fade = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(fade, { toValue: 1, duration: 380, delay: 120, useNativeDriver: true }).start();
-  }, [fade]);
-  return (
-    <View style={[StyleSheet.absoluteFillObject, styles.center, { backgroundColor: "#FF7700" }]}>
-      <Image accessibilityIgnoresInvertColors source={require("../assets/images/splash-logo.png")} style={styles.launchLogo} />
-      <Animated.Text
-        accessibilityRole="text"
-        maxFontSizeMultiplier={1.2}
-        style={[styles.loadingLine, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }]}>
-        {LOADING_LINE}
-      </Animated.Text>
-    </View>
-  );
-}
-
 function SplashShell({ onContinue }: { onContinue: () => void }) {
   const scheme = useColorScheme();
   const baseIsBrand = NATIVE_SPLASH_STYLE === "brand";
@@ -386,21 +359,9 @@ function SplashShell({ onContinue }: { onContinue: () => void }) {
         backgroundColor={baseIsBrand ? "#FF7700" : undefined}
       />
 
-      {/* The native splash frame, continued (the same image, size and place), with
-          the loading line. The native splash comes down once this frame is on
-          screen, so the line is seen; the app still holds here at least
-          MIN_SPLASH_MS while it decides where to go, as before. */}
-      {baseIsBrand ? (
-        <View
-          onLayout={() => {
-            requestAnimationFrame(() => void NativeSplash.hideAsync().catch(() => undefined));
-          }}
-          style={StyleSheet.absoluteFillObject}>
-          <LaunchFrame />
-        </View>
-      ) : (
-        <SplashBase />
-      )}
+      {/* The native splash frame, continued — pixel-matched to what THIS
+          binary bakes in, so the handoff is invisible. */}
+      <SplashBase />
 
       <Pressable
         accessibilityLabel="Continue"
@@ -441,24 +402,6 @@ const styles = StyleSheet.create({
     fontFamily: "ClashDisplay_500Medium",
     fontSize: 13,
     letterSpacing: 6,
-  },
-  launchLogo: {
-    // As baked: expo-splash-screen imageWidth 120, centred.
-    width: 120,
-    height: 120,
-  },
-  loadingLine: {
-    position: "absolute",
-    top: "50%",
-    marginTop: 60 + 28,
-    left: 24,
-    right: 24,
-    textAlign: "center",
-    color: "#FFF8EC",
-    fontFamily: "HankenGrotesk_600SemiBold",
-    fontSize: 16,
-    lineHeight: 22,
-    letterSpacing: 0.2,
   },
   legacyWordmark: {
     // Matches the baked native splash: 260pt wide, centred (artwork 787x165).
