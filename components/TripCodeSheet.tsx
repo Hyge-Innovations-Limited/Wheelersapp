@@ -4,6 +4,7 @@ import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pre
 import { AppText, OnLight } from '@/components/app-text';
 import { onStartResult } from '@/lib/trip-code';
 import { theme } from '@/theme';
+import { LockIcon } from '@/components/security-icons';
 
 type TripCodeSheetProps = {
   visible: boolean;
@@ -86,7 +87,10 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
         <Pressable style={styles.flex} onPress={onClose} />
         <View style={[styles.sheet, keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
           <OnLight>
-          <AppText variant="h2">Trip code</AppText>
+          <View style={styles.titleRow}>
+            <LockIcon size={18} />
+            <AppText variant="h2">Trip code</AppText>
+          </View>
           <AppText variant="body" color={theme.colors.muted}>
             Ask {who} for their 4-digit trip code. You can start the trip once it is right.
           </AppText>
@@ -137,6 +141,7 @@ export function TripCodeSheet({ visible, rideId, riderName, onClose, onSubmit, o
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   flex: { flex: 1 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
   sheet: {

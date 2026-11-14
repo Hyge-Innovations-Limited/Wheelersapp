@@ -25,6 +25,7 @@ import { useCourseBearing, useLiveRoute } from '@/lib/use-live-route';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
 import { useMapRevival } from '@/hooks/use-map-revival';
+import { MicIcon } from '@/components/security-icons';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -239,7 +240,7 @@ export default function DriverActiveTripScreen() {
           </View>
           {recordingTrip ? (
             <View style={styles.recordingBadge} accessibilityRole="text" accessibilityLabel="Recording started">
-              <View style={styles.recordingDot} />
+              <MicIcon color={theme.colors.red} size={13} />
               <AppText variant="caption" color={theme.colors.offWhite} numberOfLines={1}>Recording started</AppText>
             </View>
           ) : null}
@@ -335,12 +336,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: theme.radius.pill,
     backgroundColor: 'rgba(13, 13, 13, 0.8)',
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.danger,
   },
   topActions: {
     flexDirection: 'row',

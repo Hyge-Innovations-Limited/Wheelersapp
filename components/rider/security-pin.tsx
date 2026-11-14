@@ -4,6 +4,7 @@ import { useState } from "react";
 import { StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import { RBack, RButton, RCard, RScreen, RText, rider } from "@/components/rider/kit";
+import { LockIcon } from "@/components/security-icons";
 import { useAppLock } from "@/lib/app-lock";
 import { publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
@@ -105,9 +106,12 @@ export function RiderSecurityPin() {
       <StatusBar style="dark" />
       <View style={styles.header}>
         <RBack />
-        <RText accessibilityRole="header" variant="title">
-          Security PIN
-        </RText>
+        <View style={styles.titleRow}>
+          <LockIcon size={20} />
+          <RText accessibilityRole="header" variant="title">
+            Security PIN
+          </RText>
+        </View>
       </View>
 
       {hasPin ? (
@@ -213,6 +217,7 @@ function PinBox({ label, value, onChangeText }: { label: string; value: string; 
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   screen: { paddingTop: 12, gap: 14 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   flex: { flex: 1 },

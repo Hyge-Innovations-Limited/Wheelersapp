@@ -1845,6 +1845,8 @@ export interface DriverPaperNeed {
 }
 
 export interface DriverPapersResponse {
+  /** What riders see was checked about this driver (lib/rider-safety parseChecks); newer servers. */
+  checks?: unknown;
   /** The day from which papers are needed to go online (YYYY-MM-DD). Null: no such day is set. */
   requiredFrom?: string | null;
   /** That day has come and something is still to do: the driver cannot go online. */

@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { theme } from '@/theme';
 import { toUserMessage } from '@/lib/error-messages';
+import { LockIcon } from '@/components/security-icons';
 
 const PIN_LENGTH = 4;
 
@@ -248,7 +249,10 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
             <View style={styles.center}><ActivityIndicator color={theme.colors.black} /></View>
           ) : (
             <>
-              <AppText variant="h2" style={styles.title}>{heading.title}</AppText>
+              <View style={styles.titleRow}>
+                <LockIcon size={18} />
+                <AppText variant="h2" style={[styles.title, styles.titleText]}>{heading.title}</AppText>
+              </View>
               {heading.body ? <AppText variant="body" color={theme.colors.muted} style={styles.body}>{heading.body}</AppText> : null}
             </>
           )}
@@ -352,6 +356,8 @@ export function useWalletPin(getAccessToken: () => Promise<string | null | undef
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleText: { flexShrink: 1 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: theme.colors.offWhite,

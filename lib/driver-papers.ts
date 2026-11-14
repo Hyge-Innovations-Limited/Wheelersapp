@@ -4,10 +4,10 @@ export { MAX_PAPER_BYTES, papersError } from "@/lib/papers-error";
 import { theme } from "@/theme";
 
 /** A state as a word and a colour, the same on every papers screen. */
-export const PAPER_STATE: Record<DriverPaperState, { word: string; color: string; icon: "add-circle-outline" | "time-outline" | "checkmark-circle" | "alert-circle" | "calendar-outline" }> = {
+export const PAPER_STATE: Record<DriverPaperState, { word: string; color: string; icon: "add-circle-outline" | "time-outline" | "shield-checkmark" | "alert-circle" | "calendar-outline" }> = {
   missing: { word: "Not sent", color: theme.colors.muted, icon: "add-circle-outline" },
   waiting: { word: "Sent, being checked", color: theme.colors.orange, icon: "time-outline" },
-  approved: { word: "Approved", color: theme.colors.green, icon: "checkmark-circle" },
+  approved: { word: "Approved", color: theme.colors.green, icon: "shield-checkmark" },
   rejected: { word: "Sent back", color: theme.colors.danger, icon: "alert-circle" },
   expired: { word: "Expired", color: theme.colors.danger, icon: "calendar-outline" },
 };

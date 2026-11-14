@@ -34,6 +34,7 @@ import { invalidateWalletCache, useWalletOverview } from '@/lib/wallet-overview'
 import { useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
 import { toUserMessage } from '@/lib/error-messages';
+import { LockIcon } from '@/components/security-icons';
 
 function formatNgn(amount: number): string {
   return `₦${Math.round(amount).toLocaleString('en-NG')}`;
@@ -444,6 +445,7 @@ export default function DriverWithdrawScreen() {
           <View style={styles.stepContent}>
             <View style={styles.bankChip}>
               <OnLight>
+              <LockIcon color={theme.colors.muted} size={13} />
               <AppText variant="bodySmall" color={theme.colors.muted} style={styles.flex} numberOfLines={1}>
                 {selectedBank?.name} — {usingSaved ? `•••• ${accountNumber.slice(-4)}` : accountNumber}
               </AppText>

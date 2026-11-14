@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useDepositAccount } from "@/components/rider/deposit-account";
 import { RButton, RCard, RLink, RText, naira, rider } from "@/components/rider/kit";
+import { LockIcon } from "@/components/security-icons";
 import { groupAccountNumber } from "@/components/rider/wallet-format";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getWalletDepositPreview } from "@/lib/api";
@@ -58,6 +59,11 @@ export function PaySheet({
                 </RText>
               </View>
               <RButton loading={busy} onPress={onPay} title={`Pay ${naira(step.fareNgn)}`} />
+              {/* The money is handled safely: one quiet line under Pay. */}
+              <View style={styles.secure}>
+                <LockIcon color={colors.muted} size={12} />
+                <RText color={colors.muted} style={styles.secureText}>Secure payment</RText>
+              </View>
               <RLink onPress={onBack} title="Back" />
             </>
           ) : step?.kind === "add" ? (
@@ -199,6 +205,8 @@ function AddMoney({
 }
 
 const styles = StyleSheet.create({
+  secure: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: -4 },
+  secureText: { fontSize: 12, lineHeight: 16 },
   backdrop: { flex: 1, backgroundColor: "rgba(13,13,13,0.5)", justifyContent: "flex-end" },
   sheet: {
     backgroundColor: colors.cream,

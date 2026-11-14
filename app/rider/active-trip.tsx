@@ -20,6 +20,7 @@ import { RAvatar, RBack, RLink, RText, naira, rider } from "@/components/rider/k
 import { useCallDriver } from "@/components/rider/use-call-driver";
 import { WaitingCard, WaitingLine } from "@/components/rider/waiting-card";
 import { SafetySheet } from "@/components/rider/safety-sheets";
+import { LockIcon } from "@/components/security-icons";
 import { dueSafetyMoment, type SafetyMoment } from "@/lib/rider-safety";
 import { loadSafetySeen, markSafetySeen, safetySeen } from "@/lib/safety-seen";
 import { estimateEtaMinutes } from "@/lib/geo";
@@ -281,9 +282,12 @@ export default function RiderActiveTripScreen() {
             accessible
             style={styles.code}>
             <View style={styles.codeText}>
-              <RText color={colors.onInkMuted} variant="small">
-                Your trip code
-              </RText>
+              <View style={styles.codeLabel}>
+                <LockIcon color={colors.onInkMuted} size={13} />
+                <RText color={colors.onInkMuted} variant="small">
+                  Your trip code
+                </RText>
+              </View>
               <RText color={colors.onInkSoft} style={styles.codeNote}>
                 Give this code to your driver when you get in.
               </RText>
@@ -421,6 +425,7 @@ function ActionButton({
 }
 
 const styles = StyleSheet.create({
+  codeLabel: { flexDirection: "row", alignItems: "center", gap: 6 },
   screen: { flex: 1, backgroundColor: colors.cream },
   waiting: { alignItems: "center", justifyContent: "center", gap: 12 },
   pressed: { opacity: 0.72 },

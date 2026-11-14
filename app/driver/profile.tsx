@@ -6,7 +6,9 @@ import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 import { AppScreen } from '@/components/app-screen';
 import { AppText, OnLight } from '@/components/app-text';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
-import { getCurrentProfile, getDriverStats } from '@/lib/api';
+import { getCurrentProfile, getDriverPapers, getDriverStats } from '@/lib/api';
+import { CheckChips } from '@/components/rider/safety-sheets';
+import { CHECK_WORDS, parseChecks, type DriverCheck } from '@/lib/rider-safety';
 import { useAuth } from '@/lib/auth';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
@@ -85,15 +87,19 @@ export default function DriverProfileScreen() {
   const [vehicleModel, setVehicleModel] = useState<string | null>(null);
   const [vehiclePlate, setVehiclePlate] = useState<string | null>(null);
   const [vehicleYear, setVehicleYear] = useState<number | null>(null);
+  // What riders see was checked about this driver: the same ✓ chips as on their offers.
+  const [checks, setChecks] = useState<DriverCheck[]>([]);
 
   const fetchProfile = useCallback(async () => {
     const accessToken = await getAccessTokenWithRetry(getAccessToken);
     if (!accessToken) return;
 
-    const [profileRes, statsRes] = await Promise.allSettled([
+    const [profileRes, statsRes, papersRes] = await Promise.allSettled([
       getCurrentProfile({ accessToken }),
       getDriverStats({ accessToken }),
+      getDriverPapers({ accessToken }),
     ]);
+    if (papersRes.status === 'fulfilled') setChecks(parseChecks(papersRes.value.checks));
 
     if (profileRes.status === 'fulfilled') {
       setName(profileRes.value.user.name);
@@ -183,6 +189,12 @@ export default function DriverProfileScreen() {
         <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
           {displayEmail}
         </AppText>
+        {checks.length > 0 ? (
+          <View accessibilityLabel={`Verified: ${checks.map((c) => CHECK_WORDS[c.kind].chip).join(', ')}. Riders see this on your offers.`} accessible style={styles.verified}>
+            <CheckChips checks={checks} />
+            <AppText variant="caption" color={theme.colors.muted}>What riders see on your offers</AppText>
+          </View>
+        ) : null}
       </View>
 
       {/* Personal info */}
@@ -275,6 +287,7 @@ export default function DriverProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  verified: { alignItems: 'center', gap: 6, marginTop: 8 },
   container: {
     gap: 4,
     paddingTop: theme.spacing.lg,

@@ -94,3 +94,22 @@ test('the screens: offer chips and their sheet; trip screen and rating screen sh
   const rating = readFileSync(join(projectRoot, 'app/rider/trip-rating.tsx'), 'utf8');
   assert.match(rating, /title=\{afterOpen \? "Before you go" : null\}/);
 });
+
+test('security icons where the plan put them (shield = checked, lock = money/codes/PIN, mic = recording, W = by Wheelers)', () => {
+  const read = (f) => readFileSync(join(projectRoot, f), 'utf8');
+  const sheets = read('components/rider/safety-sheets.tsx');
+  assert.match(sheets, /<View style=\{styles\.shield\}><ShieldIcon size=\{18\} \/><\/View>/, 'offer chips start with a shield');
+  assert.match(sheets, /<WheelersMark size=\{28\} \/>\s*<RText[^>]*>Checked by Wheelers/, 'W beside Checked by Wheelers');
+  assert.match(sheets, /<ShieldIcon size=\{22\} \/>\s*<RText[^>]*>\{title/, 'shield beside the tips title');
+  assert.match(sheets, /<MicIcon size=\{16\} \/>/, 'mic on "recorded"');
+  assert.match(read('app/rider/active-trip.tsx'), /<LockIcon[^>]*\/>\s*<RText[^>]*>\s*Your trip code/, 'lock on the trip code');
+  assert.match(read('components/rider/pay-sheet.tsx'), /Secure payment/);
+  assert.match(read('components/rider/security-pin.tsx'), /<LockIcon size=\{20\} \/>/);
+  assert.match(read('components/TripCodeSheet.tsx'), /<LockIcon size=\{18\} \/>\s*<AppText variant="h2">Trip code/);
+  assert.match(read('app/driver/active-trip.tsx'), /<MicIcon color=\{theme\.colors\.red\} size=\{13\} \/>/);
+  assert.match(read('components/wallet-pin-sheet.tsx'), /<LockIcon size=\{18\} \/>/);
+  assert.match(read('app/driver/withdraw.tsx'), /<LockIcon color=\{theme\.colors\.muted\} size=\{13\} \/>/);
+  assert.match(read('lib/driver-papers.ts'), /approved: \{ word: "Approved", color: theme\.colors\.green, icon: "shield-checkmark" \}/);
+  assert.match(read('app/driver/profile.tsx'), /<CheckChips checks=\{checks\} \/>/, 'the driver sees their own checks');
+  assert.doesNotMatch(read('components/security-icons.tsx'), /#FF7700|colors\.orange/i, 'never orange');
+});

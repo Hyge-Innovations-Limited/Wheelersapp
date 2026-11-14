@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { RButton, RText, rider } from '@/components/rider/kit';
+import { MicIcon, ShieldIcon, WheelersMark } from '@/components/security-icons';
 import { CHECK_WORDS, checkDate, type DriverCheck } from '@/lib/rider-safety';
 
 const { colors, fonts } = rider;
@@ -34,7 +35,10 @@ export function SafetySheet({
       <View style={styles.backdrop}>
         <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.grab} />
-          <RText accessibilityRole="header" variant="heading">{title ?? ''}</RText>
+          <View style={styles.head}>
+            <ShieldIcon size={22} />
+            <RText accessibilityRole="header" style={styles.headText} variant="heading">{title ?? ''}</RText>
+          </View>
           {recorded ? <RecordedLine /> : null}
           {tips && tips.length > 0 ? (
             <View style={styles.list}>
@@ -66,7 +70,7 @@ export function RecordedLine() {
   }, [pulse]);
   return (
     <View accessibilityLabel="This trip is recorded for your safety." accessible style={styles.rec}>
-      <Animated.View style={[styles.recDot, { opacity: pulse }]} />
+      <Animated.View style={{ opacity: pulse }}><MicIcon size={16} /></Animated.View>
       <RText style={styles.recText}>This trip is recorded for your safety.</RText>
     </View>
   );
@@ -84,6 +88,7 @@ function Tick({ size = 13, color = colors.green }: { size?: number; color?: stri
 export function CheckChips({ checks }: { checks: DriverCheck[] }) {
   return (
     <View style={styles.chips}>
+      <View style={styles.shield}><ShieldIcon size={18} /></View>
       {checks.map((c) => (
         <View key={c.kind} style={styles.chip}>
           <Tick />
@@ -102,7 +107,10 @@ export function ChecksSheet({ checks, onClose }: { checks: DriverCheck[] | null;
       <View style={styles.backdrop}>
         <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.grab} />
-          <RText accessibilityRole="header" variant="heading">Checked by Wheelers</RText>
+          <View style={styles.head}>
+            <WheelersMark size={28} />
+            <RText accessibilityRole="header" style={styles.headText} variant="heading">Checked by Wheelers</RText>
+          </View>
           <View style={styles.list}>
             {(checks ?? []).map((c, i) => (
               <View key={c.kind} style={[styles.checkRow, i > 0 && styles.divider]}>
@@ -137,7 +145,9 @@ const styles = StyleSheet.create({
   numText: { fontFamily: fonts.displayBold, fontSize: 13, lineHeight: 16, color: colors.orange },
   tipText: { flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   rec: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 14, backgroundColor: colors.tint },
-  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.callRed },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headText: { flexShrink: 1 },
+  shield: { height: 24, justifyContent: 'center' },
   recText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingLeft: 6, paddingRight: 8, borderRadius: 999, backgroundColor: colors.greenSoft },
