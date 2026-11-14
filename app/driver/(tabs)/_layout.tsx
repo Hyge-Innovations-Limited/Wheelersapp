@@ -1,58 +1,11 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
 import { theme } from '@/theme';
-
-function HomeIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <Polyline points="9 22 9 12 15 12 15 22" />
-    </Svg>
-  );
-}
-
-function HistoryIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Circle cx="12" cy="12" r="10" />
-      <Polyline points="12 6 12 12 16 14" />
-    </Svg>
-  );
-}
-
-function ActiveIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-    </Svg>
-  );
-}
-
-function ActiveIconWithBadge({
-  color,
-  size,
-  count,
-}: {
-  color: string;
-  size: number;
-  count: number;
-}) {
-  return (
-    <View>
-      <ActiveIcon color={count > 0 ? theme.colors.orange : color} size={size} />
-      {count > 0 ? (
-        <View style={tabStyles.countBadge}>
-          <Text style={tabStyles.countBadgeText}>{count > 9 ? '9+' : count}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 function WalletIcon({ color, size }: { color: string; size: number }) {
   return (
@@ -63,32 +16,53 @@ function WalletIcon({ color, size }: { color: string; size: number }) {
   );
 }
 
-function QuestsIcon({ color, size }: { color: string; size: number }) {
+function FeedIcon({ color, size }: { color: string; size: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <Path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <Path d="M4 22h16" />
-      <Path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22" />
-      <Path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22" />
-      <Path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+      <Rect x="4" y="4" width="16" height="16" rx="3" />
+      <Path d="M8 9h8M8 13h8M8 17h5" />
     </Svg>
   );
 }
 
-
-/**
- * The Interstate icon with a live count of passenger requests.
- *
- * A number rather than the plain dot the Quests tab uses: one waiting request
- * and nine waiting requests are different decisions, and the driver should be
- * able to tell them apart without opening the tab.
- */
-function SettingsIcon({ color, size }: { color: string; size: number }) {
+function DriveIcon({ color, size }: { color: string; size: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Circle cx="12" cy="12" r="3" />
-      <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <Path d="M5 16l1.5-5.5A2 2 0 0 1 8.4 9h7.2a2 2 0 0 1 1.9 1.5L19 16" />
+      <Rect x="3.5" y="16" width="17" height="3.5" rx="1.5" />
+      <Path d="M7 19.5V21M17 19.5V21" />
+    </Svg>
+  );
+}
+
+/** Drive carries the number the Active tab used to: requests on the table + live bids + the trip. */
+function DriveIconWithBadge({ color, size, count }: { color: string; size: number; count: number }) {
+  return (
+    <View>
+      <DriveIcon color={count > 0 ? theme.colors.orange : color} size={size} />
+      {count > 0 ? (
+        <View style={tabStyles.countBadge}>
+          <Text style={tabStyles.countBadgeText}>{count > 9 ? '9+' : count}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function StationsIcon({ color, size }: { color: string; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M6.5 8h5" />
+      <Path d="M14 10h2a2 2 0 0 1 2 2v4.5a1.5 1.5 0 0 0 3 0V8l-3-3" />
+    </Svg>
+  );
+}
+
+function MeIcon({ color, size }: { color: string; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="12" cy="8.5" r="3.5" />
+      <Path d="M5 20a7 7 0 0 1 14 0" />
     </Svg>
   );
 }
@@ -135,6 +109,8 @@ export default function DriverTabsLayout() {
 
   return (
     <Tabs
+      // Back goes to the tab you came from (Active from Drive, History from Wallet), not to Feed.
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.orange,
@@ -164,29 +140,28 @@ export default function DriverTabsLayout() {
         },
       }}
     >
+      {/* Five tabs (14 Nov 2026): Feed opens first. Active, History, Quests and
+          Interstate leave the bar but keep their screens: Active opens from
+          Drive, History from Wallet, Quests and Interstate from Me. */}
+      <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
+          tabBarIcon: ({ color, size }) => <FeedIcon color={color} size={size} />,
+        }}
+      />
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <HomeIcon color={color} size={size} />,
+          title: 'Drive',
+          tabBarIcon: ({ color, size }) => <DriveIconWithBadge color={color} size={size} count={activeCount} />,
         }}
       />
       <Tabs.Screen
-        name="active"
+        name="stations"
         options={{
-          title: 'Active',
-          tabBarIcon: ({ color, size }) => (
-            <ActiveIconWithBadge color={color} size={size} count={activeCount} />
-          ),
-        }}
-      />
-      {/* Interstate leaves the bar; the route stays reachable by link. */}
-      <Tabs.Screen name="interstate" options={{ href: null }} />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ color, size }) => <HistoryIcon color={color} size={size} />,
+          title: 'Stations',
+          tabBarIcon: ({ color, size }) => <StationsIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -197,19 +172,16 @@ export default function DriverTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="quests"
-        options={{
-          title: 'Quests',
-          tabBarIcon: ({ color, size }) => <QuestsIcon color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <SettingsIcon color={color} size={size} />,
+          title: 'Me',
+          tabBarIcon: ({ color, size }) => <MeIcon color={color} size={size} />,
         }}
       />
+      <Tabs.Screen name="active" options={{ href: null }} />
+      <Tabs.Screen name="history" options={{ href: null }} />
+      <Tabs.Screen name="quests" options={{ href: null }} />
+      <Tabs.Screen name="interstate" options={{ href: null }} />
     </Tabs>
   );
 }

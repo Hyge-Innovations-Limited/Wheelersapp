@@ -182,6 +182,11 @@ export function routePush(data: Record<string, unknown> | undefined, deps: PushR
     navigate('/driver/(tabs)/active');
     return;
   }
+  // A post approved or not (Feed): My posts, where it shows how it stands.
+  if (isDriverApp && (data?.type === 'feed_post_live' || data?.type === 'feed_post_rejected')) {
+    navigate('/driver/my-posts');
+    return;
+  }
   if (isDriverApp && data?.type === 'dispatch_nudge') {
     const offerWaiting = data.online === '1' && typeof data.rideId === 'string';
     navigate(offerWaiting ? '/driver/(tabs)/active' : '/driver/(tabs)/home');

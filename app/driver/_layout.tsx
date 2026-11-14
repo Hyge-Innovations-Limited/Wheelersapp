@@ -42,6 +42,8 @@ export default function DriverLayout() {
         <Stack.Screen name="doc-upload" />
         <Stack.Screen name="legal-details" />
         <Stack.Screen name="verify-phone" />
+        <Stack.Screen name="new-post" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="my-posts" />
       </Stack>
       <DriverNoticeBanner />
       <DriverKycLock />

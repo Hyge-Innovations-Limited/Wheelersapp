@@ -49,6 +49,8 @@ export default function DriverHomeScreen() {
   // even after the offer card expires, so leaving the request screen never
   // means losing sight of what's pending.
   const pendingBids = Object.values(session.pendingBids ?? {});
+  // The same count the Active tab used to show: requests on the table + live bids + the trip.
+  const activeCount = session.offers.length + pendingBids.filter((bid) => !bid.outcome).length + (session.currentRide ? 1 : 0);
   const { permissionState, requestLocationAccess, requestBackgroundLocationAccess, currentLocation } =
     useAppLocation();
 
@@ -360,6 +362,18 @@ export default function DriverHomeScreen() {
             {isOnline ? 'Online' : 'Offline'}
           </AppText>
         </View>
+        {/* Active left the tab bar: requests, bids and the trip are one tap away here. */}
+        {activeCount > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Active, ${activeCount}`}
+            onPress={() => router.push('/driver/(tabs)/active' as Href)}
+            style={({ pressed }) => [styles.statusChip, styles.statusOnline, styles.activeChip, pressed && { opacity: 0.75 }]}>
+            <OnLight>
+            <AppText variant="label" numberOfLines={1}>Active · {activeCount}  ›</AppText>
+            </OnLight>
+          </Pressable>
+        ) : null}
       </View>
 
       {/* A trip already underway — the way back in after leaving the trip
@@ -520,6 +534,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     flexDirection: 'row',
     justifyContent: 'flex-start',
+    gap: 8,
+  },
+  activeChip: {
+    borderColor: theme.colors.orange,
   },
   statusChip: {
     flexDirection: 'row',

@@ -151,6 +151,19 @@ export default function DriverWalletTabScreen() {
         )}
       </View>
 
+      {/* History left the tab bar (Feed and Stations took its place): it opens from here. */}
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/driver/(tabs)/history' as Href)}
+        style={({ pressed }) => [
+          styles.historyLink,
+          isDark && { backgroundColor: theme.colors.darkSurface, borderColor: theme.colors.darkBorder },
+          pressed && { opacity: 0.7 },
+        ]}>
+        <AppText variant="bodyMedium" numberOfLines={1}>History</AppText>
+        <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>Trips and bids  ›</AppText>
+      </Pressable>
+
       {/* ── Virtual account (fund wallet) ── */}
       <View
         style={[
@@ -284,6 +297,17 @@ export default function DriverWalletTabScreen() {
 // ── Styles ──────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  historyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+    backgroundColor: theme.colors.white,
+  },
   container: {
     paddingTop: theme.spacing.lg,
   },

@@ -77,7 +77,9 @@ export default function SplashScreen() {
   const thenRef = useRef<Place | null>(null);
 
   function go(href: SplashRoute) {
-    router.replace(href);
+    // A driver's app opens on the Feed (14 Nov 2026); Drive is one tab over, and
+    // a remembered place or a tapped push still opens on top as before.
+    router.replace((href === "/driver/(tabs)/home" ? "/driver/(tabs)/feed" : href) as never);
     const then = thenRef.current;
     thenRef.current = null;
     // A tapped push that arrived while this screen was deciding: it opens over home,
