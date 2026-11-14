@@ -85,11 +85,11 @@ test('a Feed push (post live, or not approved) opens My posts in the driver app 
   assert.deepEqual(nav, ['/driver/my-posts', '/driver/my-posts']);
 });
 
-test('the tab bar: Feed, Drive, Stations, Wallet, Me; Active, History, Quests, Interstate keep their screens off the bar', () => {
+test('the tab bar: Feed, Drive, Active, Wallet, Me; Stations, History, Quests, Interstate keep their screens off the bar', () => {
   const layout = readFileSync(join(projectRoot, 'app/driver/(tabs)/_layout.tsx'), 'utf8');
   const shown = [...layout.matchAll(/name="([a-z]+)"\s+options=\{\{\s+title: '([A-Za-z]+)'/g)].map((m) => [m[1], m[2]]);
-  assert.deepEqual(shown, [['feed', 'Feed'], ['home', 'Drive'], ['stations', 'Stations'], ['wallet', 'Wallet'], ['settings', 'Me']]);
-  for (const hidden of ['active', 'history', 'quests', 'interstate']) {
+  assert.deepEqual(shown, [['feed', 'Feed'], ['home', 'Drive'], ['active', 'Active'], ['wallet', 'Wallet'], ['settings', 'Me']]);
+  for (const hidden of ['stations', 'history', 'quests', 'interstate']) {
     assert.match(layout, new RegExp(`name="${hidden}" options=\\{\\{ href: null \\}\\}`));
   }
   const splash = readFileSync(join(projectRoot, 'app/splash.tsx'), 'utf8');
@@ -109,9 +109,11 @@ test('the Stations sheet settles at the nearest stop, or the next one when flick
 test('the driver app has one back button: the shared header uses it on driver screens; Active, History, Quests and Your papers have it', () => {
   const header = readFileSync(join(projectRoot, 'components/flow-header.tsx'), 'utf8');
   assert.match(header, /showBack && inDriverApp && !light \? \(\s*<BackButton/);
-  for (const file of ['app/driver/(tabs)/active.tsx', 'app/driver/(tabs)/history.tsx', 'app/driver/(tabs)/quests.tsx', 'app/driver/docs.tsx']) {
+  for (const file of ['app/driver/(tabs)/stations.tsx', 'app/driver/(tabs)/history.tsx', 'app/driver/(tabs)/quests.tsx', 'app/driver/docs.tsx']) {
     assert.match(readFileSync(join(projectRoot, file), 'utf8'), /<BackButton fallback=/, file);
   }
   assert.doesNotMatch(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /\/driver\/\(tabs\)\/interstate/, 'Interstate is off Me');
   assert.match(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /router\.push\('\/driver\/\(tabs\)\/history' as Href\)/, 'History is on Me');
+  assert.match(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /router\.push\('\/driver\/\(tabs\)\/stations' as Href\)/, 'Stations is on Me');
+  assert.doesNotMatch(readFileSync(join(projectRoot, 'app/driver/(tabs)/active.tsx'), 'utf8'), /BackButton/, 'Active is a tab again: no back button');
 });

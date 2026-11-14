@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { AppText, OnLight } from '@/components/app-text';
+import { BackButton } from '@/components/back-button';
 import { RequestBanner } from '@/components/feed/request-banner';
 import { StationsSkeleton } from '@/components/feed/skeleton';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
@@ -171,6 +172,11 @@ export default function StationsScreen() {
         ))}
       </MapView>
 
+      {/* Opened from Me: back to it, on the map's top-left. */}
+      <View style={[styles.back, { top: insets.top + 8 }]}>
+        <BackButton fallback="/driver/(tabs)/settings" />
+      </View>
+
       {height > 0 ? (
         <Animated.View style={[styles.sheet, { height: height - stops.open, backgroundColor: cardBg, borderColor: border, transform: [{ translateY: sheetY }] }]}>
           <View
@@ -233,6 +239,7 @@ export default function StationsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  back: { position: 'absolute', left: 16 },
   sheet: {
     position: 'absolute', left: 0, right: 0, top: 0,
     borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0,

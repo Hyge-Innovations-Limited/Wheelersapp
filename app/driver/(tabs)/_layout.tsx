@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
@@ -35,35 +35,41 @@ function DriveIcon({ color, size }: { color: string; size: number }) {
   );
 }
 
-/** Drive carries the number the Active tab used to: requests on the table + live bids + the trip. */
-function DriveIconWithBadge({ color, size, count }: { color: string; size: number; count: number }) {
-  return (
-    <View>
-      <DriveIcon color={count > 0 ? theme.colors.orange : color} size={size} />
-      {count > 0 ? (
-        <View style={tabStyles.countBadge}>
-          <Text style={tabStyles.countBadgeText}>{count > 9 ? '9+' : count}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function StationsIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M6.5 8h5" />
-      <Path d="M14 10h2a2 2 0 0 1 2 2v4.5a1.5 1.5 0 0 0 3 0V8l-3-3" />
-    </Svg>
-  );
-}
-
 function MeIcon({ color, size }: { color: string; size: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <Circle cx="12" cy="8.5" r="3.5" />
       <Path d="M5 20a7 7 0 0 1 14 0" />
     </Svg>
+  );
+}
+
+function ActiveIcon({ color, size }: { color: string; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </Svg>
+  );
+}
+
+function ActiveIconWithBadge({
+  color,
+  size,
+  count,
+}: {
+  color: string;
+  size: number;
+  count: number;
+}) {
+  return (
+    <View>
+      <ActiveIcon color={count > 0 ? theme.colors.orange : color} size={size} />
+      {count > 0 ? (
+        <View style={tabStyles.countBadge}>
+          <Text style={tabStyles.countBadgeText}>{count > 9 ? '9+' : count}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -140,9 +146,9 @@ export default function DriverTabsLayout() {
         },
       }}
     >
-      {/* Five tabs (14 Nov 2026): Feed opens first. Active, History, Quests and
-          Interstate leave the bar but keep their screens: Active opens from
-          Drive, History from Wallet, Quests and Interstate from Me. */}
+      {/* Five tabs: Feed, Drive, Active, Wallet, Me (Timi, 14 Nov 2026). Stations,
+          History, Quests and Interstate keep their screens off the bar: Stations,
+          History and Quests open from Me, History also from Wallet. */}
       <Tabs.Screen
         name="feed"
         options={{
@@ -154,14 +160,16 @@ export default function DriverTabsLayout() {
         name="home"
         options={{
           title: 'Drive',
-          tabBarIcon: ({ color, size }) => <DriveIconWithBadge color={color} size={size} count={activeCount} />,
+          tabBarIcon: ({ color, size }) => <DriveIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="stations"
+        name="active"
         options={{
-          title: 'Stations',
-          tabBarIcon: ({ color, size }) => <StationsIcon color={color} size={size} />,
+          title: 'Active',
+          tabBarIcon: ({ color, size }) => (
+            <ActiveIconWithBadge color={color} size={size} count={activeCount} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -178,7 +186,7 @@ export default function DriverTabsLayout() {
           tabBarIcon: ({ color, size }) => <MeIcon color={color} size={size} />,
         }}
       />
-      <Tabs.Screen name="active" options={{ href: null }} />
+      <Tabs.Screen name="stations" options={{ href: null }} />
       <Tabs.Screen name="history" options={{ href: null }} />
       <Tabs.Screen name="quests" options={{ href: null }} />
       <Tabs.Screen name="interstate" options={{ href: null }} />
