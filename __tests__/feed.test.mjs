@@ -113,4 +113,5 @@ test('the driver app has one back button: the shared header uses it on driver sc
     assert.match(readFileSync(join(projectRoot, file), 'utf8'), /<BackButton fallback=/, file);
   }
   assert.doesNotMatch(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /\/driver\/\(tabs\)\/interstate/, 'Interstate is off Me');
+  assert.match(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /router\.push\('\/driver\/\(tabs\)\/history' as Href\)/, 'History is on Me');
 });

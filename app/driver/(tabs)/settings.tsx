@@ -324,6 +324,22 @@ export default function DriverSettingsScreen() {
           </Pressable>
           <View style={[styles.menuDivider, dividerInset, { borderBottomColor: dividerColor }]} />
           <Pressable
+            onPress={() => router.push('/driver/(tabs)/history' as Href)}
+            style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
+          >
+            <View style={[styles.menuIcon, menuIconStyle, { backgroundColor: theme.colors.orangeLight }]}>
+              <OnLight>
+              <MaterialIcons color={theme.colors.orange} name="history" size={glyphSize} />
+              </OnLight>
+            </View>
+            <View style={styles.menuInfo}>
+              <AppText variant="bodyMedium">History</AppText>
+              <AppText variant="bodySmall" color={theme.colors.muted}>Your trips and bids</AppText>
+            </View>
+            <ChevronRightIcon size={responsive.scale(18)} />
+          </Pressable>
+          <View style={[styles.menuDivider, dividerInset, { borderBottomColor: dividerColor }]} />
+          <Pressable
             onPress={() => router.push('/driver/(tabs)/quests' as Href)}
             style={({ pressed }) => [styles.menuItem, menuItemStyle, pressed && { backgroundColor: pressedBg }]}
           >
