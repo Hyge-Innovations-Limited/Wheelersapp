@@ -6,8 +6,8 @@ import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from '
 
 import { AppButton } from '@/components/app-button';
 import { AppScreen } from '@/components/app-screen';
+import { BackButton } from '@/components/back-button';
 import { AppText, OnLight } from '@/components/app-text';
-import { BackArrow } from '@/components/back-arrow';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getDriverPapers, getDriverPhone, type DriverPaper, type DriverPapersResponse, type DriverPhoneStatus } from '@/lib/api';
 import { localNumber } from '@/lib/countdown';
@@ -64,7 +64,7 @@ export default function DriverPapersScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={theme.colors.orange} />}>
       <StatusBar style="dark" backgroundColor={theme.colors.offWhite} />
       <View style={styles.headerRow}>
-        <BackArrow />
+        <BackButton fallback="/driver/(tabs)/settings" />
         <View style={styles.headerCopy}>
           <AppText variant="screenTitle" numberOfLines={1}>Your papers</AppText>
           <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={2}>

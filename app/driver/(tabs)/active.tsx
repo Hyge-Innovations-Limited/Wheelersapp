@@ -2,6 +2,7 @@ import { Href, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
+import { BackButton } from '@/components/back-button';
 import { AppText, OnLight } from '@/components/app-text';
 import { DriverRequestFeed } from '@/components/driver-request-feed';
 import { useDriverSession } from '@/lib/driver-session';
@@ -47,7 +48,10 @@ export default function DriverActiveScreen() {
       safeAreaEdges={['top', 'left', 'right']}
       contentStyle={[styles.container, { gap: responsive.scale(14) }]}>
       <View style={styles.headerRow}>
-        <AppText variant="h1" numberOfLines={1}>Active</AppText>
+        <View style={styles.titleRow}>
+          <BackButton fallback="/driver/(tabs)/home" />
+          <AppText variant="h1" numberOfLines={1}>Active</AppText>
+        </View>
         <Pressable onPress={() => router.push('/driver/(tabs)/history?tab=bids' as Href)}>
           <AppText variant="caption" color={theme.colors.orange}>Past bids ›</AppText>
         </Pressable>
@@ -93,6 +97,7 @@ export default function DriverActiveScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
   container: {
     paddingTop: theme.spacing.lg,
     flexGrow: 1,

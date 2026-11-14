@@ -95,3 +95,22 @@ test('the tab bar: Feed, Drive, Stations, Wallet, Me; Active, History, Quests, I
   const splash = readFileSync(join(projectRoot, 'app/splash.tsx'), 'utf8');
   assert.match(splash, /href === "\/driver\/\(tabs\)\/home" \? "\/driver\/\(tabs\)\/feed"/, 'the app opens on Feed');
 });
+
+test('the Stations sheet settles at the nearest stop, or the next one when flicked', () => {
+  const stops = [60, 300, 600];
+  assert.equal(F.settleSheet(stops, 280, 0), 300, 'let go near half: half');
+  assert.equal(F.settleSheet(stops, 520, 0.1), 600, 'near the bottom: shows the map');
+  assert.equal(F.settleSheet(stops, 310, 1.2), 600, 'flicked down from half: the map');
+  assert.equal(F.settleSheet(stops, 290, -1.2), 60, 'flicked up from half: the whole list');
+  assert.equal(F.settleSheet(stops, 60, -2), 60, 'already open: stays');
+  assert.equal(F.settleSheet(stops, 600, 2), 600, 'already down: stays');
+});
+
+test('the driver app has one back button: the shared header uses it on driver screens; Active, History, Quests and Your papers have it', () => {
+  const header = readFileSync(join(projectRoot, 'components/flow-header.tsx'), 'utf8');
+  assert.match(header, /showBack && inDriverApp && !light \? \(\s*<BackButton/);
+  for (const file of ['app/driver/(tabs)/active.tsx', 'app/driver/(tabs)/history.tsx', 'app/driver/(tabs)/quests.tsx', 'app/driver/docs.tsx']) {
+    assert.match(readFileSync(join(projectRoot, file), 'utf8'), /<BackButton fallback=/, file);
+  }
+  assert.doesNotMatch(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /\/driver\/\(tabs\)\/interstate/, 'Interstate is off Me');
+});

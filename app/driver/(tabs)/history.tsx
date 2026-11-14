@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from '
 
 import { AppScreen } from '@/components/app-screen';
 import { AppCard } from '@/components/app-card';
+import { BackButton } from '@/components/back-button';
 import { AppText } from '@/components/app-text';
 import { DriverBidsList } from '@/components/driver-bids-list';
 import { useCachedQuery } from '@/lib/cached-query';
@@ -115,7 +116,10 @@ export default function DriverHistoryScreen() {
       safeAreaEdges={['top', 'left', 'right']}
       contentStyle={[styles.container, { gap: responsive.scale(16) }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.orange} colors={[theme.colors.orange]} />}>
-      <AppText variant="h1" numberOfLines={1}>History</AppText>
+      <View style={styles.titleRow}>
+        <BackButton fallback="/driver/(tabs)/wallet" />
+        <AppText variant="h1" numberOfLines={1}>History</AppText>
+      </View>
 
       {/* Tab switcher */}
       <View style={[styles.tabs, isDark && { backgroundColor: theme.colors.darkSurface, borderColor: theme.colors.darkBorder }]}>
@@ -291,6 +295,7 @@ export default function DriverHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
   container: {
     paddingTop: theme.spacing.lg,
   },

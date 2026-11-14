@@ -102,3 +102,13 @@ export function photoHeight(photo: Pick<FeedPhoto, 'width' | 'height'>, width: n
   const ratio = Math.min(1.25, Math.max(0.5, photo.height / photo.width));
   return Math.round(width * ratio);
 }
+
+/** Where a released swipe settles: the nearest of the three, or the next one along when flicked. */
+export function settleSheet(stops: number[], at: number, velocityY: number): number {
+  if (Math.abs(velocityY) > 0.6) {
+    const ordered = [...stops].sort((a, b) => a - b);
+    if (velocityY > 0) return ordered.find((y) => y > at + 1) ?? ordered[ordered.length - 1]!;
+    return [...ordered].reverse().find((y) => y < at - 1) ?? ordered[0]!;
+  }
+  return stops.reduce((best, y) => (Math.abs(y - at) < Math.abs(best - at) ? y : best), stops[0]!);
+}

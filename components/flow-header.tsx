@@ -1,7 +1,8 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
+import { BackButton } from '@/components/back-button';
 import { ProgressDots } from '@/components/progress-dots';
 import { theme } from '@/theme';
 
@@ -31,6 +32,8 @@ export function FlowHeader({
   light,
 }: FlowHeaderProps) {
   const router = useRouter();
+  // The driver app has one back button everywhere (components/back-button.tsx); the rest keep the arrow.
+  const inDriverApp = (useSegments() as string[])[0] === 'driver';
   const accent = light ? theme.colors.offWhite : theme.colors.black;
   const muted = light ? '#8F8A86' : theme.colors.muted;
   const isCentered = align === 'center';
@@ -39,7 +42,9 @@ export function FlowHeader({
     <View style={[styles.wrapper, isCentered ? styles.wrapperCentered : null]}>
       <View style={[styles.topRow, isCentered ? styles.topRowCentered : null]}>
         <View style={styles.backSlot}>
-          {showBack ? (
+          {showBack && inDriverApp && !light ? (
+            <BackButton fallback={backHref} />
+          ) : showBack ? (
             <Pressable
               onPress={() => {
                 if (router.canGoBack()) {
