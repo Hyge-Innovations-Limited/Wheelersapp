@@ -108,3 +108,14 @@ test('the driver app has one back button: the shared header uses it on driver sc
   assert.match(readFileSync(join(projectRoot, 'app/driver/(tabs)/settings.tsx'), 'utf8'), /router\.push\('\/driver\/\(tabs\)\/stations' as Href\)/, 'Stations is on Me');
   assert.doesNotMatch(readFileSync(join(projectRoot, 'app/driver/(tabs)/active.tsx'), 'utf8'), /BackButton/, 'Active is a tab again: no back button');
 });
+
+test('the loading screen says "Your price. Your ride. Your safety." for riders and drivers, under the same logo the phone shows first', () => {
+  const splash = readFileSync(join(projectRoot, 'app/splash.tsx'), 'utf8');
+  assert.match(splash, /const LOADING_LINE = "Your price\. Your ride\. Your safety\.";/);
+  assert.doesNotMatch(splash, /IS_DRIVER \? .*LOADING_LINE|LOADING_LINE.*IS_DRIVER/, 'one line for both sides');
+  assert.match(splash, /require\("\.\.\/assets\/images\/splash-logo\.png"\)/, 'the baked splash image itself, so the handoff does not jump');
+  const app = JSON.parse(readFileSync(join(projectRoot, 'app.json'), 'utf8'));
+  const native = app.expo.plugins.find((p) => Array.isArray(p) && p[0] === 'expo-splash-screen')[1];
+  assert.deepEqual([native.image, native.imageWidth, native.backgroundColor], ['./assets/images/splash-logo.png', 120, '#FF7700'], 'the frame matches what the binary bakes in');
+  assert.match(splash, /launchLogo: \{\s*\/\/[^\n]*\n\s*width: 120,\s*height: 120,/);
+});
