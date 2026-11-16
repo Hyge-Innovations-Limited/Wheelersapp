@@ -44,7 +44,8 @@ import { invalidateWalletCache } from '@/lib/wallet-overview';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { isDriverApp } from '@/lib/app-variant';
 import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom, waitingFields } from '@/lib/rider-active-ride';
-import { DEFAULT_WAITING, type WaitingInfo } from '@/lib/waiting';
+import { DEFAULT_WAITING, parseWaiting, type WaitingInfo } from '@/lib/waiting';
+import { sendWaitingDeal } from '@/lib/waiting-deal-api';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
 import {
@@ -214,6 +215,11 @@ type RideSessionContextValue = {
   /** Back out of a route change waiting on money. true: taken off, the trip stays as it was; false: a deposit already applied it. */
   cancelPendingRoute: () => Promise<boolean>;
   cancelRide: (reason?: string) => Promise<void>;
+  /**
+   * The waiting price (Timi, 16 Nov 2026): offer the driver a price a minute, or accept theirs. Throws with the
+   * server's words when it cannot be done ("That price has changed.").
+   */
+  sendWaiting: (action: 'offer' | 'accept', ngn: number) => Promise<void>;
   /** Rate the driver of the ride that just finished. */
   submitRating: (input: { rating: number; comment?: string }) => Promise<void>;
   sendChatMessage: (rideId: string, content: string) => Promise<void>;
@@ -288,6 +294,9 @@ const defaultContext: RideSessionContextValue = {
   sendCallMessage: async () => { throw new Error('Not connected.'); },
   clearRide: () => undefined,
   notifyPaySheet: () => undefined,
+  sendWaiting: async () => {
+    throw new Error('Not available right now.');
+  },
 };
 
 const RideSessionContext = createContext<RideSessionContextValue>(defaultContext);
@@ -923,6 +932,16 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
               : {}),
           };
         });
+        return;
+      }
+
+      // The waiting price moved (an offer, the driver's counter, an agreement): the meter's new terms.
+      if (type === 'ride:waiting') {
+        const waiting = parseWaiting(payload.waiting);
+        if (!waiting) return;
+        setRideState((previous) =>
+          previous && previous.status === 'matched' && isForRide(previous, payload) ? { ...previous, waiting } : previous,
+        );
         return;
       }
 
@@ -1870,6 +1889,15 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
     };
   }, [clearReconnectTimer, connect, isReady, user]);
 
+  const sendWaiting = useCallback(async (action: 'offer' | 'accept', ngn: number) => {
+    const ride = currentRideRef.current;
+    if (!ride || ride.status !== 'matched') throw new Error('The driver is no longer waiting.');
+    const accessToken = await getAccessTokenWithRetry(getAccessToken);
+    const waiting = await sendWaitingDeal(accessToken, ride.rideId, action, ngn);
+    if (!waiting) return;
+    setRideState((previous) => (previous && previous.rideId === ride.rideId && previous.status === 'matched' ? { ...previous, waiting } : previous));
+  }, [getAccessToken]);
+
   const value = useMemo<RideSessionContextValue>(
     () => ({
       isConfigured: isBackendConfigured(),
@@ -1893,6 +1921,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       sendCallMessage,
       clearRide,
       notifyPaySheet,
+      sendWaiting,
     }),
     [
       acceptOffer,
@@ -1915,6 +1944,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       quoteRideRoute,
       routeOutcome,
       cancelPendingRoute,
+      sendWaiting,
     ],
   );
 

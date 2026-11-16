@@ -371,3 +371,10 @@ test('stack action: only /rider and /rider/... are the rider route; riderOnTop g
   assert.equal(riderOnTop(['rider', 'rider-chat']), false);
   assert.equal(riderOnTop([]), false);
 });
+
+test('waiting price pushes open the trip: Active for the driver, the trip screen for the rider', () => {
+  for (const type of ['waiting_ask', 'waiting_offer', 'waiting_counter', 'waiting_agreed']) {
+    assert.deepEqual(run({ type, rideId: 'r1' }, true).nav, ['/driver/(tabs)/active'], type);
+    assert.deepEqual(run({ type, rideId: 'r1' }, false).nav, ['/rider/active-trip'], type);
+  }
+});

@@ -4,6 +4,9 @@ import { DRIVER_NEWS_PUSH_TYPES } from './driver-push-quiet';
  * A tapped push -> the screen it is about. One place for every route, driver
  * and rider; the side effects are passed in so this stays testable.
  */
+/** Waiting price pushes (Wheelers-Backend kafka/consumer.ts tellWaitingDeal, sayFreeWaitingOver). */
+export const WAITING_PUSH_TYPES: readonly string[] = ['waiting_ask', 'waiting_offer', 'waiting_counter', 'waiting_agreed'];
+
 export type PushRouteDeps = {
   isDriverApp: boolean;
   navigate: (href: string) => void;
@@ -185,6 +188,11 @@ export function routePush(data: Record<string, unknown> | undefined, deps: PushR
   // A post approved or not (Feed): My posts, where it shows how it stands.
   if (isDriverApp && (data?.type === 'feed_post_live' || data?.type === 'feed_post_rejected')) {
     navigate('/driver/my-posts');
+    return;
+  }
+  // The waiting price (Timi, 16 Nov 2026): asked, offered, countered or agreed: the trip.
+  if (typeof data?.type === 'string' && WAITING_PUSH_TYPES.includes(data.type)) {
+    navigate(isDriverApp ? '/driver/(tabs)/active' : '/rider/active-trip');
     return;
   }
   if (isDriverApp && data?.type === 'dispatch_nudge') {

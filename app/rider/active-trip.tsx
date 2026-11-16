@@ -18,7 +18,8 @@ import { EmergencyButton } from "@/components/emergency-button";
 import { LiveMap } from "@/components/live-map";
 import { RAvatar, RBack, RLink, RText, naira, rider } from "@/components/rider/kit";
 import { useCallDriver } from "@/components/rider/use-call-driver";
-import { WaitingCard, WaitingLine } from "@/components/rider/waiting-card";
+import { WaitingCard, WaitingDealSheet, WaitingLine } from "@/components/rider/waiting-card";
+import { waitingAskKey } from "@/lib/waiting";
 import { SafetySheet } from "@/components/rider/safety-sheets";
 import { LockIcon } from "@/components/security-icons";
 import { dueSafetyMoment, type SafetyMoment } from "@/lib/rider-safety";
@@ -61,7 +62,7 @@ export default function RiderActiveTripScreen() {
     () => parseRideItineraryParam(params.itinerary),
     [params.itinerary],
   );
-  const { currentRide, chatMessages } = useRideSession();
+  const { currentRide, chatMessages, sendWaiting } = useRideSession();
   // Safety (Timi, 14 Nov 2026): "Before you get in" while the driver comes; "Trip started · This trip
   // is recorded" when it runs and the driver's phone records it. Each once per trip, on this screen only.
   const [seenReady, setSeenReady] = useState(false);
@@ -76,6 +77,44 @@ export default function RiderActiveTripScreen() {
     if (due === "start") markSafetySeen(`before:${currentRide.rideId}`);
     setSafetySheet(due);
   }, [seenReady, safetySheet, isFocused, currentRide]);
+  // The waiting price (Timi, 16 Nov 2026): when the free minutes end the sheet asks once (keep the driver
+  // waiting at a price, or cancel), and once more for each price the driver asks. Never over the safety sheet.
+  const [waitSheet, setWaitSheet] = useState(false);
+  const [waitSending, setWaitSending] = useState(false);
+  const [waitError, setWaitError] = useState<string | null>(null);
+  const [waitTick, setWaitTick] = useState(0);
+  const waitingNow = currentRide?.status === "matched" ? currentRide.waiting ?? null : null;
+  useEffect(() => {
+    if (!waitingNow?.deal) return;
+    const timer = setInterval(() => setWaitTick((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, [waitingNow?.deal]);
+  useEffect(() => {
+    if (!seenReady || !isFocused || waitSheet || safetySheet || !currentRide || !waitingNow) return;
+    const key = waitingAskKey(currentRide.rideId, waitingNow);
+    if (!key || safetySeen(key)) return;
+    markSafetySeen(key);
+    setWaitError(null);
+    setWaitSheet(true);
+  }, [seenReady, isFocused, waitSheet, safetySheet, currentRide, waitingNow, waitTick]);
+  // Agreed, started or gone meanwhile: the sheet goes.
+  const dealOpen = Boolean(waitingNow?.deal && waitingNow.deal.rateNgn === null && waitingNow.stoppedAtMs === null);
+  useEffect(() => {
+    if (waitSheet && !dealOpen) setWaitSheet(false);
+  }, [waitSheet, dealOpen]);
+  async function answerWaiting(action: "offer" | "accept", ngn: number) {
+    if (waitSending) return;
+    setWaitSending(true);
+    setWaitError(null);
+    try {
+      await sendWaiting(action, ngn);
+      setWaitSheet(false);
+    } catch (failure) {
+      setWaitError(failure instanceof Error ? failure.message : "Could not send that. Try again.");
+    } finally {
+      setWaitSending(false);
+    }
+  }
   const itinerary = currentRide?.itinerary ?? fallbackItinerary;
   const extraStops = getAdditionalStopCount(itinerary);
   const serializedItinerary = serializeRideItinerary(itinerary);
@@ -272,7 +311,9 @@ export default function RiderActiveTripScreen() {
         ) : null}
 
         {/* Waiting time: the free minutes, then the fee, while the driver is at the pickup; after, what it came to. */}
-        {matched && currentRide.waiting ? <WaitingCard waiting={currentRide.waiting} /> : null}
+        {matched && currentRide.waiting ? (
+          <WaitingCard onAnswer={() => { setWaitError(null); setWaitSheet(true); }} waiting={currentRide.waiting} />
+        ) : null}
         {active && currentRide.waitingLine ? <WaitingLine text={currentRide.waitingLine} /> : null}
 
         {/* The trip code, until the trip starts: the driver cannot start without it. */}
@@ -377,6 +418,18 @@ export default function RiderActiveTripScreen() {
           <EmergencyButton rideId={currentRide.rideId} role="RIDER" />
         </View>
       </ScrollView>
+      <WaitingDealSheet
+        error={waitError}
+        onAccept={(ngn) => void answerWaiting("accept", ngn)}
+        onCancelRide={() => {
+          setWaitSheet(false);
+          router.push("/rider-cancel");
+        }}
+        onClose={() => setWaitSheet(false)}
+        onSend={(ngn) => void answerWaiting("offer", ngn)}
+        sending={waitSending}
+        waiting={waitSheet && dealOpen ? waitingNow : null}
+      />
       <SafetySheet
         button={safetySheet === "start" ? "OK" : "Got it"}
         onClose={() => setSafetySheet(null)}

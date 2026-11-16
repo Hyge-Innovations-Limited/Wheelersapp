@@ -23,6 +23,8 @@ import {
   type DriverActiveRide,
 } from '@/lib/api';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
+import { parseWaiting } from '@/lib/waiting';
+import { sendWaitingDeal } from '@/lib/waiting-deal-api';
 import { startDriverLivenessUpdates, stopDriverLivenessUpdates } from '@/lib/background-location';
 import { readOnlineIntent, rememberOnline } from '@/lib/driver-online-intent';
 import { driverCancelNotice } from '@/lib/cancel-copy';
@@ -142,6 +144,8 @@ type DriverSessionContextValue = {
   arriveAtPickup: (rideId: string) => Promise<void>;
   /** `tripCode`: the 4 digits the rider gave, when the server asks for them. */
   startTrip: (rideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => Promise<void>;
+  /** The waiting price (Timi, 16 Nov 2026): accept the rider's price a minute, or counter with another. Throws with the server's words. */
+  answerWaiting: (action: 'offer' | 'accept', ngn: number) => Promise<void>;
   endTrip: (rideId: string) => Promise<void>;
   sendGps: (lat: number, lng: number) => void;
   sendChatMessage: (rideId: string, content: string) => Promise<void>;
@@ -184,6 +188,7 @@ const defaultContext: DriverSessionContextValue = {
   rateRider: async () => { throw new Error('Driver session unavailable.'); },
   arriveAtPickup: async () => { throw new Error('Driver session unavailable.'); },
   startTrip: async () => { throw new Error('Driver session unavailable.'); },
+  answerWaiting: async () => { throw new Error('Driver session unavailable.'); },
   endTrip: async () => { throw new Error('Driver session unavailable.'); },
   sendGps: () => undefined,
   sendChatMessage: async () => { throw new Error('Driver session unavailable.'); },
@@ -266,6 +271,17 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
           amountNgn: typeof details.amountNgn === 'number' ? details.amountNgn : 0,
           stoppedAt,
         });
+        return;
+      }
+      // The waiting price moved (the rider's offer, an agreement): the meter's new terms.
+      if (type === 'ride:waiting') {
+        const waiting = parseWaiting(payload.waiting);
+        const waitingRideId = getString(payload.rideId);
+        if (waiting && waitingRideId) {
+          setSession((prev) =>
+            prev.currentRide?.rideId === waitingRideId ? { ...prev, currentRide: { ...prev.currentRide, waiting } } : prev,
+          );
+        }
         return;
       }
       // The trip code: a refusal goes to the keypad, not an alert over it.
@@ -1098,6 +1114,15 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     };
   }, [handleOverlayChoice]);
 
+  const answerWaiting = useCallback(async (action: 'offer' | 'accept', ngn: number) => {
+    const ride = sessionRef.current.currentRide;
+    if (!ride) throw new Error('No trip.');
+    const accessToken = await getAccessTokenWithRetry(getAccessToken);
+    const waiting = await sendWaitingDeal(accessToken, ride.rideId, action, ngn);
+    if (!waiting) return;
+    setSession((prev) => (prev.currentRide?.rideId === ride.rideId ? { ...prev, currentRide: { ...prev.currentRide, waiting } } : prev));
+  }, [getAccessToken]);
+
   const value = useMemo<DriverSessionContextValue>(
     () => ({
       isConfigured: isBackendConfigured(),
@@ -1119,6 +1144,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       closeOffer,
       arriveAtPickup,
       startTrip,
+      answerWaiting,
       endTrip,
       sendGps,
       sendChatMessage,
@@ -1144,6 +1170,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       closeOffer,
       arriveAtPickup,
       startTrip,
+      answerWaiting,
       endTrip,
       sendGps,
       sendChatMessage,

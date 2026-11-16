@@ -68,7 +68,9 @@ test('driver: Arrived starts the meter here; the server\'s snapshot takes over',
   let s = { ...defaultDriverSession, status: 'en_route', currentRide: { ...ride } };
   s = reduceDriverSession(s, 'ride:arrived:ack', { rideId: 'ride-1' }, AT);
   assert.equal(s.status, 'arrived');
-  assert.deepEqual(s.currentRide.waiting, { freeSeconds: 300, ngnPerMinute: 70, arrivedAtMs: AT, stoppedAtMs: null, skewMs: 0 });
+  // Until the server's own terms come: 5 free minutes, then a price to agree (none charged yet).
+  assert.deepEqual(s.currentRide.waiting, { ...W.DEFAULT_WAITING, arrivedAtMs: AT, stoppedAtMs: null, skewMs: 0 });
+  assert.equal(s.currentRide.waiting.ngnPerMinute, 0);
   s = applyActiveRideSnapshot(s, { rideId: 'ride-1', riderId: 'rider-1', driverId: 'd', rideStatus: 'ARRIVED', paymentMethod: 'WALLET', pickup: ride.pickup, destination: ride.destination, stops: [], agreedFareNgn: 5000, riderOfferNgn: 5000, riderPaid: true, riderPhone: null, waiting: block(20, { arrivedAt: iso(AT - 15_000) }) });
   assert.equal(s.currentRide.waiting.arrivedAtMs, AT - 15_000, 'the server\'s arrival wins');
 });
@@ -79,4 +81,39 @@ test('driver: the payout sheet gets the waiting from the completion, kept past t
   assert.deepEqual(s.currentRide.waitingResult, { minutes: 4, feeNgn: 280, paid: true });
   s = reduceDriverSession(s, 'ride:end:accepted', { rideId: 'ride-1' }, AT);
   assert.deepEqual(s.currentRide.waitingResult, { minutes: 4, feeNgn: 280, paid: true }, 'not wiped by the other message');
+});
+
+/* The waiting price (Timi, 16 Nov 2026): after the free minutes the rider and the driver agree a price a minute. */
+const deal = (extra = {}) => ({ rates: [40, 50, 60, 70, 80, 90, 100], baseFreeSeconds: 300, rateNgn: null, agreedAt: null, offer: null, offersLeft: 10, ...extra });
+
+test('waiting price: the deal is read; an older server without one keeps its fixed price', () => {
+  const info = W.parseWaiting(block(400, { ngnPerMinute: 0, deal: deal({ offer: { by: 'driver', ngn: 80, at: iso(AT + 390_000) }, offersLeft: 8 }) }), AT + 400_000);
+  assert.deepEqual(info.deal, { rates: [40, 50, 60, 70, 80, 90, 100], baseFreeSeconds: 300, rateNgn: null, agreedAtMs: null, offer: { by: 'driver', ngn: 80, atMs: AT + 390_000 }, offersLeft: 8 });
+  assert.equal(info.ngnPerMinute, 0);
+  const old = W.parseWaiting(block(400, { ngnPerMinute: undefined }), AT + 400_000);
+  assert.equal(old.deal, undefined);
+  assert.equal(old.ngnPerMinute, 70, 'an older server that said no price: its ₦70');
+  // Junk offers are dropped.
+  assert.equal(W.parseWaiting(block(400, { deal: deal({ offer: { by: 'someone', ngn: 80 } }) })).deal.offer, null);
+});
+
+test('waiting price: the stage is free, then a price to agree, then the meter once agreed (or stopped)', () => {
+  const at = (s, extra) => W.parseWaiting(block(s, { ngnPerMinute: 0, ...extra }), AT + s * 1000);
+  assert.equal(W.waitingStage(at(200, { deal: deal() }), AT + 200_000), 'free');
+  assert.equal(W.waitingStage(at(301, { deal: deal() }), AT + 301_000), 'deal');
+  const agreed = at(500, { freeSeconds: 420, ngnPerMinute: 80, deal: deal({ rateNgn: 80, agreedAt: iso(AT + 420_000) }) });
+  assert.equal(W.waitingStage(agreed, AT + 500_000), 'meter');
+  assert.equal(W.waitingClock(agreed, AT + 570_000).feeNgn, 160, 'full minutes from the agreement, at its price');
+  assert.equal(W.waitingStage(at(400, { stoppedAt: iso(AT + 350_000), deal: deal() }), AT + 400_000), 'meter');
+  // An older server: free, then its fixed meter.
+  assert.equal(W.waitingStage(W.parseWaiting(block(400), AT + 400_000), AT + 400_000), 'meter');
+});
+
+test('waiting price: the rider is asked once when the free minutes end, and once per price the driver asks', () => {
+  const at = (s, extra) => W.parseWaiting(block(s, { ngnPerMinute: 0, ...extra }), AT + s * 1000);
+  assert.equal(W.waitingAskKey('r1', at(200, { deal: deal() }), AT + 200_000), null, 'still free');
+  assert.equal(W.waitingAskKey('r1', at(310, { deal: deal() }), AT + 310_000), `wait-ask:r1:${AT}`);
+  assert.equal(W.waitingAskKey('r1', at(330, { deal: deal({ offer: { by: 'rider', ngn: 60, at: iso(AT + 320_000) } }) }), AT + 330_000), null, 'their own offer: nothing to ask');
+  assert.equal(W.waitingAskKey('r1', at(360, { deal: deal({ offer: { by: 'driver', ngn: 80, at: iso(AT + 350_000) } }) }), AT + 360_000), `wait-counter:r1:${AT + 350_000}`);
+  assert.equal(W.waitingAskKey('r1', at(400, { freeSeconds: 380, ngnPerMinute: 80, deal: deal({ rateNgn: 80, agreedAt: iso(AT + 380_000) }) }), AT + 400_000), null, 'agreed');
 });

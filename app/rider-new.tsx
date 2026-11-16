@@ -6,7 +6,7 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 import { BrandLogo } from "@/components/brand-logo";
 import { RButton, RInput, RScreen, RText, rider } from "@/components/rider/kit";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
-import { updateCurrentProfile } from "@/lib/api";
+import { sendRiderNin, updateCurrentProfile } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
@@ -22,6 +22,7 @@ export default function RiderNewScreen() {
   const lastRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const referralRef = useRef<TextInput>(null);
+  const ninRef = useRef<TextInput>(null);
 
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -29,7 +30,9 @@ export default function RiderNewScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [referral, setReferral] = useState("");
+  const [nin, setNin] = useState("");
+  const [ninError, setNinError] = useState<string | null>(null);
+    const [referral, setReferral] = useState("");
   const [referralError, setReferralError] = useState<string | null>(null);
 
   if (isDriverApp) {
@@ -43,6 +46,12 @@ export default function RiderNewScreen() {
     const typedEmail = email.trim();
     if (typedEmail && !looksLikeEmail(typedEmail)) {
       setEmailError("Enter a full email address, like name@example.com.");
+      return;
+    }
+    // The NIN is never required; typed, it must be 11 digits (Timi, 16 Nov 2026).
+    const typedNin = nin.replace(/\D/g, "");
+    if (nin.trim() && typedNin.length !== 11) {
+      setNinError("NIN is 11 digits.");
       return;
     }
     setSaving(true);
@@ -62,6 +71,8 @@ export default function RiderNewScreen() {
         fullName: `${first.trim()} ${last.trim()}`,
         email: typedEmail || undefined,
       });
+      // Checked by Prembly on the server, behind: the account never waits on it.
+      if (typedNin) await sendRiderNin(accessToken, typedNin).catch(() => undefined);
       await clearNameNeeded();
       riderProfileChanged();
       goHome();
@@ -124,12 +135,29 @@ export default function RiderNewScreen() {
           setEmail(value);
           setEmailError(null);
         }}
-        onSubmitEditing={() => referralRef.current?.focus()}
+        onSubmitEditing={() => ninRef.current?.focus()}
         placeholder="you@example.com"
         ref={emailRef}
         returnKeyType="next"
         valid={looksLikeEmail(email)}
         value={email}
+      />
+
+      <RInput
+        error={ninError}
+        hint="11 digits."
+        keyboardType="number-pad"
+        label="NIN"
+        maxLength={11}
+        onChangeText={(value) => {
+          setNin(value.replace(/\D/g, ""));
+          setNinError(null);
+        }}
+        onSubmitEditing={() => referralRef.current?.focus()}
+        ref={ninRef}
+        returnKeyType="next"
+        valid={nin.length === 11}
+        value={nin}
       />
 
       <RInput

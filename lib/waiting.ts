@@ -6,9 +6,30 @@
  * server's clock: `skewMs` is how far the phone's clock is from it.
  */
 
+/**
+ * The waiting price (Timi, 16 Nov 2026): after the free minutes the rider keeps
+ * the driver waiting at a price a minute (₦40–100) the driver accepts or
+ * counters, or cancels. Nothing is charged until they agree. The server keeps
+ * it (rides/waiting-deal.ts); `freeSeconds`/`ngnPerMinute` above are already
+ * this ride's own (free until the agreement, ₦0 a minute before it).
+ */
+export type WaitingDeal = {
+  rates: number[];
+  baseFreeSeconds: number;
+  rateNgn: number | null;
+  agreedAtMs: number | null;
+  /** The offer waiting for an answer. `atMs` tells one offer from the next. */
+  offer: { by: 'rider' | 'driver'; ngn: number; atMs: number } | null;
+  offersLeft: number;
+};
+
+export const WAITING_RATES = [40, 50, 60, 70, 80, 90, 100];
+
 export type WaitingInfo = {
   freeSeconds: number;
   ngnPerMinute: number;
+  /** Absent: an older server, with a fixed price a minute. */
+  deal?: WaitingDeal;
   arrivedAtMs: number;
   /** The meter stopped here (the driver was told it could not be collected). Null: it runs. */
   stoppedAtMs: number | null;
@@ -19,8 +40,32 @@ export type WaitingInfo = {
 /** What the rider owes for waiting once the trip started (written by the server at the start). */
 export type WaitingResult = { minutes: number; feeNgn: number; paid: boolean };
 
-/** Used only until the server's own terms arrive (an older server, or just after Arrived). */
-export const DEFAULT_WAITING = { freeSeconds: 5 * 60, ngnPerMinute: 70 };
+/** Used only until the server's own terms arrive (just after Arrived): 5 free minutes, then a price to agree. */
+export const DEFAULT_WAITING: Pick<WaitingInfo, 'freeSeconds' | 'ngnPerMinute' | 'deal'> = {
+  freeSeconds: 5 * 60,
+  ngnPerMinute: 0,
+  deal: { rates: WAITING_RATES, baseFreeSeconds: 5 * 60, rateNgn: null, agreedAtMs: null, offer: null, offersLeft: 10 },
+};
+
+function parseDeal(value: unknown): WaitingDeal | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const d = value as Record<string, unknown>;
+  const rates = Array.isArray(d.rates) ? d.rates.filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0) : [];
+  const o = d.offer && typeof d.offer === 'object' ? (d.offer as Record<string, unknown>) : null;
+  const offerNgn = o ? num(o.ngn) : null;
+  const offer = o && (o.by === 'rider' || o.by === 'driver') && offerNgn !== null && offerNgn > 0
+    ? { by: o.by as 'rider' | 'driver', ngn: offerNgn, atMs: time(o.at) ?? 0 }
+    : null;
+  const rateNgn = num(d.rateNgn);
+  return {
+    rates: rates.length ? rates : WAITING_RATES,
+    baseFreeSeconds: Math.max(0, num(d.baseFreeSeconds) ?? DEFAULT_WAITING.freeSeconds),
+    rateNgn: rateNgn !== null && rateNgn > 0 ? rateNgn : null,
+    agreedAtMs: time(d.agreedAt),
+    offer,
+    offersLeft: Math.max(0, num(d.offersLeft) ?? 0),
+  };
+}
 
 const num = (value: unknown): number | null => (typeof value === 'number' && Number.isFinite(value) ? value : null);
 const time = (value: unknown): number | null => {
@@ -36,9 +81,12 @@ export function parseWaiting(value: unknown, receivedAt: number = Date.now()): W
   const arrivedAtMs = time(w.arrivedAt);
   if (arrivedAtMs === null) return undefined;
   const serverNow = time(w.now);
+  const deal = parseDeal(w.deal);
   return {
     freeSeconds: Math.max(0, num(w.freeSeconds) ?? DEFAULT_WAITING.freeSeconds),
-    ngnPerMinute: Math.max(0, num(w.ngnPerMinute) ?? DEFAULT_WAITING.ngnPerMinute),
+    // An older server without `deal` charged a fixed price: ₦70 when it did not say.
+    ngnPerMinute: Math.max(0, num(w.ngnPerMinute) ?? (deal ? 0 : 70)),
+    ...(deal ? { deal } : {}),
     arrivedAtMs,
     stoppedAtMs: time(w.stoppedAt),
     skewMs: serverNow === null ? 0 : serverNow - receivedAt,
@@ -78,6 +126,39 @@ export function waitingClock(info: WaitingInfo, phoneNow: number = Date.now()): 
     feeNgn: chargedMinutes * info.ngnPerMinute,
     stopped: info.stoppedAtMs !== null,
   };
+}
+
+export type WaitingStage =
+  /** Inside the free minutes. */
+  | 'free'
+  /** The free minutes are over and no price is agreed: the rider (or the driver) has something to answer. */
+  | 'deal'
+  /** A price runs (agreed, or an older server's fixed one), or the meter stopped. */
+  | 'meter';
+
+export function waitingStage(info: WaitingInfo, phoneNow: number = Date.now()): WaitingStage {
+  const end = info.stoppedAtMs ?? phoneNow + info.skewMs;
+  const waited = Math.max(0, Math.floor((end - info.arrivedAtMs) / 1000));
+  const baseFree = info.deal ? info.deal.baseFreeSeconds : info.freeSeconds;
+  if (waited < baseFree) return 'free';
+  if (info.deal && info.deal.rateNgn === null && info.stoppedAtMs === null) return 'deal';
+  return 'meter';
+}
+
+/** The waiting block that came with a `ride:waiting` socket message ({ rideId, waiting }). */
+export function waitingFromMessage(payload: Record<string, unknown>, receivedAt: number = Date.now()): WaitingInfo | undefined {
+  return parseWaiting(payload.waiting, receivedAt);
+}
+
+/**
+ * When the rider's waiting sheet opens by itself, once each: the free minutes just ended with nothing on the
+ * table, or the driver asked a price. The key says which (null: nothing to ask now).
+ */
+export function waitingAskKey(rideId: string, info: WaitingInfo, phoneNow: number = Date.now()): string | null {
+  if (waitingStage(info, phoneNow) !== 'deal' || !info.deal) return null;
+  const offer = info.deal.offer;
+  if (!offer) return `wait-ask:${rideId}:${info.arrivedAtMs}`;
+  return offer.by === 'driver' ? `wait-counter:${rideId}:${offer.atMs}` : null;
 }
 
 /** 4:12, 12:05. */

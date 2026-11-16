@@ -2325,6 +2325,15 @@ export interface RiderActiveRideDetail {
   } | null;
 }
 
+/** The NIN typed at Create account (Timi, 16 Nov 2026): the server has Prembly check it, behind. 11 digits. */
+export async function sendRiderNin(accessToken: string, nin: string): Promise<void> {
+  await requestJson<{ ok: boolean }>("POST", "/auth/nin", {
+    accessToken,
+    body: { nin },
+    fallbackError: "Could not save your NIN.",
+  });
+}
+
 export async function getRiderActiveRide(input: { accessToken: string }): Promise<{ ride: RiderActiveRideDetail | null }> {
   return getJson<{ ride: RiderActiveRideDetail | null }>("/rides/active", {
     accessToken: input.accessToken,

@@ -16,6 +16,7 @@ import { TripChatButton } from '@/components/TripChatButton';
 import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { WaitingUnpaidSheet } from '@/components/WaitingUnpaidSheet';
+import { DriverWaitingDeal } from '@/components/driver-waiting-deal';
 import { useDriverSession } from '@/lib/driver-session';
 import { DEFAULT_WAITING, minutesSeconds, waitingClock } from '@/lib/waiting';
 import { useResponsive } from '@/lib/responsive';
@@ -29,7 +30,7 @@ function formatNgn(amount: number): string {
 
 export default function DriverArrivedScreen() {
   const router = useRouter();
-  const { session, startTrip, cancelTrip, chatMessages, sendChatMessage } = useDriverSession();
+  const { session, startTrip, cancelTrip, chatMessages, sendChatMessage, answerWaiting } = useDriverSession();
   const responsive = useResponsive();
   const ride = session.currentRide;
 
@@ -224,6 +225,9 @@ export default function DriverArrivedScreen() {
       <View style={styles.waitSection}>
         <TripProgressBar fillColor={waitColor} label={waitLabel} progress={waitProgress} />
       </View>
+
+      {/* The waiting price: the rider's offer to accept or counter (nothing charged until agreed). */}
+      <DriverWaitingDeal nowMs={nowMs} onAnswer={answerWaiting} waiting={waitInfo} />
 
       <AppButton title="Start trip" onPress={handleStartTrip} />
       <TripCodeSheet
