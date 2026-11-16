@@ -2325,12 +2325,16 @@ export interface RiderActiveRideDetail {
   } | null;
 }
 
-/** The NIN typed at Create account (Timi, 16 Nov 2026): the server has Prembly check it, behind. 11 digits. */
-export async function sendRiderNin(accessToken: string, nin: string): Promise<void> {
+/**
+ * The NIN typed at Create account (Timi, 16 Nov 2026), checked by Prembly while the rider waits and held
+ * against the name typed beside it. A wrong one throws an ApiError with status 422 and the words to show
+ * under the box ("We couldn't find this NIN…"); Prembly slow or down answers ok (checked behind).
+ */
+export async function sendRiderNin(accessToken: string, nin: string, fullName: string): Promise<void> {
   await requestJson<{ ok: boolean }>("POST", "/auth/nin", {
     accessToken,
-    body: { nin },
-    fallbackError: "Could not save your NIN.",
+    body: { nin, fullName },
+    fallbackError: "Could not check your NIN. Try again.",
   });
 }
 

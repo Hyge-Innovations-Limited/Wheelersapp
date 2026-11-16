@@ -6,7 +6,7 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 import { BrandLogo } from "@/components/brand-logo";
 import { RButton, RInput, RScreen, RText, rider } from "@/components/rider/kit";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
-import { sendRiderNin, updateCurrentProfile } from "@/lib/api";
+import { ApiError, sendRiderNin, updateCurrentProfile } from "@/lib/api";
 import { isDriverApp, publicEntryRoute } from "@/lib/app-variant";
 import { useAuth } from "@/lib/auth";
 import { toUserMessage } from "@/lib/error-messages";
@@ -59,6 +59,19 @@ export default function RiderNewScreen() {
     try {
       const accessToken = await getAccessTokenWithRetry(getAccessToken);
       if (!accessToken) throw new Error("Please sign in again.");
+      const fullName = `${first.trim()} ${last.trim()}`;
+      // A typed NIN is checked first: a wrong one stays here with what is wrong, under the box. Prembly slow
+      // or down (or no signal) is not theirs to fix: the account goes ahead and the server checks it behind.
+      if (typedNin) {
+        try {
+          await sendRiderNin(accessToken, typedNin, fullName);
+        } catch (failure) {
+          if (failure instanceof ApiError && failure.status === 422) {
+            setNinError(failure.message);
+            return;
+          }
+        }
+      }
       // The account exists from the moment the code was checked, so a friend's
       // code can go on it now. A refused one is theirs to fix or clear.
       const refused = await addReferralAtSignUp(accessToken, referral);
@@ -68,11 +81,9 @@ export default function RiderNewScreen() {
       }
       await updateCurrentProfile({
         accessToken,
-        fullName: `${first.trim()} ${last.trim()}`,
+        fullName,
         email: typedEmail || undefined,
       });
-      // Checked by Prembly on the server, behind: the account never waits on it.
-      if (typedNin) await sendRiderNin(accessToken, typedNin).catch(() => undefined);
       await clearNameNeeded();
       riderProfileChanged();
       goHome();
