@@ -2315,6 +2315,7 @@ export interface RiderActiveRideDetail {
     /** The group this search is in while it looks for a driver, and a driver's price this rider is asked about. */
     groupFormed?: unknown;
     groupCounter?: unknown;
+    groupNote?: unknown;
     bidsCloseAt: string;
     offers: Array<{
       driverId: string;
@@ -2344,10 +2345,10 @@ export async function answerGroupOffer(accessToken: string, rideId: string, answ
 }
 
 /** A driver's price over this rider's seat in a group: Yes or No (Wheelers-Backend POST /rides/:id/group/counter). */
-export async function answerGroupCounter(accessToken: string, rideId: string, answer: "yes" | "no"): Promise<{ answer: string }> {
+export async function answerGroupCounter(accessToken: string, rideId: string, answer: "yes" | "no", askId?: string): Promise<{ answer: string }> {
   return requestJson<{ answer: string }>("POST", `/rides/${encodeURIComponent(rideId)}/group/counter`, {
     accessToken,
-    body: { answer },
+    body: { answer, ...(askId ? { askId } : {}) },
     fallbackError: "Could not send that. Try again.",
   });
 }

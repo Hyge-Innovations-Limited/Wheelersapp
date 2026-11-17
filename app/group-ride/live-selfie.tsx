@@ -66,7 +66,7 @@ export default function GroupLiveSelfieScreen() {
     <RScreen contentStyle={styles.page}>
       <View style={styles.words}>
         <RText variant="title">One selfie for group rides</RText>
-        <RText color={colors.muted}>The riders in your group see it. You see theirs.</RText>
+        <RText color={colors.muted}>{"Wheelers checks it's you. You only do this once."}</RText>
       </View>
       <View style={styles.frame}>
         {photo ? (

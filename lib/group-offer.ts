@@ -111,3 +111,9 @@ export function groupEndedLine(reason: unknown): string | null {
   return null;
 }
 
+/** A one-time note about the group from the server ({ id, text }), or null. */
+export function parseGroupNote(value: unknown): { id: string; text: string } | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as Record<string, unknown>;
+  return typeof v.id === 'string' && typeof v.text === 'string' && v.text ? { id: v.id, text: v.text } : null;
+}

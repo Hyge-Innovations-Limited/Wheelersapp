@@ -127,3 +127,32 @@ test('a ride of one rider is untouched: its end still completes it', () => {
   s = step(s, 'ride:end:accepted', { rideId: 'SOLO' });
   assert.equal(s.status, 'completed');
 });
+
+test('booked with the app open: the group comes with the booking, so the group screen opens at once', () => {
+  const offerless = { ...defaultDriverSession };
+  const group = snapshot('DRIVER_ASSIGNED', [seat('A', 'Ada', 'DRIVER_ASSIGNED'), seat('B', 'Chika', 'DRIVER_ASSIGNED')]).group;
+  const s = step(offerless, 'ride:matched', { rideId: 'TRIP', riderId: 'system', rideStatus: 'DRIVER_ASSIGNED', agreedFareNgn: 15750, pickup: place('Yaba', 6.5095, 3.3711), destination: place('Ikorodu Garage', 6.619, 3.51), group });
+  assert.equal(s.status, 'navigating');
+  assert.deepEqual(s.currentRide.group.seats.map((x) => x.riderName), ['Ada', 'Chika']);
+});
+
+test('what the driver earned: the server\'s total, else every dropped seat\'s own, else not shown (never the fares)', () => {
+  let s = applyActiveRideSnapshot(defaultDriverSession, snapshot('IN_PROGRESS', [seat('A', 'Ada', 'IN_PROGRESS'), seat('B', 'Chika', 'CANCELLED')]));
+  s = step(s, 'ride:group_done', { tripId: 'TRIP', ridersDropped: 1, faresNgn: 9000, earnedNgn: 7900 });
+  assert.equal(G.groupEarnedNgn(s.currentRide.group, s.currentRide.groupEarnedNgn), 7900);
+  const noServer = G.parseDriverGroup(snapshot('IN_PROGRESS', [seat('A', 'Ada', 'COMPLETED', { earnedNgn: 7900 })]).group);
+  assert.equal(G.groupEarnedNgn(G.updateSeat(noServer, 'A', { earnedNgn: 7900 })), 7900);
+  assert.equal(G.groupEarnedNgn(noServer), null, 'unknown: not shown');
+});
+
+test('Go on without a rider who agreed a waiting price: only after 10 agreed minutes; a seat in an unknown state is not a stop', () => {
+  const waiting = (agreedAgoS) => ({
+    freeSeconds: 300, ngnPerMinute: 60, now: iso(AT), arrivedAt: iso(AT - 900_000), stoppedAt: null, minutes: null, feeNgn: null, paid: null,
+    deal: { rates: [40, 50, 60], baseFreeSeconds: 300, rateNgn: 60, agreedAt: iso(AT - agreedAgoS * 1000), offer: null, offersLeft: 9 },
+  });
+  const at = (agreedAgoS) => G.parseDriverGroup({ seats: [seat('A', 'Ada', 'ARRIVED', { waiting: waiting(agreedAgoS) })], stops }, AT).seats[0];
+  assert.equal(G.canContinueWithout(at(120), AT), false);
+  assert.equal(G.canContinueWithout(at(660), AT), true);
+  const odd = G.parseDriverGroup({ seats: [seat('A', 'Ada', 'SOMETHING_NEW'), seat('B', 'Chika', 'DRIVER_ASSIGNED')], stops });
+  assert.equal(G.nextGroupStop(odd).seat.riderName, 'Chika');
+});

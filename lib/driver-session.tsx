@@ -147,7 +147,9 @@ type DriverSessionContextValue = {
   startTrip: (rideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => Promise<void>;
   /** The waiting price (Timi, 16 Nov 2026): accept the rider's price a minute, or counter with another. Throws with the server's words. `rideId`: a group ride's seat (default: the current ride). */
   answerWaiting: (action: 'offer' | 'accept', ngn: number, rideId?: string) => Promise<void>;
-  /** One rider's seat of a group ride (lib/driver-group.ts): Arrived, Start with their code, Drop off, or Continue without them. */
+  /** Every seat is done but the server's "done" never came: finish the group ride on this phone. */
+  finishGroupTrip: () => void;
+  /** One rider's seat of a group ride (lib/driver-session.tsx): Arrived, Start with their code, Drop off, or Continue without them. */
   groupSeat: (action: GroupSeatAction, seatRideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => Promise<void>;
   endTrip: (rideId: string) => Promise<void>;
   sendGps: (lat: number, lng: number) => void;
@@ -195,6 +197,7 @@ const defaultContext: DriverSessionContextValue = {
   startTrip: async () => { throw new Error('Driver session unavailable.'); },
   answerWaiting: async () => { throw new Error('Driver session unavailable.'); },
   groupSeat: async () => { throw new Error('Driver session unavailable.'); },
+  finishGroupTrip: () => undefined,
   endTrip: async () => { throw new Error('Driver session unavailable.'); },
   sendGps: () => undefined,
   sendChatMessage: async () => { throw new Error('Driver session unavailable.'); },
@@ -422,7 +425,10 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         markRideEnded(getString(payload.rideId) ?? sessionRef.current.currentRide?.rideId);
       }
       // A group ride: every seat done ends the trip; a seat moving brings the server's view of the whole trip.
-      if (type === 'ride:group_done') markRideEnded(getString(payload.tripId));
+      if (type === 'ride:group_done') {
+        markRideEnded(getString(payload.tripId));
+        if ((typeof payload.ridersDropped === 'number' ? payload.ridersDropped : 0) === 0) Alert.alert('Group ride over', 'Every rider left.');
+      }
       if (type === 'ride:group_update') void syncActiveRideRef.current?.();
 
       // The rider changed the route: one chime per change, not on a redelivery.
@@ -581,7 +587,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
                 payload: { rideId: sessionRef.current.currentRide.rideId, ...lastOnline, timestamp: new Date().toISOString() },
               }));
             } else {
-              socket.send(JSON.stringify({ type: 'driver:online', payload: lastOnline }));
+              socket.send(JSON.stringify({ type: 'driver:online', payload: { ...lastOnline, groupTrips: true } }));
             }
           }
           // The gateway also re-sends ride:matched for an assigned ride on
@@ -689,7 +695,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     try {
       await connect();
       console.log('[driver-session] connected, sending driver:online');
-      await sendEnvelope('driver:online', { lat, lng });
+      // groupTrips: this app drives group rides (its group screen, a code per rider): the server may send it one.
+      await sendEnvelope('driver:online', { lat, lng, groupTrips: true });
       console.log('[driver-session] driver:online sent');
       // The pocket heartbeat: keeps this driver alive in matching when the
       // app backgrounds and the socket dies. Best-effort by design.
@@ -823,6 +830,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         rideId,
         ...(reason ? { reason } : {}),
       });
+      // A group ride is cleared only by the server's yes (it refuses while a rider is in the car): never here.
+      if (sessionRef.current.currentRide?.rideId === rideId && sessionRef.current.currentRide.group) return;
       // The ack (ride:cancel:accepted) clears the trip too; doing it here as
       // well means the screen moves on even if that frame is lost.
       markRideEnded(rideId);
@@ -830,6 +839,16 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     },
     [markRideEnded, sendEnvelope],
   );
+
+  // Every rider of the group ride is dropped or gone but the server's "done" never came (a lost message): the screen
+  // finishes it here, with what the phone knows, and the next sync has nothing to bring back.
+  const finishGroupTrip = useCallback(() => {
+    const ride = sessionRef.current.currentRide;
+    if (!ride?.group) return;
+    const dropped = ride.group.seats.filter((s) => s.status === 'COMPLETED').length;
+    markRideEnded(ride.rideId);
+    setSession((prev) => reduceDriverSession(prev, 'ride:group_done', { tripId: ride.rideId, ridersDropped: dropped }) ?? prev);
+  }, [markRideEnded]);
 
   const arriveAtPickup = useCallback(
     async (rideId: string) => {
@@ -1204,6 +1223,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       startTrip,
       answerWaiting,
       groupSeat,
+      finishGroupTrip,
       endTrip,
       sendGps,
       sendChatMessage,
@@ -1231,6 +1251,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       startTrip,
       answerWaiting,
       groupSeat,
+      finishGroupTrip,
       endTrip,
       sendGps,
       sendChatMessage,

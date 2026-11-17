@@ -80,7 +80,9 @@ export function seatOf(group: DriverGroupTrip, rideId: string): DriverGroupSeat 
 
 const SEAT_RANK: Record<string, number> = { DRIVER_ASSIGNED: 0, DRIVER_EN_ROUTE: 1, ARRIVED: 2, IN_PROGRESS: 3, COMPLETED: 4, CANCELLED: 4 };
 const rankOf = (status: string) => SEAT_RANK[status] ?? 0;
-const seatGone = (seat: DriverGroupSeat) => seat.status === 'COMPLETED' || seat.status === 'CANCELLED';
+// A status this app does not know (a seat that left the trip some other way) is treated as gone, never as a stop
+// with no button on it.
+const seatGone = (seat: DriverGroupSeat) => seat.status === 'COMPLETED' || seat.status === 'CANCELLED' || !(seat.status in SEAT_RANK);
 
 /** A stop behind the driver: the server says so, or its seat has moved past it (picked up, dropped, gone). */
 export function stopDone(stop: DriverGroupStop, seat: DriverGroupSeat | undefined): boolean {
@@ -153,10 +155,24 @@ export function actionAt(stop: DriverGroupStop, seat: DriverGroupSeat): GroupSto
  * "Continue without them": at an arrived pickup, after the free minutes, and only when the rider has not agreed a
  * waiting price (then they are paying for the wait). The server checks it again.
  */
+/** A rider who agreed a waiting price and still has not come: the driver may go on without them after this. */
+export const SKIP_AFTER_AGREED_MS = 10 * 60 * 1000;
+
 export function canContinueWithout(seat: DriverGroupSeat, phoneNow: number = Date.now()): boolean {
   if (seat.status !== 'ARRIVED' || !seat.waiting) return false;
-  if (seat.waiting.deal?.rateNgn != null) return false;
+  if (seat.waiting.deal?.rateNgn != null) {
+    const agreedAt = seat.waiting.deal.agreedAtMs;
+    return agreedAt != null && phoneNow + seat.waiting.skewMs - agreedAt >= SKIP_AFTER_AGREED_MS;
+  }
   return waitingStage(seat.waiting, phoneNow) !== 'free';
+}
+
+/** What the driver earned for a finished group trip: the server's total, else every dropped seat's own; else unknown. */
+export function groupEarnedNgn(group: DriverGroupTrip, serverTotal?: number): number | null {
+  if (serverTotal !== undefined) return serverTotal;
+  const dropped = group.seats.filter((s) => s.status === 'COMPLETED');
+  if (dropped.length === 0 || dropped.some((s) => s.earnedNgn == null)) return null;
+  return dropped.reduce((sum, s) => sum + (s.earnedNgn ?? 0), 0);
 }
 
 /** "Yaba" from "Yaba, Lagos". */

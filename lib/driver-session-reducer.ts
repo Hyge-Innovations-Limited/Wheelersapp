@@ -143,6 +143,8 @@ export type DriverRide = {
   waitingResult?: WaitingResult | null;
   /** A group ride (lib/driver-group.ts): each rider's seat and every stop in order. Absent: a ride of one rider. */
   group?: DriverGroupTrip;
+  /** A finished group ride: what the driver earned in all (the server's sum of every seat's payout). */
+  groupEarnedNgn?: number;
 };
 
 /**
@@ -1094,6 +1096,8 @@ export function reduceDriverSession(
             : sameRide ? prev.currentRide?.tripCodeRequired : undefined,
         tripDetails:
           parseTripDetails(payload.tripDetails) ?? offer?.tripDetails ?? (sameRide ? prev.currentRide?.tripDetails : undefined),
+        // A group trip: its seats and stops come with the booking, so the group screen opens at once.
+        group: mergeGroup(sameRide ? prev.currentRide?.group : undefined, parseDriverGroup(payload.group, now)),
       },
     };
   }
@@ -1303,6 +1307,7 @@ export function reduceDriverSession(
     if ((getNumber(payload.ridersDropped) ?? 0) === 0) {
       return reduceDriverSession(prev, 'ride:cancelled', { rideId: tripId, cancelledBy: 'system' }, now);
     }
+    const earned = getNumber(payload.earnedNgn);
     return {
       ...prev,
       status: 'completed',
@@ -1310,6 +1315,7 @@ export function reduceDriverSession(
         ...prev.currentRide,
         completedAt: new Date(now).toISOString(),
         completedFareNgn: getNumber(payload.faresNgn) ?? prev.currentRide.fareNgn,
+        ...(earned !== undefined ? { groupEarnedNgn: earned } : {}),
       },
     };
   }

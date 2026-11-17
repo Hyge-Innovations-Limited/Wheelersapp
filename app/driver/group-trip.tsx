@@ -15,7 +15,7 @@ import { TripChatButton } from '@/components/TripChatButton';
 import { TripCodeSheet } from '@/components/TripCodeSheet';
 import { TripProgressBar } from '@/components/TripProgressBar';
 import { WaitingUnpaidSheet } from '@/components/WaitingUnpaidSheet';
-import { actionAt, canContinueWithout, groupEarnings, nextGroupStop, seatOf, shortPlace, stopDone, type DriverGroupSeat, type DriverGroupStop } from '@/lib/driver-group';
+import { actionAt, canContinueWithout, groupEarnedNgn, groupEarnings, nextGroupStop, seatOf, shortPlace, stopDone, type DriverGroupSeat, type DriverGroupStop } from '@/lib/driver-group';
 import { useDriverSession } from '@/lib/driver-session';
 import { toUserMessage } from '@/lib/error-messages';
 import { onStartResult } from '@/lib/trip-code';
@@ -36,7 +36,7 @@ const DROP_NEAR_KM = 0.3;
  */
 export default function DriverGroupTripScreen() {
   const router = useRouter();
-  const { session, groupSeat, answerWaiting, cancelTrip, clearCompleted, sendGps, chatMessages, sendChatMessage } = useDriverSession();
+  const { session, groupSeat, answerWaiting, cancelTrip, clearCompleted, finishGroupTrip, syncActiveRide, sendGps, chatMessages, sendChatMessage } = useDriverSession();
   const { currentLocation } = useAppLocation();
   const ride = session.currentRide;
   const group = ride?.group;
@@ -45,6 +45,10 @@ export default function DriverGroupTripScreen() {
   const [busy, setBusy] = useState(false);
   const [codeFor, setCodeFor] = useState<DriverGroupSeat | null>(null);
   const [unpaid, setUnpaid] = useState<{ seat: DriverGroupSeat; minutes: number; amountNgn: number } | null>(null);
+  // "Yes, start" sent and not answered yet (one tap, one start).
+  const [startingAnyway, setStartingAnyway] = useState(false);
+  // Every stop done since (ms): the server's "done" is expected; after a while the driver may finish it here.
+  const [allDoneSince, setAllDoneSince] = useState<number | null>(null);
   const lastGpsSentRef = useRef(0);
   // The seat being started: a waiting its rider's wallet could not cover is asked about for that seat.
   const startingSeatRef = useRef<DriverGroupSeat | null>(null);
@@ -52,9 +56,15 @@ export default function DriverGroupTripScreen() {
   useEffect(() => onStartResult((result) => {
     if (result.kind === 'waiting' && startingSeatRef.current) {
       setCodeFor(null);
+      setStartingAnyway(false);
       setUnpaid({ seat: startingSeatRef.current, minutes: result.minutes, amountNgn: result.amountNgn });
     }
-    if (result.kind === 'started') setUnpaid(null);
+    // The server wants the rider's code this screen did not know was needed: the keypad, for that rider.
+    if (result.kind === 'refused' && startingSeatRef.current) setCodeFor(startingSeatRef.current);
+    if (result.kind === 'started') {
+      setUnpaid(null);
+      setStartingAnyway(false);
+    }
   }), []);
 
   useEffect(() => {
@@ -77,19 +87,35 @@ export default function DriverGroupTripScreen() {
     sendGps(currentLocation.lat, currentLocation.lng);
   }, [currentLocation, ride, session.status, sendGps]);
 
+  const allStopsDone = Boolean(group) && session.status !== 'completed' && nextGroupStop(group!) === null;
+  useEffect(() => {
+    if (!allStopsDone) {
+      setAllDoneSince(null);
+      return;
+    }
+    setAllDoneSince((since) => since ?? Date.now());
+    // Ask the server once: it may have finished the trip while its message was lost.
+    void syncActiveRide();
+  }, [allStopsDone, syncActiveRide]);
+
   if (!ride || !group) return null;
 
   if (session.status === 'completed') {
-    const { dropped, earnedNgn } = groupEarnings(group);
+    const { dropped } = groupEarnings(group);
+    const earned = groupEarnedNgn(group, ride.groupEarnedNgn);
     return (
       <AppScreen backgroundColor={theme.colors.offWhite} scroll contentStyle={styles.container}>
         <StatusBar style="dark" backgroundColor={theme.colors.offWhite} />
         <AppText variant="h1" style={styles.center}>Group ride done</AppText>
         <AppCard style={styles.card}>
-          <AppText variant="bodySmall" color={theme.colors.muted}>YOU EARNED</AppText>
-          <AppText variant="display" color={theme.colors.orange} numberOfLines={1} adjustsFontSizeToFit>
-            {formatNgn(earnedNgn > 0 ? earnedNgn : ride.completedFareNgn ?? 0)}
-          </AppText>
+          {earned !== null ? (
+            <>
+              <AppText variant="bodySmall" color={theme.colors.muted}>YOU EARNED</AppText>
+              <AppText variant="display" color={theme.colors.orange} numberOfLines={1} adjustsFontSizeToFit>
+                {formatNgn(earned)}
+              </AppText>
+            </>
+          ) : null}
           <AppText variant="bodySmall" color={theme.colors.muted}>
             {dropped} {dropped === 1 ? 'rider' : 'riders'} · Credited to wallet
           </AppText>
@@ -114,7 +140,7 @@ export default function DriverGroupTripScreen() {
     try {
       await work();
     } catch (err) {
-      Alert.alert('Error', toUserMessage(err, fallback));
+      Alert.alert('Could not do that', toUserMessage(err, fallback));
     } finally {
       setBusy(false);
     }
@@ -124,12 +150,23 @@ export default function DriverGroupTripScreen() {
     void Linking.openURL(directionsUrl({ lat: stop.lat, lng: stop.lng, name: stop.address }, Platform.OS));
 
   const start = (seat: DriverGroupSeat, options?: { startAnyway?: boolean }) => {
+    if (options?.startAnyway) {
+      if (startingAnyway) return;
+      setStartingAnyway(true);
+    }
     startingSeatRef.current = seat;
     if (seat.tripCodeRequired && !options?.startAnyway) {
       setCodeFor(seat);
       return;
     }
-    void run(() => groupSeat('start', seat.rideId, undefined, options), 'Could not start. Try again.');
+    void run(async () => {
+      try {
+        await groupSeat('start', seat.rideId, undefined, options);
+      } catch (err) {
+        setStartingAnyway(false);
+        throw err;
+      }
+    }, 'Could not start. Try again.');
   };
 
   const drop = (stop: DriverGroupStop, seat: DriverGroupSeat) => {
@@ -164,6 +201,7 @@ export default function DriverGroupTripScreen() {
 
       {next ? (
         <NextStop
+          key={`${next.stop.rideId}:${next.stop.kind}`}
           stop={next.stop}
           seat={next.seat}
           nowMs={nowMs}
@@ -179,7 +217,8 @@ export default function DriverGroupTripScreen() {
         />
       ) : (
         <AppCard style={styles.card}>
-          <AppText variant="bodyMedium" color={theme.colors.muted}>Finishing up…</AppText>
+          <AppText variant="bodyMedium" color={theme.colors.muted}>Last drop done.</AppText>
+          {allDoneSince !== null && nowMs - allDoneSince > 8000 ? <AppButton title="Done" onPress={finishGroupTrip} /> : null}
         </AppCard>
       )}
 
@@ -201,7 +240,7 @@ export default function DriverGroupTripScreen() {
                 numberOfLines={1}>
                 {verb} {seat?.riderName ?? 'Rider'} · {shortPlace(stop.address)}
               </AppText>
-              {gone ? <AppText variant="bodySmall" color={theme.colors.muted}>Not coming</AppText> : null}
+              {gone ? <AppText variant="bodySmall" color={theme.colors.muted}>Cancelled</AppText> : null}
             </View>
           );
         })}
@@ -225,7 +264,7 @@ export default function DriverGroupTripScreen() {
         visible={unpaid !== null}
         minutes={unpaid?.minutes ?? 0}
         amountNgn={unpaid?.amountNgn ?? 0}
-        starting={busy}
+        starting={startingAnyway}
         onYes={() => {
           if (unpaid) start(unpaid.seat, { startAnyway: true });
         }}

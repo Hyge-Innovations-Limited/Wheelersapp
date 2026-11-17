@@ -46,7 +46,16 @@ import { isDriverApp } from '@/lib/app-variant';
 import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom, waitingFields } from '@/lib/rider-active-ride';
 import { DEFAULT_WAITING, parseWaiting, type WaitingInfo } from '@/lib/waiting';
 import { sendWaitingDeal } from '@/lib/waiting-deal-api';
-import { groupEndedLine, NOT_GROUPED_LINE, parseGroupCounter, parseGroupOffer, type GroupCounterAsk, type GroupFormed, type GroupOfferView } from '@/lib/group-offer';
+import { formedLine, groupEndedLine, NOT_GROUPED_LINE, parseGroupCounter, parseGroupOffer, type GroupCounterAsk, type GroupFormed, type GroupOfferView } from '@/lib/group-offer';
+import { naira } from '@/constants/rider-theme';
+
+/** The server's one-time group notes this phone has already said (each note once, however often it is read back). */
+const seenGroupNotes = new Set<string>();
+function takeGroupNote(id: string): boolean {
+  if (seenGroupNotes.has(id)) return false;
+  seenGroupNotes.add(id);
+  return true;
+}
 import { parseRiderGroupTrip, type RiderGroupTrip } from '@/lib/rider-group-trip';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
@@ -955,12 +964,16 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         );
         return;
       }
+      // The group's news is said in the server's words (the same on the page and in the chat); this phone's own line
+      // only for an older server.
       if (type === 'ride:group_formed') {
         setRideState((previous) => {
           if (!previous || !isForRide(previous, payload)) return previous;
-          const others = (previous.groupOffer?.riders ?? []).filter((r) => !r.you).map((r) => r.name);
+          const sent = Array.isArray(payload.others) ? payload.others.filter((n): n is string => typeof n === 'string') : null;
+          const others = sent ?? (previous.groupOffer?.riders ?? []).filter((r) => !r.you).map((r) => r.name);
           const seat = typeof payload.seatPriceNgn === 'number' ? payload.seatPriceNgn : previous.groupOffer?.seatPriceNgn ?? 0;
-          return { ...previous, groupOffer: null, groupFormed: { seatPriceNgn: seat, others } };
+          const formed = { seatPriceNgn: seat, others };
+          return { ...previous, groupOffer: null, groupFormed: formed, groupNote: getString(payload.text) ?? (others.length ? formedLine(formed, naira) : null) };
         });
         return;
       }
@@ -968,7 +981,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         setRideState((previous) => {
           if (!previous || !isForRide(previous, payload)) return previous;
           // A group that was looking for a driver: why it ended for this rider. An offer: only a yes hears it.
-          const ended = previous.groupFormed ? groupEndedLine(payload.reason) : null;
+          const ended = getString(payload.text) ?? (previous.groupFormed ? groupEndedLine(payload.reason) : null);
           const saidYes = previous.groupOffer?.answer === 'join';
           return { ...previous, groupOffer: null, groupFormed: null, groupCounter: null, groupNote: ended ?? (saidYes ? NOT_GROUPED_LINE : null) };
         });
@@ -978,15 +991,16 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       if (type === 'ride:group_changed') {
         const others = Array.isArray(payload.others) ? payload.others.filter((n): n is string => typeof n === 'string') : null;
         const seat = typeof payload.seatPriceNgn === 'number' ? payload.seatPriceNgn : null;
+        const text = getString(payload.text);
         setRideState((previous) => {
           if (!previous || !isForRide(previous, payload) || !others || seat === null || !previous.groupFormed) return previous;
           const gone = previous.groupFormed.others.filter((n) => !others.includes(n));
-          return { ...previous, groupFormed: { seatPriceNgn: seat, others }, groupNote: gone.length ? `${gone.join(' and ')} left the group. Still finding your driver.` : previous.groupNote ?? null };
+          return { ...previous, groupFormed: { seatPriceNgn: seat, others }, groupNote: text ?? (gone.length ? `${gone.join(' and ')} left the group. Still finding your driver.` : previous.groupNote ?? null) };
         });
         if (!others) void refreshWaitingRef.current();
         return;
       }
-      // A driver's price over this rider's seat: asked (Yes / No), then over.
+      // A driver's price over this rider's seat: asked (Yes / No), then over (what happened, said once).
       if (type === 'ride:group_counter') {
         const ask = parseGroupCounter(payload);
         setRideState((previous) => (previous && ask && isForRide(previous, payload) ? { ...previous, groupCounter: ask } : previous));
@@ -994,7 +1008,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       }
       if (type === 'ride:group_counter_closed') {
         const askId = getString(payload.askId);
-        setRideState((previous) => (previous && previous.groupCounter && previous.groupCounter.askId === askId ? { ...previous, groupCounter: null } : previous));
+        const text = getString(payload.text);
+        setRideState((previous) => (previous && previous.groupCounter && previous.groupCounter.askId === askId ? { ...previous, groupCounter: null, ...(text ? { groupNote: text } : {}) } : previous));
         return;
       }
 
@@ -1838,9 +1853,11 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
             restored: previous.restored,
             offers: restored.offers ?? [],
             groupOffer: restored.groupOffer ?? null,
-            // The group now (someone may have left) and a price asked of this rider, as the server has them.
-            groupFormed: restored.groupFormed ?? previous.groupFormed ?? null,
+            // The group now (someone may have left), a price asked of this rider, and what just happened, as the
+            // server has them: a group the server no longer has is gone here too.
+            groupFormed: restored.groupFormed ?? null,
             groupCounter: restored.groupCounter ?? null,
+            ...(restored.groupNote && takeGroupNote(restored.groupNote.id) ? { groupNote: restored.groupNote.text } : {}),
             // Another driver booked: that driver alone, never the fare or phone of the one chosen here.
             driver: carryDriver(previous.driver, restored.driver),
           } as RiderRideState;

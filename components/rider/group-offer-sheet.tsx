@@ -8,45 +8,64 @@ import { naira } from "@/constants/rider-theme";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { answerGroupCounter, answerGroupOffer } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { formedLine, groupOfferTitle, groupStep, NOT_GROUPED_LINE, type GroupCounterAsk, type GroupFormed, type GroupOfferView } from "@/lib/group-offer";
+import { groupOfferTitle, groupStep, type GroupCounterAsk, type GroupOfferView } from "@/lib/group-offer";
 
 const { colors, fonts, radius } = rider;
 
 /**
- * A group ride offer over the search (Timi, 16-17 Nov 2026), the same as the ride page's: riders going the same way,
- * the seat 25% off, 20 s to say Ride together or No thanks. A yes with no selfie opens the selfie screen (once, reused).
- * Then "Getting your group together"; and how it ended (formed, or not, for a yes).
+ * A group ride question over the search (Timi, 16-17 Nov 2026), the same as the ride page's: the offer (riders going the
+ * same way, the seat 25% off, 20 s: Ride together or No thanks), the selfie a yes needs (once, reused), or a driver's
+ * price over this rider's seat (Yes or No in 20 s; silence is No). One sheet: the price question first, never two at
+ * once (iOS shows one). An expired question closes by itself. It steps aside while another screen (the camera) is open.
+ * What happened (formed, someone left, not this time) is said by GroupNoteBanner, not here.
  */
 export function GroupOfferSheet({
   rideId,
   offer,
-  formed,
-  note,
+  counter,
+  focused,
 }: {
   rideId: string | null;
   offer: GroupOfferView | null | undefined;
-  formed: GroupFormed | null | undefined;
-  note: string | null | undefined;
+  counter: GroupCounterAsk | null | undefined;
+  focused: boolean;
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getAccessToken } = useAuth();
   const [now, setNow] = useState(Date.now());
-  const [sending, setSending] = useState<"join" | "decline" | null>(null);
+  const [sending, setSending] = useState<"join" | "decline" | "yes" | "no" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState<{ offerId: string; answer: "join" | "decline"; selfieNeeded: boolean } | null>(null);
+  const [said, setSaid] = useState<{ askId: string; answer: "yes" | "no" } | null>(null);
   const [closedKey, setClosedKey] = useState<string | null>(null);
 
+  const ticking = Boolean(offer || counter);
   useEffect(() => {
-    if (!offer) return;
+    if (!ticking) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [offer]);
+  }, [ticking]);
 
-  // A group formed, changed (someone left: the note says who), or ended (the note says why): shown once each.
-  const outcome = formed ? `formed:${formed.seatPriceNgn}:${formed.others.join(",")}:${note ?? ""}` : note ? `note:${note}` : null;
-  const showing = offer ? `offer:${offer.offerId}` : outcome;
-  const visible = Boolean(showing) && closedKey !== showing;
+  const answered = offer && mine?.offerId === offer.offerId ? { ...offer, answer: mine.answer, selfieNeeded: offer.answer ? offer.selfieNeeded : mine.selfieNeeded } : offer;
+  const step = answered ? groupStep(answered) : null;
+  const offerLeftS = offer ? Math.max(0, Math.round((offer.expiresAtMs - now) / 1000)) : 0;
+  const selfieLeftS = offer ? Math.max(0, Math.round((offer.selfieDeadlineMs - now) / 1000)) : 0;
+  const counterSaid = counter && said?.askId === counter.askId ? said.answer : counter?.answer ?? null;
+  const counterLeftS = counter ? Math.max(0, Math.round((counter.expiresAtMs - now) / 1000)) : 0;
+  const askingPrice = Boolean(counter) && counterSaid !== "no" && counterLeftS > 0;
+  const offerKey = offer ? `offer:${offer.offerId}` : null;
+
+  // An offer nobody answered: "Time's up", then it goes by itself (a lost update never leaves it on screen).
+  const expiredUnanswered = Boolean(offer) && step === "ask" && offerLeftS === 0;
+  useEffect(() => {
+    if (!expiredUnanswered || !offerKey) return;
+    const timer = setTimeout(() => setClosedKey(offerKey), 2000);
+    return () => clearTimeout(timer);
+  }, [expiredUnanswered, offerKey]);
+
+  const showOffer = Boolean(offer) && closedKey !== offerKey && !(step === "selfie" && selfieLeftS === 0);
+  const visible = focused && (askingPrice || showOffer);
 
   async function answer(choice: "join" | "decline") {
     if (!offer || !rideId || sending) return;
@@ -65,23 +84,53 @@ export function GroupOfferSheet({
     }
   }
 
-  const answered = offer && mine?.offerId === offer.offerId ? { ...offer, answer: mine.answer, selfieNeeded: offer.answer ? offer.selfieNeeded : mine.selfieNeeded } : offer;
-  const step = answered ? groupStep(answered) : null;
-  const leftS = offer ? Math.max(0, Math.round((offer.expiresAtMs - now) / 1000)) : 0;
+  async function answerPrice(choice: "yes" | "no") {
+    if (!counter || !rideId || sending) return;
+    setSending(choice);
+    setError(null);
+    try {
+      const token = await getAccessTokenWithRetry(getAccessToken);
+      if (!token) throw new Error("Please sign in again.");
+      await answerGroupCounter(token, rideId, choice, counter.askId);
+      setSaid({ askId: counter.askId, answer: choice });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not send that. Try again.");
+    } finally {
+      setSending(null);
+    }
+  }
+
+  const timer = (leftS: number) => (
+    <>
+      <View style={styles.top}>
+        <RText style={styles.caps}>GROUP RIDE</RText>
+        <RText accessibilityLabel={leftS > 0 ? `${leftS} seconds left` : "Time's up"} color={colors.muted} style={styles.small}>
+          {leftS > 0 ? `0:${String(leftS).padStart(2, "0")}` : "Time's up"}
+        </RText>
+      </View>
+      <View style={styles.timer}><View style={[styles.timerFill, { width: `${Math.round((leftS / 20) * 100)}%` }]} /></View>
+    </>
+  );
 
   return (
-    <Modal animationType="slide" onRequestClose={() => setClosedKey(showing)} transparent visible={visible}>
+    <Modal animationType="slide" onRequestClose={() => (askingPrice ? undefined : setClosedKey(offerKey))} transparent visible={visible}>
       <View style={styles.backdrop}>
-        <Pressable accessibilityLabel="Close" onPress={() => offer ? undefined : setClosedKey(showing)} style={StyleSheet.absoluteFill} />
         <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.grab} />
-          {answered && step === "ask" ? (
+          {askingPrice && counter ? (
             <>
-              <View style={styles.top}>
-                <RText style={styles.caps}>GROUP RIDE</RText>
-                <RText color={colors.muted} style={styles.small}>{`0:${String(leftS).padStart(2, "0")}`}</RText>
+              {timer(counterLeftS)}
+              <RText accessibilityRole="header" variant="heading">{`A driver asks ${naira(counter.askNgn)} for your seat`}</RText>
+              <RText color={colors.muted} style={styles.sub}>{counterSaid === "yes" ? "Waiting for the others." : `Your seat was ${naira(counter.seatPriceNgn)}.`}</RText>
+              {error ? <RText accessibilityLiveRegion="polite" color={colors.danger} style={styles.small}>{error}</RText> : null}
+              <View style={styles.row}>
+                <RButton disabled={counterSaid === "yes"} loading={sending === "no"} onPress={() => void answerPrice("no")} size="md" style={styles.half} title="No" variant="ghost" />
+                <RButton disabled={counterSaid === "yes"} loading={sending === "yes"} onPress={() => void answerPrice("yes")} size="md" style={styles.half} title={`Yes, ${naira(counter.askNgn)}`} />
               </View>
-              <View style={styles.timer}><View style={[styles.timerFill, { width: `${Math.round((leftS / 20) * 100)}%` }]} /></View>
+            </>
+          ) : answered && step === "ask" ? (
+            <>
+              {timer(offerLeftS)}
               <RText accessibilityRole="header" variant="heading">{groupOfferTitle(answered)}</RText>
               <View style={styles.road}>
                 {answered.riders.map((r, i) => (
@@ -113,14 +162,15 @@ export function GroupOfferSheet({
               <RText color={colors.muted} style={styles.small}>{`About ${answered.extraMinutes} min more · ${answered.people} in the car · Faces checked`}</RText>
               {error ? <RText accessibilityLiveRegion="polite" color={colors.danger} style={styles.small}>{error}</RText> : null}
               <View style={styles.row}>
-                <RButton disabled={leftS === 0} loading={sending === "decline"} onPress={() => void answer("decline")} size="md" style={styles.half} title="No thanks" variant="ghost" />
-                <RButton disabled={leftS === 0} loading={sending === "join"} onPress={() => void answer("join")} size="md" style={styles.half} title="Ride together" />
+                <RButton disabled={offerLeftS === 0} loading={sending === "decline"} onPress={() => void answer("decline")} size="md" style={styles.half} title="No thanks" variant="ghost" />
+                <RButton disabled={offerLeftS === 0} loading={sending === "join"} onPress={() => void answer("join")} size="md" style={styles.half} title="Ride together" />
               </View>
             </>
           ) : answered && step === "selfie" ? (
             <>
               <RText accessibilityRole="header" variant="heading">One selfie for group rides</RText>
-              <RText color={colors.muted} style={styles.sub}>The riders in your group see it. You see theirs. You only do this once.</RText>
+              <RText color={colors.muted} style={styles.sub}>{"Wheelers checks it's you. You only do this once."}</RText>
+              <RText accessibilityLabel={`${selfieLeftS} seconds left`} color={colors.muted} style={styles.small}>{`${selfieLeftS} s left`}</RText>
               <RButton onPress={() => router.push("/group-ride/live-selfie" as Href)} title="Take a selfie" variant="dark" />
             </>
           ) : answered ? (
@@ -128,15 +178,7 @@ export function GroupOfferSheet({
               <RText accessibilityRole="header" variant="heading">{step === "declined" ? "No problem" : "Getting your group together"}</RText>
               <RText color={colors.muted} style={styles.sub}>{step === "declined" ? "Your own search goes on." : "We'll tell you in a moment."}</RText>
             </>
-          ) : (
-            <>
-              <RText accessibilityRole="header" variant="heading">{formed ? "Riding together" : "No group this time"}</RText>
-              <RText color={colors.muted} style={styles.sub}>
-                {formed ? (note ?? formedLine(formed, naira)) : note && note !== NOT_GROUPED_LINE ? note : "Your search goes on."}
-              </RText>
-              <RButton onPress={() => setClosedKey(showing)} title="OK" />
-            </>
-          )}
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -144,63 +186,23 @@ export function GroupOfferSheet({
 }
 
 /**
- * A driver's price over this rider's seat in the group (Wheelers-Backend rides/group-trip.ts): Yes or No in 20 s;
- * silence is No. Only riders whose share is over +10% are asked. Closes when the server says the ask is over.
+ * What happened to the group (formed, someone left, a price declined, not this time), in the server's words, said
+ * once as a short banner over the search (the ride page's toast): never a sheet in the way.
  */
-export function GroupCounterSheet({ rideId, ask }: { rideId: string | null; ask: GroupCounterAsk | null | undefined }) {
+export function GroupNoteBanner({ note }: { note: string | null | undefined }) {
   const insets = useSafeAreaInsets();
-  const { getAccessToken } = useAuth();
-  const [now, setNow] = useState(Date.now());
-  const [sending, setSending] = useState<"yes" | "no" | null>(null);
-  const [said, setSaid] = useState<{ askId: string; answer: "yes" | "no" } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+  const [shown, setShown] = useState<string | null>(null);
   useEffect(() => {
-    if (!ask) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [ask]);
-
-  const mine = ask && said?.askId === ask.askId ? said.answer : ask?.answer ?? null;
-  const leftS = ask ? Math.max(0, Math.round((ask.expiresAtMs - now) / 1000)) : 0;
-  const visible = Boolean(ask) && mine !== "no" && leftS > 0;
-
-  async function answer(choice: "yes" | "no") {
-    if (!ask || !rideId || sending) return;
-    setSending(choice);
-    setError(null);
-    try {
-      const token = await getAccessTokenWithRetry(getAccessToken);
-      if (!token) throw new Error("Please sign in again.");
-      await answerGroupCounter(token, rideId, choice);
-      setSaid({ askId: ask.askId, answer: choice });
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Could not send that. Try again.");
-    } finally {
-      setSending(null);
-    }
-  }
-
+    if (!note) return;
+    setShown(note);
+    const timer = setTimeout(() => setShown(null), 6000);
+    return () => clearTimeout(timer);
+  }, [note]);
+  if (!shown) return null;
   return (
-    <Modal animationType="slide" onRequestClose={() => undefined} transparent visible={visible}>
-      <View style={styles.backdrop}>
-        <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.grab} />
-          <View style={styles.top}>
-            <RText style={styles.caps}>GROUP RIDE</RText>
-            <RText color={colors.muted} style={styles.small}>{`0:${String(leftS).padStart(2, "0")}`}</RText>
-          </View>
-          <View style={styles.timer}><View style={[styles.timerFill, { width: `${Math.round((leftS / 20) * 100)}%` }]} /></View>
-          <RText accessibilityRole="header" variant="heading">{ask ? `A driver asks ${naira(ask.askNgn)} for your seat` : ""}</RText>
-          <RText color={colors.muted} style={styles.sub}>{mine === "yes" ? "Waiting for the others." : ask ? `Your seat was ${naira(ask.seatPriceNgn)}.` : ""}</RText>
-          {error ? <RText accessibilityLiveRegion="polite" color={colors.danger} style={styles.small}>{error}</RText> : null}
-          <View style={styles.row}>
-            <RButton disabled={mine === "yes"} loading={sending === "no"} onPress={() => void answer("no")} size="md" style={styles.half} title="No" variant="ghost" />
-            <RButton disabled={mine === "yes"} loading={sending === "yes"} onPress={() => void answer("yes")} size="md" style={styles.half} title={ask ? `Yes, ${naira(ask.askNgn)}` : "Yes"} />
-          </View>
-        </View>
-      </View>
-    </Modal>
+    <Pressable accessibilityLiveRegion="polite" accessibilityRole="text" onPress={() => setShown(null)} style={[styles.banner, { top: insets.top + 8 }]}>
+      <RText color={colors.cream} style={styles.bannerText}>{shown}</RText>
+    </Pressable>
   );
 }
 
@@ -229,4 +231,6 @@ const styles = StyleSheet.create({
   saveText: { fontFamily: fonts.bold, fontSize: 12, lineHeight: 16, color: "#FFFFFF" },
   row: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
+  banner: { position: "absolute", left: rider.gutter, right: rider.gutter, zIndex: 20, padding: 14, borderRadius: radius.lg, backgroundColor: colors.ink },
+  bannerText: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19 },
 });
