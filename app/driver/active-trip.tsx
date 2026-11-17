@@ -8,6 +8,7 @@ import { Marker, Polyline } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
+import { useGroupRideScreen } from '@/components/driver-trip-router';
 import { AppText, OnLight } from '@/components/app-text';
 import { CourseArrowMarker } from '@/components/course-arrow-marker';
 import { EmergencyButton } from '@/components/emergency-button';
@@ -52,6 +53,7 @@ export default function DriverActiveTripScreen() {
   const responsive = useResponsive();
   const insets = useSafeAreaInsets();
   const ride = session.currentRide;
+  useGroupRideScreen(ride);
 
   // Road from the driver's position to the drop-off, refreshed as they move —
   // the planned route (when it exists at all) starts at the pickup, not here.

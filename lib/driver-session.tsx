@@ -47,6 +47,7 @@ import {
   type DriverSessionState,
   type GroupSeat,
 } from '@/lib/driver-session-reducer';
+import { seatOf, updateSeat } from '@/lib/driver-group';
 import { playBidAlertChime } from '@/lib/sounds';
 import { drainRecordingUploads, recordingRideId, startTripRecording, stopTripRecording } from '@/lib/trip-recorder';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
@@ -144,8 +145,10 @@ type DriverSessionContextValue = {
   arriveAtPickup: (rideId: string) => Promise<void>;
   /** `tripCode`: the 4 digits the rider gave, when the server asks for them. */
   startTrip: (rideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => Promise<void>;
-  /** The waiting price (Timi, 16 Nov 2026): accept the rider's price a minute, or counter with another. Throws with the server's words. */
-  answerWaiting: (action: 'offer' | 'accept', ngn: number) => Promise<void>;
+  /** The waiting price (Timi, 16 Nov 2026): accept the rider's price a minute, or counter with another. Throws with the server's words. `rideId`: a group ride's seat (default: the current ride). */
+  answerWaiting: (action: 'offer' | 'accept', ngn: number, rideId?: string) => Promise<void>;
+  /** One rider's seat of a group ride (lib/driver-group.ts): Arrived, Start with their code, Drop off, or Continue without them. */
+  groupSeat: (action: GroupSeatAction, seatRideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => Promise<void>;
   endTrip: (rideId: string) => Promise<void>;
   sendGps: (lat: number, lng: number) => void;
   sendChatMessage: (rideId: string, content: string) => Promise<void>;
@@ -153,6 +156,8 @@ type DriverSessionContextValue = {
   sendCallMessage: (type: string, payload: Record<string, unknown>) => Promise<void>;
   clearCompleted: () => void;
 };
+
+export type GroupSeatAction = 'arrive' | 'start' | 'drop' | 'skip';
 
 type GatewayMessage = {
   type?: string;
@@ -189,6 +194,7 @@ const defaultContext: DriverSessionContextValue = {
   arriveAtPickup: async () => { throw new Error('Driver session unavailable.'); },
   startTrip: async () => { throw new Error('Driver session unavailable.'); },
   answerWaiting: async () => { throw new Error('Driver session unavailable.'); },
+  groupSeat: async () => { throw new Error('Driver session unavailable.'); },
   endTrip: async () => { throw new Error('Driver session unavailable.'); },
   sendGps: () => undefined,
   sendChatMessage: async () => { throw new Error('Driver session unavailable.'); },
@@ -220,6 +226,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef(session);
   const lastRouteChangeKeyRef = useRef<string | null>(null);
   const connectRef = useRef<(() => Promise<WebSocket>) | null>(null);
+  // The message handler is made before the sync: it reaches it through this.
+  const syncActiveRideRef = useRef<(() => Promise<boolean>) | null>(null);
   const recentlyEndedRef = useRef<Map<string, number>>(new Map());
 
   const markRideEnded = useCallback((rideId: string | undefined) => {
@@ -278,12 +286,25 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         const waiting = parseWaiting(payload.waiting);
         const waitingRideId = getString(payload.rideId);
         if (waiting && waitingRideId) {
-          setSession((prev) =>
-            prev.currentRide?.rideId === waitingRideId ? { ...prev, currentRide: { ...prev.currentRide, waiting } } : prev,
-          );
+          setSession((prev) => {
+            const ride = prev.currentRide;
+            if (!ride) return prev;
+            if (ride.rideId === waitingRideId) return { ...prev, currentRide: { ...ride, waiting } };
+            // A group ride: one rider's seat.
+            if (ride.group && seatOf(ride.group, waitingRideId)) {
+              return { ...prev, currentRide: { ...ride, group: updateSeat(ride.group, waitingRideId, { waiting }) } };
+            }
+            return prev;
+          });
         }
         return;
       }
+      // Continue without them was refused (still free minutes, they agreed a price): the server's words.
+      if (type === 'group:skip:rejected') {
+        Alert.alert('Not yet', getString(payload.message) ?? 'Wait for this rider a little longer.');
+        return;
+      }
+      if (type === 'group:skip:accepted') return;
       // The trip code: a refusal goes to the keypad, not an alert over it.
       if (type === 'error' && payload.requestType === 'ride:start' && isTripCodeError(payload.code)) {
         emitStartResult({ kind: 'refused', code: payload.code as string, message: getString(payload.message) ?? 'Ask the rider for their trip code.' });
@@ -400,6 +421,9 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       ) {
         markRideEnded(getString(payload.rideId) ?? sessionRef.current.currentRide?.rideId);
       }
+      // A group ride: every seat done ends the trip; a seat moving brings the server's view of the whole trip.
+      if (type === 'ride:group_done') markRideEnded(getString(payload.tripId));
+      if (type === 'ride:group_update') void syncActiveRideRef.current?.();
 
       // The rider changed the route: one chime per change, not on a redelivery.
       if (type === 'ride:route:updated' && sessionRef.current.currentRide) {
@@ -616,7 +640,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     connectRef.current = connect;
-  }, [connect]);
+    syncActiveRideRef.current = syncActiveRide;
+  }, [connect, syncActiveRide]);
 
   const sendEnvelope = useCallback(
     async (type: string, payload: Record<string, unknown>): Promise<void> => {
@@ -1114,14 +1139,47 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     };
   }, [handleOverlayChoice]);
 
-  const answerWaiting = useCallback(async (action: 'offer' | 'accept', ngn: number) => {
+  const answerWaiting = useCallback(async (action: 'offer' | 'accept', ngn: number, seatRideId?: string) => {
     const ride = sessionRef.current.currentRide;
     if (!ride) throw new Error('No trip.');
+    const rideId = seatRideId ?? ride.rideId;
     const accessToken = await getAccessTokenWithRetry(getAccessToken);
-    const waiting = await sendWaitingDeal(accessToken, ride.rideId, action, ngn);
+    const waiting = await sendWaitingDeal(accessToken, rideId, action, ngn);
     if (!waiting) return;
-    setSession((prev) => (prev.currentRide?.rideId === ride.rideId ? { ...prev, currentRide: { ...prev.currentRide, waiting } } : prev));
+    setSession((prev) => {
+      const current = prev.currentRide;
+      if (!current) return prev;
+      if (current.rideId === rideId) return { ...prev, currentRide: { ...current, waiting } };
+      if (current.group && seatOf(current.group, rideId)) return { ...prev, currentRide: { ...current, group: updateSeat(current.group, rideId, { waiting }) } };
+      return prev;
+    });
   }, [getAccessToken]);
+
+  const groupSeat = useCallback(
+    async (action: GroupSeatAction, seatRideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => {
+      const group = sessionRef.current.currentRide?.group;
+      const seat = group ? seatOf(group, seatRideId) : undefined;
+      if (!seat) throw new Error('This rider is not on your trip.');
+      if (action === 'arrive') {
+        await sendEnvelope('ride:arrived', { rideId: seat.rideId });
+      } else if (action === 'start') {
+        await sendEnvelope('ride:start', {
+          rideId: seat.rideId,
+          riderId: seat.riderId,
+          lockedFareNgn: seat.seatPriceNgn,
+          paymentMethod: 'WALLET',
+          ...(tripCode ? { tripCode } : {}),
+          canConfirmWaiting: true,
+          ...(options?.startAnyway ? { startAnyway: true } : {}),
+        });
+      } else if (action === 'drop') {
+        await sendEnvelope('ride:end', { rideId: seat.rideId, riderId: seat.riderId, fareNgn: seat.seatPriceNgn, endedBy: 'both_confirmed' });
+      } else {
+        await sendEnvelope('group:skip', { rideId: seat.rideId });
+      }
+    },
+    [sendEnvelope],
+  );
 
   const value = useMemo<DriverSessionContextValue>(
     () => ({
@@ -1145,6 +1203,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       arriveAtPickup,
       startTrip,
       answerWaiting,
+      groupSeat,
       endTrip,
       sendGps,
       sendChatMessage,
@@ -1171,6 +1230,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       arriveAtPickup,
       startTrip,
       answerWaiting,
+      groupSeat,
       endTrip,
       sendGps,
       sendChatMessage,

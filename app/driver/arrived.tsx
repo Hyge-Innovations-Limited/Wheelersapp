@@ -5,6 +5,7 @@ import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { AppButton } from '@/components/app-button';
+import { useGroupRideScreen } from '@/components/driver-trip-router';
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
 import { AppText, OnLight } from '@/components/app-text';
@@ -33,6 +34,7 @@ export default function DriverArrivedScreen() {
   const { session, startTrip, cancelTrip, chatMessages, sendChatMessage, answerWaiting } = useDriverSession();
   const responsive = useResponsive();
   const ride = session.currentRide;
+  useGroupRideScreen(ride);
 
   // Only until the server's arrival time comes with the ride (an older server, or the first seconds).
   const arrivedAtRef = useRef(Date.now());

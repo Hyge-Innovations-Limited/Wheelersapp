@@ -13,6 +13,7 @@ import { outcomeFromServerStatus } from '@/lib/bid-card-state';
 import { pricingVersionOf, type PricingVersion } from '@/lib/ride-fees';
 import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
 import { DEFAULT_WAITING, parseWaiting, parseWaitingResult, type WaitingInfo, type WaitingResult } from '@/lib/waiting';
+import { mergeGroup, parseDriverGroup, seatOf, updateSeat, type DriverGroupTrip } from '@/lib/driver-group';
 
 export type DriverStatus =
   | 'offline'
@@ -140,6 +141,8 @@ export type DriverRide = {
   waiting?: WaitingInfo;
   /** What the waiting came to, from the trip's completion: a line on the driver's sheet. */
   waitingResult?: WaitingResult | null;
+  /** A group ride (lib/driver-group.ts): each rider's seat and every stop in order. Absent: a ride of one rider. */
+  group?: DriverGroupTrip;
 };
 
 /**
@@ -657,7 +660,61 @@ function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
     tripCodeRequired: ride.tripCodeRequired === true,
     tripDetails: parseTripDetails(ride.tripDetails),
     waiting: parseWaiting(ride.waiting),
+    group: parseDriverGroup(ride.group),
   };
+}
+
+/**
+ * A message about one rider's seat of the driver's group trip (its id, not the trip's): that seat moves, and the trip
+ * only ever forward (the first Arrived and the first code move it on the server too). Null: not a seat message.
+ */
+function reduceGroupSeat(
+  prev: DriverSessionState,
+  type: string,
+  payload: Record<string, unknown>,
+  now: number,
+): DriverSessionState | null {
+  const ride = prev.currentRide;
+  const group = ride?.group;
+  const rideId = getString(payload.rideId);
+  if (!ride || !group || !rideId || rideId === ride.rideId || !seatOf(group, rideId)) return null;
+  const forward = (status: DriverStatus): DriverStatus =>
+    TRIP_STATUS_RANK[prev.status] >= TRIP_STATUS_RANK[status] ? prev.status : status;
+  const withSeat = (patch: Parameters<typeof updateSeat>[2], status?: DriverStatus, extra?: Partial<DriverRide>): DriverSessionState => ({
+    ...prev,
+    status: status ? forward(status) : prev.status,
+    currentRide: { ...ride, ...extra, group: updateSeat(group, rideId, patch) },
+  });
+
+  switch (type) {
+    case 'ride:arrived:ack': {
+      const seat = seatOf(group, rideId);
+      return withSeat({
+        status: 'ARRIVED',
+        waiting: seat?.waiting ?? { ...DEFAULT_WAITING, arrivedAtMs: now, stoppedAtMs: null, skewMs: 0 },
+      }, 'arrived');
+    }
+    case 'ride:start:accepted':
+    case 'ride:started':
+      return withSeat({ status: 'IN_PROGRESS' }, 'active', { startedAt: ride.startedAt ?? new Date(now).toISOString() });
+    case 'ride:end:accepted':
+    case 'ride:completed':
+      return withSeat({ status: 'COMPLETED' });
+    case 'ride:cancelled':
+      return withSeat({ status: 'CANCELLED' });
+    case 'ride:group_update': {
+      const seat = getString(payload.seat);
+      if (seat === 'started') return withSeat({ status: 'IN_PROGRESS' }, 'active');
+      if (seat === 'cancelled') return withSeat({ status: 'CANCELLED' });
+      if (seat === 'dropped') {
+        const earned = getNumber(payload.driverEarningsNgn);
+        return withSeat({ status: 'COMPLETED', ...(earned != null ? { earnedNgn: earned } : {}) });
+      }
+      return prev;
+    }
+    default:
+      return null;
+  }
 }
 
 // ── Transitions ────────────────────────────────────────────────────────────
@@ -819,6 +876,7 @@ export function applyActiveRideSnapshot(
             tripDetails: snapshot.tripDetails ?? prev.currentRide.tripDetails,
             // The server's clock wins over the one this phone started at Arrived.
             waiting: snapshot.waiting ?? prev.currentRide.waiting,
+            group: mergeGroup(prev.currentRide.group, snapshot.group),
           }
         : snapshot,
   };
@@ -1230,6 +1288,29 @@ export function reduceDriverSession(
       offers,
       missedOffers: harvestedOnReject.missedOffers,
       currentOffer: offers[0] ?? null,
+    };
+  }
+
+  // One rider's seat of a group trip: never the trip's own arrival, start or end.
+  const seatMove = reduceGroupSeat(prev, type, payload, now);
+  if (seatMove) return seatMove;
+
+  // Every seat of the group trip is done (rides/group-trip.ts seatFinished): with anyone dropped, the trip is complete;
+  // with everyone gone before they got in, it is over like a cancelled one.
+  if (type === 'ride:group_done') {
+    const tripId = getString(payload.tripId);
+    if (!prev.currentRide || prev.currentRide.rideId !== tripId) return prev;
+    if ((getNumber(payload.ridersDropped) ?? 0) === 0) {
+      return reduceDriverSession(prev, 'ride:cancelled', { rideId: tripId, cancelledBy: 'system' }, now);
+    }
+    return {
+      ...prev,
+      status: 'completed',
+      currentRide: {
+        ...prev.currentRide,
+        completedAt: new Date(now).toISOString(),
+        completedFareNgn: getNumber(payload.faresNgn) ?? prev.currentRide.fareNgn,
+      },
     };
   }
 

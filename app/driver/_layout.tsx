@@ -31,6 +31,7 @@ export default function DriverLayout() {
         <Stack.Screen name="navigation" />
         <Stack.Screen name="arrived" />
         <Stack.Screen name="active-trip" />
+        <Stack.Screen name="group-trip" />
         <Stack.Screen name="earnings" />
         <Stack.Screen name="payout" />
         <Stack.Screen name="withdraw" />

@@ -2079,6 +2079,8 @@ export interface DriverActiveRide {
   tripDetails?: unknown;
   /** Waiting time (lib/waiting.ts parseWaiting): terms, arrival, the meter stop. Absent: not arrived, or an older server. */
   waiting?: unknown;
+  /** A group ride's seats and stops (lib/driver-group.ts parseDriverGroup). Absent: a ride of one rider. */
+  group?: unknown;
   matchedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;

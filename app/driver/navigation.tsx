@@ -6,6 +6,7 @@ import { Marker, Polyline } from 'react-native-maps';
 import type MapView from 'react-native-maps';
 
 import { AppButton } from '@/components/app-button';
+import { useGroupRideScreen } from '@/components/driver-trip-router';
 import { CourseArrowMarker } from '@/components/course-arrow-marker';
 import { AppCard } from '@/components/app-card';
 import { AppScreen } from '@/components/app-screen';
@@ -36,6 +37,7 @@ export default function DriverNavigationScreen() {
   const { currentLocation } = useAppLocation();
   const responsive = useResponsive();
   const ride = session.currentRide;
+  useGroupRideScreen(ride);
   const mapRef = useRef<MapView>(null);
   // Back after a while away: the map is built afresh, with its blue dot and markers.
   const mapRevival = useMapRevival();
