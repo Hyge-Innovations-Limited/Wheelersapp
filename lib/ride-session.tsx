@@ -47,6 +47,7 @@ import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom, waiti
 import { DEFAULT_WAITING, parseWaiting, type WaitingInfo } from '@/lib/waiting';
 import { sendWaitingDeal } from '@/lib/waiting-deal-api';
 import { NOT_GROUPED_LINE, parseGroupOffer, type GroupFormed, type GroupOfferView } from '@/lib/group-offer';
+import { parseRiderGroupTrip, type RiderGroupTrip } from '@/lib/rider-group-trip';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
 import {
@@ -137,6 +138,8 @@ export type RiderRideState = {
   groupOffer?: GroupOfferView | null;
   /** The group this search was formed into (until the booking takes over). */
   groupFormed?: GroupFormed | null;
+  /** A booked group ride: who else is in the car and the stops, the rider's own marked (lib/rider-group-trip.ts). */
+  group?: RiderGroupTrip;
   /** One line for the rider when an offer they said yes to did not become a group. */
   groupNote?: string | null;
   /** Three safety tips for before the trip and after it (from the server, the same as on the ride page). */
@@ -1816,6 +1819,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         return {
           ...previous,
           tripCode: previous.tripCode ?? restored.tripCode,
+          group: restored.group ?? previous.group,
           waiting: restored.waiting ?? previous.waiting,
           waitingLine: restored.waitingLine ?? previous.waitingLine,
         };
@@ -1833,8 +1837,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       if (!accessToken) return;
       const { ride } = await getRiderActiveRide({ accessToken });
       if (!ride) return;
-      const fields = { ...waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched'), ...safetyFields(ride) };
-      if (!fields.waiting && !fields.waitingLine && !fields.safety && fields.recorded === undefined) return;
+      const group = parseRiderGroupTrip(ride.group);
+      const fields = { ...waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched'), ...safetyFields(ride), ...(group ? { group } : {}) };
+      if (!fields.waiting && !fields.waitingLine && !fields.safety && fields.recorded === undefined && !group) return;
       setRideState((previous) => (previous && previous.rideId === ride.id ? { ...previous, ...fields, recorded: fields.recorded || previous.recorded } : previous));
     } catch {
       /* the meter runs on this phone's clock until the next read */

@@ -23,6 +23,7 @@ import { waitingAskKey } from "@/lib/waiting";
 import { SafetySheet } from "@/components/rider/safety-sheets";
 import { LockIcon } from "@/components/security-icons";
 import { dueSafetyMoment, type SafetyMoment } from "@/lib/rider-safety";
+import { groupStopLine, groupTripTitle } from "@/lib/rider-group-trip";
 import { loadSafetySeen, markSafetySeen, safetySeen } from "@/lib/safety-seen";
 import { estimateEtaMinutes } from "@/lib/geo";
 import { useAppLocation } from "@/lib/location";
@@ -339,6 +340,24 @@ export default function RiderActiveTripScreen() {
           </View>
         ) : null}
 
+        {/* A group ride: who else is in the car and every stop in order, yours in orange. */}
+        {live && currentRide.group ? (
+          <View style={styles.group}>
+            <RText style={styles.groupTitle}>{groupTripTitle(currentRide.group)}</RText>
+            {currentRide.group.stops.map((stop, index) => (
+              <View key={`${stop.kind}:${index}`} style={styles.groupStop}>
+                <View style={[styles.groupDot, stop.yours && styles.groupDotYours, stop.done && styles.groupDotDone]} />
+                <RText
+                  color={stop.done ? colors.muted : stop.yours ? colors.orangeText : colors.ink}
+                  numberOfLines={1}
+                  style={[styles.groupLine, stop.yours && styles.groupLineYours, stop.done && styles.groupLineDone]}>
+                  {groupStopLine(stop)}
+                </RText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {live ? (
           <View style={styles.actions}>
             {canCall || callChecking ? (
@@ -522,6 +541,15 @@ const styles = StyleSheet.create({
   },
   plateText: { fontFamily: fonts.displayBold, fontSize: 16, lineHeight: 21, letterSpacing: 0.7 },
 
+  group: { gap: 10, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card },
+  groupTitle: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19 },
+  groupStop: { flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
+  groupDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: colors.line, backgroundColor: colors.card },
+  groupDotYours: { borderColor: colors.orange, backgroundColor: colors.orange },
+  groupDotDone: { borderColor: colors.muted, backgroundColor: colors.muted },
+  groupLine: { flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 19 },
+  groupLineYours: { fontFamily: fonts.bold },
+  groupLineDone: { textDecorationLine: "line-through" },
   code: {
     flexDirection: "row",
     alignItems: "center",

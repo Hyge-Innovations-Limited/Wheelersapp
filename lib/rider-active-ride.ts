@@ -5,6 +5,7 @@ import { profileFrom, type DriverProfile } from '@/lib/driver-photo';
 import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ride-offers';
 import { parseWaiting, parseWaitingResult, waitingLineForRider, type WaitingInfo } from '@/lib/waiting';
 import { parseChecks, safetyFields, type TripSafety } from '@/lib/rider-safety';
+import { parseRiderGroupTrip, type RiderGroupTrip } from '@/lib/rider-group-trip';
 
 /**
  * The rider's trip as the server has it, turned into what the ride screen
@@ -44,6 +45,8 @@ export type RestoredRide = {
   offers?: RestoredOffer[];
   /** A group ride on offer to the search (lib/group-offer.ts), or null. */
   groupOffer?: GroupOfferView | null;
+  /** A booked group ride: who else is in the car and the stops (lib/rider-group-trip.ts). */
+  group?: RiderGroupTrip;
   tripCode?: string;
   /** The driver is at the pickup: the meter (lib/waiting.ts). Absent: not arrived, or an older server. */
   waiting?: WaitingInfo;
@@ -139,6 +142,7 @@ export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined,
     status,
     restored: true,
     ...(ride.tripCode && status === 'matched' ? { tripCode: ride.tripCode } : {}),
+    ...(parseRiderGroupTrip(ride.group) ? { group: parseRiderGroupTrip(ride.group) } : {}),
     ...waitingFields(ride.waiting, status, now),
     ...safetyFields(ride),
     itinerary: itineraryOf(ride),

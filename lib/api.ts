@@ -2302,6 +2302,8 @@ export interface RiderActiveRideDetail {
   tripCode?: string | null;
   /** Waiting time (lib/waiting.ts): terms, arrival and the meter while the driver waits; the fee once started. */
   waiting?: unknown;
+  /** A booked group ride: who else is in the car and the stops (lib/rider-group-trip.ts). Absent: a ride of one rider. */
+  group?: unknown;
   /** What the rider is offering. */
   riderOfferNgn?: number | null;
   /** The rider said yes to auto-booking this search (newer servers). */
