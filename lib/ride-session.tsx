@@ -993,7 +993,10 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         const seat = typeof payload.seatPriceNgn === 'number' ? payload.seatPriceNgn : null;
         const text = getString(payload.text);
         setRideState((previous) => {
-          if (!previous || !isForRide(previous, payload) || !others || seat === null || !previous.groupFormed) return previous;
+          if (!previous || !isForRide(previous, payload)) return previous;
+          // A booked group ride moved (Ada is in, you're next; someone left): said once, the stops read again below.
+          if (!others && text) return { ...previous, groupNote: text };
+          if (!others || seat === null || !previous.groupFormed) return previous;
           const gone = previous.groupFormed.others.filter((n) => !others.includes(n));
           return { ...previous, groupFormed: { seatPriceNgn: seat, others }, groupNote: text ?? (gone.length ? `${gone.join(' and ')} left the group. Still finding your driver.` : previous.groupNote ?? null) };
         });

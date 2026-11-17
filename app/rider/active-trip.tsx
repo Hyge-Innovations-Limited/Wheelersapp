@@ -24,6 +24,7 @@ import { SafetySheet } from "@/components/rider/safety-sheets";
 import { LockIcon } from "@/components/security-icons";
 import { dueSafetyMoment, type SafetyMoment } from "@/lib/rider-safety";
 import { groupStopLine, groupTripTitle } from "@/lib/rider-group-trip";
+import { GroupNoteBanner } from "@/components/rider/group-offer-sheet";
 import { loadSafetySeen, markSafetySeen, safetySeen } from "@/lib/safety-seen";
 import { estimateEtaMinutes } from "@/lib/geo";
 import { useAppLocation } from "@/lib/location";
@@ -456,6 +457,8 @@ export default function RiderActiveTripScreen() {
         tips={safetySheet === "before" ? currentRide.safety?.before : undefined}
         title={safetySheet === "start" ? "Trip started" : safetySheet === "before" ? "Before you get in" : null}
       />
+      {/* A group ride moved (Ada is in, you're next; someone left): said once. */}
+      <GroupNoteBanner note={currentRide.group ? currentRide.groupNote : null} />
     </View>
   );
 }

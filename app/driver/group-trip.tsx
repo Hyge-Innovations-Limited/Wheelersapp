@@ -217,8 +217,14 @@ export default function DriverGroupTripScreen() {
         />
       ) : (
         <AppCard style={styles.card}>
-          <AppText variant="bodyMedium" color={theme.colors.muted}>Last drop done.</AppText>
-          {allDoneSince !== null && nowMs - allDoneSince > 8000 ? <AppButton title="Done" onPress={finishGroupTrip} /> : null}
+          {allDoneSince !== null && nowMs - allDoneSince > 8000 ? (
+            <>
+              <AppText variant="bodyMedium" color={theme.colors.muted}>Last drop done.</AppText>
+              <AppButton title="Done" onPress={finishGroupTrip} />
+            </>
+          ) : (
+            <AppText variant="bodyMedium" color={theme.colors.muted}>Closing the trip…</AppText>
+          )}
         </AppCard>
       )}
 
