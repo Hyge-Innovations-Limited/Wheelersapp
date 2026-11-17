@@ -1,3 +1,4 @@
+import { parseGroupOffer, type GroupOfferView } from '@/lib/group-offer';
 import type { RiderActiveRideDetail } from '@/lib/api';
 import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
 import { profileFrom, type DriverProfile } from '@/lib/driver-photo';
@@ -41,6 +42,8 @@ export type RestoredRide = {
   riderOfferNgn?: number;
   bidsCloseAt?: string;
   offers?: RestoredOffer[];
+  /** A group ride on offer to the search (lib/group-offer.ts), or null. */
+  groupOffer?: GroupOfferView | null;
   tripCode?: string;
   /** The driver is at the pickup: the meter (lib/waiting.ts). Absent: not arrived, or an older server. */
   waiting?: WaitingInfo;
@@ -91,6 +94,7 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
     fareEstimateNgn: ride.fareEstimateNgn ?? undefined,
     ...(typeof ride.riderOfferNgn === 'number' ? { riderOfferNgn: ride.riderOfferNgn } : {}),
     bidsCloseAt: ride.search.bidsCloseAt,
+    groupOffer: parseGroupOffer(ride.search.groupOffer),
     autoAcceptSupported: true,
     ...(parseTripDetails(ride.tripDetails) ? { tripDetails: parseTripDetails(ride.tripDetails) } : {}),
     ...(typeof ride.autoAccept === 'boolean' ? { autoAcceptChosen: ride.autoAccept } : {}),

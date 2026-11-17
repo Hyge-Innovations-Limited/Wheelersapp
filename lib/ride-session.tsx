@@ -46,6 +46,7 @@ import { isDriverApp } from '@/lib/app-variant';
 import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom, waitingFields } from '@/lib/rider-active-ride';
 import { DEFAULT_WAITING, parseWaiting, type WaitingInfo } from '@/lib/waiting';
 import { sendWaitingDeal } from '@/lib/waiting-deal-api';
+import { NOT_GROUPED_LINE, parseGroupOffer, type GroupFormed, type GroupOfferView } from '@/lib/group-offer';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
 import {
@@ -132,6 +133,12 @@ export type RiderRideState = {
   waitingLine?: string;
   /** The driver's phone records the trip: "This trip is recorded for your safety." when it starts. */
   recorded?: boolean;
+  /** A group ride on offer to this search (lib/group-offer.ts); null when there is none. */
+  groupOffer?: GroupOfferView | null;
+  /** The group this search was formed into (until the booking takes over). */
+  groupFormed?: GroupFormed | null;
+  /** One line for the rider when an offer they said yes to did not become a group. */
+  groupNote?: string | null;
   /** Three safety tips for before the trip and after it (from the server, the same as on the ride page). */
   safety?: TripSafety;
   itinerary: RideItinerary;
@@ -931,6 +938,32 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
               ? { safety: { before: previous.safety?.before ?? [], after: parseTips(payload.safetyTips) } }
               : {}),
           };
+        });
+        return;
+      }
+
+      // A group ride offer (rides/group-live.ts): shown, answered, formed or not.
+      if (type === 'ride:group_offer') {
+        const offer = parseGroupOffer(payload.offer);
+        setRideState((previous) =>
+          previous && previous.status === 'bidding' && isForRide(previous, payload) ? { ...previous, groupOffer: offer, groupNote: null } : previous,
+        );
+        return;
+      }
+      if (type === 'ride:group_formed') {
+        setRideState((previous) => {
+          if (!previous || !isForRide(previous, payload)) return previous;
+          const others = (previous.groupOffer?.riders ?? []).filter((r) => !r.you).map((r) => r.name);
+          const seat = typeof payload.seatPriceNgn === 'number' ? payload.seatPriceNgn : previous.groupOffer?.seatPriceNgn ?? 0;
+          return { ...previous, groupOffer: null, groupFormed: { seatPriceNgn: seat, others } };
+        });
+        return;
+      }
+      if (type === 'ride:group_dropped') {
+        setRideState((previous) => {
+          if (!previous || !isForRide(previous, payload)) return previous;
+          const saidYes = previous.groupOffer?.answer === 'join';
+          return { ...previous, groupOffer: null, groupNote: saidYes ? NOT_GROUPED_LINE : null };
         });
         return;
       }
@@ -1774,6 +1807,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
             ...restored,
             restored: previous.restored,
             offers: restored.offers ?? [],
+            groupOffer: restored.groupOffer ?? null,
             // Another driver booked: that driver alone, never the fare or phone of the one chosen here.
             driver: carryDriver(previous.driver, restored.driver),
           } as RiderRideState;

@@ -1,3 +1,4 @@
+import { GroupOfferSheet } from "@/components/rider/group-offer-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useIsFocused } from "@react-navigation/native";
@@ -1202,6 +1203,13 @@ export default function MatchingScreen() {
         )}
         <RLink color={colors.danger} onPress={() => void handleCancel()} title="Cancel search" />
       </ScrollView>
+      {/* A group ride offer: riders going the same way, 25% off each seat (lib/group-offer.ts). */}
+      <GroupOfferSheet
+        formed={currentRide?.groupFormed}
+        note={currentRide?.groupNote}
+        offer={currentRide?.status === "bidding" ? currentRide.groupOffer : null}
+        rideId={currentRide?.rideId ?? null}
+      />
     </RScreen>
   );
 }

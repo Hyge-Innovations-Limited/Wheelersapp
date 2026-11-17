@@ -2306,6 +2306,8 @@ export interface RiderActiveRideDetail {
   autoAccept?: boolean;
   /** Present while the ride is still a search: when it closes, and the offers still open. Older servers leave it out. */
   search?: {
+    /** A group ride on offer to this search (newer servers; lib/group-offer.ts reads it). */
+    groupOffer?: unknown;
     bidsCloseAt: string;
     offers: Array<{
       driverId: string;
@@ -2323,6 +2325,24 @@ export interface RiderActiveRideDetail {
       driverRidesCompleted?: number | null;
     }>;
   } | null;
+}
+
+/** A group ride offer: the rider's answer (Wheelers-Backend POST /rides/:id/group). The first answer counts. */
+export async function answerGroupOffer(accessToken: string, rideId: string, answer: "join" | "decline"): Promise<{ answer: string; selfieNeeded?: boolean }> {
+  return requestJson<{ answer: string; selfieNeeded?: boolean }>("POST", `/rides/${encodeURIComponent(rideId)}/group`, {
+    accessToken,
+    body: { answer },
+    fallbackError: "Could not send that. Try again.",
+  });
+}
+
+/** The group ride selfie, taken once and reused (POST /group-rides/selfie). A photo that is not a face is refused with why. */
+export async function sendGroupSelfie(accessToken: string, imageBase64: string, mimeType: string): Promise<void> {
+  await requestJson<{ ok: boolean }>("POST", "/group-rides/selfie", {
+    accessToken,
+    body: { imageBase64, mimeType },
+    fallbackError: "Could not save your selfie. Try again.",
+  });
 }
 
 /**
