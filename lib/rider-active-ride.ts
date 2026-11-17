@@ -1,4 +1,4 @@
-import { parseGroupOffer, type GroupOfferView } from '@/lib/group-offer';
+import { parseGroupCounter, parseGroupFormed, parseGroupOffer, type GroupCounterAsk, type GroupFormed, type GroupOfferView } from '@/lib/group-offer';
 import type { RiderActiveRideDetail } from '@/lib/api';
 import { parseTripDetails, type TripDetails } from '@/lib/trip-details';
 import { profileFrom, type DriverProfile } from '@/lib/driver-photo';
@@ -45,6 +45,9 @@ export type RestoredRide = {
   offers?: RestoredOffer[];
   /** A group ride on offer to the search (lib/group-offer.ts), or null. */
   groupOffer?: GroupOfferView | null;
+  /** The group this search is in while it looks for a driver, and a driver's price this rider is asked about. */
+  groupFormed?: GroupFormed | null;
+  groupCounter?: GroupCounterAsk | null;
   /** A booked group ride: who else is in the car and the stops (lib/rider-group-trip.ts). */
   group?: RiderGroupTrip;
   tripCode?: string;
@@ -98,6 +101,8 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
     ...(typeof ride.riderOfferNgn === 'number' ? { riderOfferNgn: ride.riderOfferNgn } : {}),
     bidsCloseAt: ride.search.bidsCloseAt,
     groupOffer: parseGroupOffer(ride.search.groupOffer),
+    groupFormed: parseGroupFormed(ride.search.groupFormed),
+    groupCounter: parseGroupCounter(ride.search.groupCounter),
     autoAcceptSupported: true,
     ...(parseTripDetails(ride.tripDetails) ? { tripDetails: parseTripDetails(ride.tripDetails) } : {}),
     ...(typeof ride.autoAccept === 'boolean' ? { autoAcceptChosen: ride.autoAccept } : {}),

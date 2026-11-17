@@ -46,3 +46,20 @@ test('the step: ask, then the selfie for a yes without one, then waiting; a No i
   assert.equal(G.groupStep({ answer: 'decline', selfieNeeded: false }), 'declined');
   assert.equal(G.formedLine({ seatPriceNgn: 9000, others: ['Chika', 'Tunde'] }, (n) => `₦${n.toLocaleString('en-NG')}`), "You're riding together with Chika and Tunde. Your seat: ₦9,000. Finding your driver.");
 });
+
+test('a driver asks more for this rider\'s seat: read from the server; anything malformed is nothing', () => {
+  const ask = G.parseGroupCounter({ askId: 'a1', seatPriceNgn: 6000, askNgn: 6650, expiresAt: '2026-11-17T08:00:20Z', answer: null });
+  assert.deepEqual(ask, { askId: 'a1', seatPriceNgn: 6000, askNgn: 6650, expiresAtMs: Date.parse('2026-11-17T08:00:20Z'), answer: null });
+  assert.equal(G.parseGroupCounter({ askId: 'a1', seatPriceNgn: 6000, askNgn: 6650, answer: 'yes', expiresAt: '2026-11-17T08:00:20Z' }).answer, 'yes');
+  assert.equal(G.parseGroupCounter({ askId: 'a1', askNgn: 6650 }), null);
+  assert.equal(G.parseGroupCounter(null), null);
+});
+
+test('the group as it is now, and why it ended for this rider, in their words', () => {
+  assert.deepEqual(G.parseGroupFormed({ seatPriceNgn: 9000, others: ['Chika', 4], ownPriceNgn: 12000 }), { seatPriceNgn: 9000, others: ['Chika'] });
+  assert.equal(G.parseGroupFormed({ others: [] }), null);
+  assert.equal(G.groupEndedLine('wallet_short'), "Your wallet couldn't cover your seat. Your search goes on.");
+  assert.equal(G.groupEndedLine('group_ended'), 'The others left, so the group ended. Your search goes on.');
+  assert.equal(G.groupEndedLine('no_driver'), 'No driver took the group in time. Your search goes on.');
+  assert.equal(G.groupEndedLine('declined'), null, 'an offer ending keeps its own line');
+});

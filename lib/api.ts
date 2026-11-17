@@ -2312,6 +2312,9 @@ export interface RiderActiveRideDetail {
   search?: {
     /** A group ride on offer to this search (newer servers; lib/group-offer.ts reads it). */
     groupOffer?: unknown;
+    /** The group this search is in while it looks for a driver, and a driver's price this rider is asked about. */
+    groupFormed?: unknown;
+    groupCounter?: unknown;
     bidsCloseAt: string;
     offers: Array<{
       driverId: string;
@@ -2334,6 +2337,15 @@ export interface RiderActiveRideDetail {
 /** A group ride offer: the rider's answer (Wheelers-Backend POST /rides/:id/group). The first answer counts. */
 export async function answerGroupOffer(accessToken: string, rideId: string, answer: "join" | "decline"): Promise<{ answer: string; selfieNeeded?: boolean }> {
   return requestJson<{ answer: string; selfieNeeded?: boolean }>("POST", `/rides/${encodeURIComponent(rideId)}/group`, {
+    accessToken,
+    body: { answer },
+    fallbackError: "Could not send that. Try again.",
+  });
+}
+
+/** A driver's price over this rider's seat in a group: Yes or No (Wheelers-Backend POST /rides/:id/group/counter). */
+export async function answerGroupCounter(accessToken: string, rideId: string, answer: "yes" | "no"): Promise<{ answer: string }> {
+  return requestJson<{ answer: string }>("POST", `/rides/${encodeURIComponent(rideId)}/group/counter`, {
     accessToken,
     body: { answer },
     fallbackError: "Could not send that. Try again.",

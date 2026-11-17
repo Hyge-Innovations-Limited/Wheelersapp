@@ -46,7 +46,7 @@ import { isDriverApp } from '@/lib/app-variant';
 import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom, waitingFields } from '@/lib/rider-active-ride';
 import { DEFAULT_WAITING, parseWaiting, type WaitingInfo } from '@/lib/waiting';
 import { sendWaitingDeal } from '@/lib/waiting-deal-api';
-import { NOT_GROUPED_LINE, parseGroupOffer, type GroupFormed, type GroupOfferView } from '@/lib/group-offer';
+import { groupEndedLine, NOT_GROUPED_LINE, parseGroupCounter, parseGroupOffer, type GroupCounterAsk, type GroupFormed, type GroupOfferView } from '@/lib/group-offer';
 import { parseRiderGroupTrip, type RiderGroupTrip } from '@/lib/rider-group-trip';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { applySearchStatus } from '@/lib/ride-search-status';
@@ -138,6 +138,8 @@ export type RiderRideState = {
   groupOffer?: GroupOfferView | null;
   /** The group this search was formed into (until the booking takes over). */
   groupFormed?: GroupFormed | null;
+  /** A driver's price over this rider's seat in the group: Yes or No in 20 s (lib/group-offer.ts). */
+  groupCounter?: GroupCounterAsk | null;
   /** A booked group ride: who else is in the car and the stops, the rider's own marked (lib/rider-group-trip.ts). */
   group?: RiderGroupTrip;
   /** One line for the rider when an offer they said yes to did not become a group. */
@@ -965,9 +967,34 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       if (type === 'ride:group_dropped') {
         setRideState((previous) => {
           if (!previous || !isForRide(previous, payload)) return previous;
+          // A group that was looking for a driver: why it ended for this rider. An offer: only a yes hears it.
+          const ended = previous.groupFormed ? groupEndedLine(payload.reason) : null;
           const saidYes = previous.groupOffer?.answer === 'join';
-          return { ...previous, groupOffer: null, groupNote: saidYes ? NOT_GROUPED_LINE : null };
+          return { ...previous, groupOffer: null, groupFormed: null, groupCounter: null, groupNote: ended ?? (saidYes ? NOT_GROUPED_LINE : null) };
         });
+        return;
+      }
+      // The group goes on without someone (before a driver), or the trip moved (a rider picked up, dropped off).
+      if (type === 'ride:group_changed') {
+        const others = Array.isArray(payload.others) ? payload.others.filter((n): n is string => typeof n === 'string') : null;
+        const seat = typeof payload.seatPriceNgn === 'number' ? payload.seatPriceNgn : null;
+        setRideState((previous) => {
+          if (!previous || !isForRide(previous, payload) || !others || seat === null || !previous.groupFormed) return previous;
+          const gone = previous.groupFormed.others.filter((n) => !others.includes(n));
+          return { ...previous, groupFormed: { seatPriceNgn: seat, others }, groupNote: gone.length ? `${gone.join(' and ')} left the group. Still finding your driver.` : previous.groupNote ?? null };
+        });
+        if (!others) void refreshWaitingRef.current();
+        return;
+      }
+      // A driver's price over this rider's seat: asked (Yes / No), then over.
+      if (type === 'ride:group_counter') {
+        const ask = parseGroupCounter(payload);
+        setRideState((previous) => (previous && ask && isForRide(previous, payload) ? { ...previous, groupCounter: ask } : previous));
+        return;
+      }
+      if (type === 'ride:group_counter_closed') {
+        const askId = getString(payload.askId);
+        setRideState((previous) => (previous && previous.groupCounter && previous.groupCounter.askId === askId ? { ...previous, groupCounter: null } : previous));
         return;
       }
 
@@ -1811,6 +1838,9 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
             restored: previous.restored,
             offers: restored.offers ?? [],
             groupOffer: restored.groupOffer ?? null,
+            // The group now (someone may have left) and a price asked of this rider, as the server has them.
+            groupFormed: restored.groupFormed ?? previous.groupFormed ?? null,
+            groupCounter: restored.groupCounter ?? null,
             // Another driver booked: that driver alone, never the fare or phone of the one chosen here.
             driver: carryDriver(previous.driver, restored.driver),
           } as RiderRideState;

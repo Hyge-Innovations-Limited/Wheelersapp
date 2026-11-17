@@ -50,3 +50,19 @@ test('restored with the trip; a ride of one rider has none', () => {
   assert.deepEqual(restoredRideFrom({ ...ride, group }).group.others, ['Ada']);
   assert.equal(restoredRideFrom(ride).group, undefined);
 });
+
+test('a search in a group comes back with the group now and a price being asked', () => {
+  const ride = {
+    id: 'ride-2', status: 'MATCHING', riderOfferNgn: 9000, fareEstimateNgn: 9000,
+    pickup: { lat: 6.596, lng: 3.391, address: 'Ketu' }, destination: { lat: 6.606, lng: 3.404, address: 'Mile 12' },
+    stops: [{ type: 'DESTINATION', address: 'Mile 12' }], driver: null,
+    search: {
+      bidsCloseAt: new Date(Date.now() + 120_000).toISOString(), offers: [],
+      groupFormed: { seatPriceNgn: 6000, others: ['Ada'], ownPriceNgn: 9000 },
+      groupCounter: { askId: 'a1', seatPriceNgn: 6000, askNgn: 6650, expiresAt: new Date(Date.now() + 15_000).toISOString(), answer: null },
+    },
+  };
+  const r = restoredRideFrom(ride);
+  assert.deepEqual(r.groupFormed, { seatPriceNgn: 6000, others: ['Ada'] });
+  assert.deepEqual([r.groupCounter.askId, r.groupCounter.askNgn], ['a1', 6650]);
+});

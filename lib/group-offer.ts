@@ -79,3 +79,35 @@ export function groupStep(offer: Pick<GroupOfferView, 'answer' | 'selfieNeeded'>
 export const formedLine = (formed: GroupFormed, naira: (n: number) => string) =>
   `You're riding together with ${formed.others.join(' and ')}. Your seat: ${naira(formed.seatPriceNgn)}. Finding your driver.`;
 export const NOT_GROUPED_LINE = 'No group this time. Your search goes on.';
+
+/**
+ * A driver's price over this rider's seat in a group that is looking for a driver (Wheelers-Backend rides/group-trip.ts):
+ * Yes or No in 20 s, silence is No. Only riders whose share is over +10% are asked.
+ */
+export type GroupCounterAsk = { askId: string; seatPriceNgn: number; askNgn: number; expiresAtMs: number; answer: 'yes' | null };
+
+/** GET /rides/active search.groupCounter, or a `ride:group_counter` message. */
+export function parseGroupCounter(value: unknown): GroupCounterAsk | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as Record<string, unknown>;
+  const expiresAtMs = typeof v.expiresAt === 'string' ? Date.parse(v.expiresAt) : NaN;
+  if (typeof v.askId !== 'string' || typeof v.seatPriceNgn !== 'number' || typeof v.askNgn !== 'number' || !Number.isFinite(expiresAtMs)) return null;
+  return { askId: v.askId, seatPriceNgn: v.seatPriceNgn, askNgn: v.askNgn, expiresAtMs, answer: v.answer === 'yes' ? 'yes' : null };
+}
+
+/** The group the rider is in while it looks for a driver (GET /rides/active search.groupFormed). */
+export function parseGroupFormed(value: unknown): GroupFormed | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as Record<string, unknown>;
+  if (typeof v.seatPriceNgn !== 'number' || !Array.isArray(v.others)) return null;
+  return { seatPriceNgn: v.seatPriceNgn, others: v.others.filter((n): n is string => typeof n === 'string') };
+}
+
+/** Why the group ended for this rider (a `ride:group_dropped` reason), in their words; null: the offer's own line. */
+export function groupEndedLine(reason: unknown): string | null {
+  if (reason === 'wallet_short') return "Your wallet couldn't cover your seat. Your search goes on.";
+  if (reason === 'group_ended') return 'The others left, so the group ended. Your search goes on.';
+  if (reason === 'no_driver') return 'No driver took the group in time. Your search goes on.';
+  return null;
+}
+

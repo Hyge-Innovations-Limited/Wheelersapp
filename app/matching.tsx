@@ -1,4 +1,4 @@
-import { GroupOfferSheet } from "@/components/rider/group-offer-sheet";
+import { GroupCounterSheet, GroupOfferSheet } from "@/components/rider/group-offer-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useIsFocused } from "@react-navigation/native";
@@ -140,6 +140,8 @@ export default function MatchingScreen() {
     setAutoBook,
     notifyPaySheet,
   } = useRideSession();
+  // A driver's price over this rider's seat in the group, while it is asked.
+  const asked = currentRide?.status === "bidding" ? currentRide.groupCounter ?? null : null;
   const { overview: wallet, refresh: refreshWallet } = useWalletOverview();
   const { getAccessToken } = useAuth();
 
@@ -1204,12 +1206,15 @@ export default function MatchingScreen() {
         <RLink color={colors.danger} onPress={() => void handleCancel()} title="Cancel search" />
       </ScrollView>
       {/* A group ride offer: riders going the same way, 25% off each seat (lib/group-offer.ts). */}
+      {/* (Not while a driver's price is asked below: one sheet at a time, iOS shows only one.) */}
       <GroupOfferSheet
-        formed={currentRide?.groupFormed}
-        note={currentRide?.groupNote}
-        offer={currentRide?.status === "bidding" ? currentRide.groupOffer : null}
+        formed={asked ? null : currentRide?.groupFormed}
+        note={asked ? null : currentRide?.groupNote}
+        offer={currentRide?.status === "bidding" && !asked ? currentRide.groupOffer : null}
         rideId={currentRide?.rideId ?? null}
       />
+      {/* A driver asks more for this rider's seat in the group: Yes or No in 20 s. */}
+      <GroupCounterSheet ask={asked} rideId={currentRide?.rideId ?? null} />
     </RScreen>
   );
 }

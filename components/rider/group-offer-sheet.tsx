@@ -6,9 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RButton, RText, rider } from "@/components/rider/kit";
 import { naira } from "@/constants/rider-theme";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
-import { answerGroupOffer } from "@/lib/api";
+import { answerGroupCounter, answerGroupOffer } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { formedLine, groupOfferTitle, groupStep, type GroupFormed, type GroupOfferView } from "@/lib/group-offer";
+import { formedLine, groupOfferTitle, groupStep, NOT_GROUPED_LINE, type GroupCounterAsk, type GroupFormed, type GroupOfferView } from "@/lib/group-offer";
 
 const { colors, fonts, radius } = rider;
 
@@ -43,7 +43,8 @@ export function GroupOfferSheet({
     return () => clearInterval(timer);
   }, [offer]);
 
-  const outcome = formed ? `formed:${formed.seatPriceNgn}:${formed.others.join(",")}` : note ? `note:${note}` : null;
+  // A group formed, changed (someone left: the note says who), or ended (the note says why): shown once each.
+  const outcome = formed ? `formed:${formed.seatPriceNgn}:${formed.others.join(",")}:${note ?? ""}` : note ? `note:${note}` : null;
   const showing = offer ? `offer:${offer.offerId}` : outcome;
   const visible = Boolean(showing) && closedKey !== showing;
 
@@ -130,10 +131,73 @@ export function GroupOfferSheet({
           ) : (
             <>
               <RText accessibilityRole="header" variant="heading">{formed ? "Riding together" : "No group this time"}</RText>
-              <RText color={colors.muted} style={styles.sub}>{formed ? formedLine(formed, naira) : "Your search goes on."}</RText>
+              <RText color={colors.muted} style={styles.sub}>
+                {formed ? (note ?? formedLine(formed, naira)) : note && note !== NOT_GROUPED_LINE ? note : "Your search goes on."}
+              </RText>
               <RButton onPress={() => setClosedKey(showing)} title="OK" />
             </>
           )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/**
+ * A driver's price over this rider's seat in the group (Wheelers-Backend rides/group-trip.ts): Yes or No in 20 s;
+ * silence is No. Only riders whose share is over +10% are asked. Closes when the server says the ask is over.
+ */
+export function GroupCounterSheet({ rideId, ask }: { rideId: string | null; ask: GroupCounterAsk | null | undefined }) {
+  const insets = useSafeAreaInsets();
+  const { getAccessToken } = useAuth();
+  const [now, setNow] = useState(Date.now());
+  const [sending, setSending] = useState<"yes" | "no" | null>(null);
+  const [said, setSaid] = useState<{ askId: string; answer: "yes" | "no" } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!ask) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [ask]);
+
+  const mine = ask && said?.askId === ask.askId ? said.answer : ask?.answer ?? null;
+  const leftS = ask ? Math.max(0, Math.round((ask.expiresAtMs - now) / 1000)) : 0;
+  const visible = Boolean(ask) && mine !== "no" && leftS > 0;
+
+  async function answer(choice: "yes" | "no") {
+    if (!ask || !rideId || sending) return;
+    setSending(choice);
+    setError(null);
+    try {
+      const token = await getAccessTokenWithRetry(getAccessToken);
+      if (!token) throw new Error("Please sign in again.");
+      await answerGroupCounter(token, rideId, choice);
+      setSaid({ askId: ask.askId, answer: choice });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not send that. Try again.");
+    } finally {
+      setSending(null);
+    }
+  }
+
+  return (
+    <Modal animationType="slide" onRequestClose={() => undefined} transparent visible={visible}>
+      <View style={styles.backdrop}>
+        <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={styles.grab} />
+          <View style={styles.top}>
+            <RText style={styles.caps}>GROUP RIDE</RText>
+            <RText color={colors.muted} style={styles.small}>{`0:${String(leftS).padStart(2, "0")}`}</RText>
+          </View>
+          <View style={styles.timer}><View style={[styles.timerFill, { width: `${Math.round((leftS / 20) * 100)}%` }]} /></View>
+          <RText accessibilityRole="header" variant="heading">{ask ? `A driver asks ${naira(ask.askNgn)} for your seat` : ""}</RText>
+          <RText color={colors.muted} style={styles.sub}>{mine === "yes" ? "Waiting for the others." : ask ? `Your seat was ${naira(ask.seatPriceNgn)}.` : ""}</RText>
+          {error ? <RText accessibilityLiveRegion="polite" color={colors.danger} style={styles.small}>{error}</RText> : null}
+          <View style={styles.row}>
+            <RButton disabled={mine === "yes"} loading={sending === "no"} onPress={() => void answer("no")} size="md" style={styles.half} title="No" variant="ghost" />
+            <RButton disabled={mine === "yes"} loading={sending === "yes"} onPress={() => void answer("yes")} size="md" style={styles.half} title={ask ? `Yes, ${naira(ask.askNgn)}` : "Yes"} />
+          </View>
         </View>
       </View>
     </Modal>
