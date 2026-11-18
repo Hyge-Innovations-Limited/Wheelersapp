@@ -198,9 +198,11 @@ export default function PendingBidScreen() {
         <OnLight>
         <AppText variant="h3" color={accepted ? theme.colors.green : stage === 'paying' ? theme.colors.blue : stage === 'declined' ? (repriced ? theme.colors.orange : theme.colors.danger) : theme.colors.black}>
           {accepted
-            ? bid.riderPaid
-              ? 'Rider accepted and paid'
-              : 'Rider accepted your bid'
+            ? bid.paysCash
+              ? 'Rider accepted · pays cash'
+              : bid.riderPaid
+                ? 'Rider accepted and paid'
+                : 'Rider accepted your bid'
             : stage === 'paying'
               ? PAYING_LABEL
               : stage === 'declined'

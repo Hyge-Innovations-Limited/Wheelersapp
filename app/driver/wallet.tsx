@@ -12,6 +12,7 @@ import { SkeletonCard, SkeletonLine } from '@/components/SkeletonLoader';
 import { useAuth } from '@/lib/auth';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { getWalletTransactions, type WalletTransaction } from '@/lib/api';
+import { driverOwed } from '@/lib/cash';
 import { useWalletOverview } from '@/lib/wallet-overview';
 import { theme } from '@/theme';
 
@@ -43,6 +44,8 @@ export default function DriverWalletScreen() {
 
   const balanceNgn = overview?.balanceNgn ?? 0;
   const lockedNgn = overview?.lockedNgn ?? 0;
+  // Cash trips' fees: a balance below zero is what the driver owes Wheelers.
+  const owed = driverOwed(overview);
 
   return (
     <AppScreen backgroundColor={theme.colors.offWhite} scroll contentStyle={styles.container}>
@@ -57,7 +60,7 @@ export default function DriverWalletScreen() {
 
       <AppCard backgroundColor={theme.colors.black} style={styles.balanceCard}>
         <AppText variant="bodySmall" color="#9C948D" numberOfLines={1}>
-          Available balance
+          {owed ? 'You owe Wheelers' : 'Available balance'}
         </AppText>
         {/* Balances run to seven figures — shrink the digits rather than clip them. */}
         <AppText
@@ -66,8 +69,13 @@ export default function DriverWalletScreen() {
           adjustsFontSizeToFit
           minimumFontScale={0.6}
           numberOfLines={1}>
-          {formatNgn(balanceNgn)}
+          {formatNgn(owed ? owed.owedNgn : balanceNgn)}
         </AppText>
+        {owed?.paused ? (
+          <AppText variant="bodySmall" color={theme.colors.orange} numberOfLines={2}>
+            {`Deposit ${formatNgn(owed.depositNgn)} to keep driving`}
+          </AppText>
+        ) : null}
         {lockedNgn > 0 && (
           <AppText variant="bodySmall" color="#9C948D" numberOfLines={1}>
             Locked: {formatNgn(lockedNgn)}

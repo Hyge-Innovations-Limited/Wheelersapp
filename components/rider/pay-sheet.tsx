@@ -28,7 +28,10 @@ export function PaySheet({
   onOpenAddMoney,
   addSubtitle,
   waitingNote,
+  onPayCash,
 }: {
+  /** Cash to the driver at the end (18 Nov 2026): shown only when given (the server offers cash). */
+  onPayCash?: () => void;
   /** Null hides the sheet. */
   step: PaySheetStep | null;
   /** The booking goes by itself when the money lands (not after the driver changed the price). */
@@ -64,10 +67,11 @@ export function PaySheet({
                 <LockIcon color={colors.muted} size={12} />
                 <RText color={colors.muted} style={styles.secureText}>Secure payment</RText>
               </View>
+              {onPayCash ? <RButton disabled={busy} onPress={onPayCash} title="Pay cash instead" variant="ghost" /> : null}
               <RLink onPress={onBack} title="Back" />
             </>
           ) : step?.kind === "add" ? (
-            <AddMoney addSubtitle={addSubtitle} autoBook={autoBook} step={step} waitingNote={waitingNote} onBack={onBack} onOpenAddMoney={onOpenAddMoney} />
+            <AddMoney addSubtitle={addSubtitle} autoBook={autoBook} busy={busy} step={step} waitingNote={waitingNote} onBack={onBack} onOpenAddMoney={onOpenAddMoney} onPayCash={onPayCash} />
           ) : null}
         </View>
       </View>
@@ -109,13 +113,18 @@ function useSendAmount(step: Extract<PaySheetStep, { kind: "add" }>): number {
 function AddMoney({
   step,
   autoBook,
+  busy,
   onBack,
   onOpenAddMoney,
+  onPayCash,
   addSubtitle,
   waitingNote,
 }: {
   step: Extract<PaySheetStep, { kind: "add" }>;
   autoBook: boolean;
+  busy?: boolean;
+  /** Short of money: cash needs none. */
+  onPayCash?: () => void;
   addSubtitle?: string;
   waitingNote?: string;
   onBack: () => void;
@@ -199,6 +208,7 @@ function AddMoney({
           </RText>
         </View>
       ) : null}
+      {onPayCash ? <RButton disabled={busy} onPress={onPayCash} title="Pay cash instead" variant="ghost" /> : null}
       <RLink onPress={onBack} title="Back" />
     </>
   );

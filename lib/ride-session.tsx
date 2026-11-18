@@ -86,6 +86,7 @@ import {
   refusalIsForConfirming,
 } from '@/lib/ride-pay';
 import { applyAutoAcceptReply, autoAcceptFromPayload } from '@/lib/auto-accept';
+import { acceptPaymentMethod } from '@/lib/cash';
 
 type RideConnectionState = 'disconnected' | 'connecting' | 'connected';
 type RideStatus =
@@ -135,6 +136,8 @@ export type { RideOffer };
 export type RiderRideState = {
   rideId: string;
   status: RideStatus;
+  /** The rider pays the driver in cash at the end (chosen at accept, 18 Nov 2026). */
+  paysCash?: boolean;
   /** The 4 digits to give the driver at pickup; they cannot start the trip without them. */
   tripCode?: string;
   /** The driver is at the pickup: the waiting meter (lib/waiting.ts), on the server's clock once it is read. */
@@ -210,7 +213,7 @@ type RideSessionContextValue = {
   error: string | null;
   requestRide: (itinerary: RideItinerary, options?: { offerNgn?: number; autoAccept?: boolean; tripDetails?: TripDetails }) => Promise<void>;
   /** Take a driver's bid — this is what actually books the ride. */
-  acceptOffer: (driverId: string, shownNgn?: number) => Promise<void>;
+  acceptOffer: (driverId: string, shownNgn?: number, method?: 'wallet' | 'cash') => Promise<void>;
   /** Counter a specific driver with a different price. */
   counterOffer: (driverId: string, amountNgn: number) => Promise<void>;
   /** Move the rider's own price and re-offer the trip to every driver. */
@@ -1486,7 +1489,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
    * driver they won.
    */
   const acceptOffer = useCallback(
-    async (driverId: string, shownNgn?: number): Promise<void> => {
+    async (driverId: string, shownNgn?: number, method: 'wallet' | 'cash' = 'wallet'): Promise<void> => {
       const ride = currentRideRef.current;
       const offer = ride?.offers?.find((item) => item.driverId === driverId);
 
@@ -1508,7 +1511,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         driverId: offer.driverId,
         driverUserId: offer.driverUserId,
         agreedFareNgn,
-        paymentMethod: 'wallet_balance',
+        // Cash (18 Nov 2026): nothing held; the rider pays the driver in the car.
+        paymentMethod: acceptPaymentMethod(method),
       });
       offersBeforeAcceptRef.current = ride.offers ?? null;
       confirmingDriverRef.current = offer.driverId;
@@ -1524,6 +1528,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
               ...previous,
               status: 'matching',
               offers: [],
+              paysCash: method === 'cash',
               // This driver alone: nothing of a driver shown before carries over.
               driver: {
                 driverId: offer.driverId,
@@ -1869,6 +1874,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         return {
           ...previous,
           tripCode: previous.tripCode ?? restored.tripCode,
+          paysCash: restored.paysCash ?? previous.paysCash,
           group: restored.group ?? previous.group,
           waiting: restored.waiting ?? previous.waiting,
           waitingLine: restored.waitingLine ?? previous.waitingLine,
@@ -1888,7 +1894,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       const { ride } = await getRiderActiveRide({ accessToken });
       if (!ride) return;
       const group = parseRiderGroupTrip(ride.group);
-      const fields = { ...waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched'), ...safetyFields(ride), ...(group ? { group } : {}) };
+      const fields = { ...waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched', Date.now(), ride.paymentMethod === 'CASH'), ...safetyFields(ride), ...(group ? { group } : {}) };
       if (!fields.waiting && !fields.waitingLine && !fields.safety && fields.recorded === undefined && !group) return;
       setRideState((previous) => (previous && previous.rideId === ride.id ? { ...previous, ...fields, recorded: fields.recorded || previous.recorded } : previous));
     } catch {

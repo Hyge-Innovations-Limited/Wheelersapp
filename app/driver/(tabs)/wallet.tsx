@@ -14,6 +14,7 @@ import {
   type ProvisionVirtualAccountResponse, getStellarMe, type StellarMeResponse } from '@/lib/api';
 import { useResponsive } from '@/lib/responsive';
 import { useAppTheme } from '@/lib/theme-context';
+import { driverOwed } from '@/lib/cash';
 import { invalidateWalletCache, useWalletOverview } from '@/lib/wallet-overview';
 import { useCachedQuery } from '@/lib/cached-query';
 import { theme } from '@/theme';
@@ -108,6 +109,8 @@ export default function DriverWalletTabScreen() {
 
   const balanceNgn = overview?.balanceNgn ?? 0;
   const lockedNgn = overview?.lockedNgn ?? 0;
+  // Cash trips' fees: a balance below zero is what the driver owes Wheelers.
+  const owed = driverOwed(overview);
   const totalEarnings = earnings?.totalEarningsNgn ?? 0;
   const rideCount = earnings?.rideCount ?? 0;
 
@@ -130,7 +133,7 @@ export default function DriverWalletTabScreen() {
       {/* ── Balance card ── */}
       <View style={[styles.balanceCard, { padding: responsive.scale(24) }]}>
         <View style={styles.balanceHeader}>
-          <AppText variant="bodySmall" color="#9C948D" numberOfLines={1}>Available balance</AppText>
+          <AppText variant="bodySmall" color="#9C948D" numberOfLines={1}>{owed ? 'You owe Wheelers' : 'Available balance'}</AppText>
           <Pressable onPress={() => setBalanceVisible(!balanceVisible)} hitSlop={12}>
             <EyeIcon open={balanceVisible} size={responsive.scale(18)} />
           </Pressable>
@@ -142,8 +145,13 @@ export default function DriverWalletTabScreen() {
           adjustsFontSizeToFit
           minimumFontScale={0.6}
           numberOfLines={1}>
-          {balanceVisible ? formatNgn(balanceNgn) : '₦****'}
+          {balanceVisible ? formatNgn(owed ? owed.owedNgn : balanceNgn) : '₦****'}
         </AppText>
+        {owed ? (
+          <AppText variant="bodySmall" color={owed.paused ? theme.colors.orange : '#9C948D'} numberOfLines={2}>
+            {owed.paused ? `Deposit ${formatNgn(owed.depositNgn)} to keep driving` : 'From cash trips'}
+          </AppText>
+        ) : null}
         {lockedNgn > 0 && (
           <AppText variant="bodySmall" color="#9C948D" numberOfLines={1}>
             Locked: {balanceVisible ? formatNgn(lockedNgn) : '****'}

@@ -112,7 +112,7 @@ export default function DriverFoundScreen() {
                 Agreed price
               </RText>
               <RText variant="small" color={colors.onInkSoft}>
-                Paid from your wallet
+                {currentRide?.paysCash ? "Pay your driver in cash" : "Paid from your wallet"}
               </RText>
             </View>
             <RText

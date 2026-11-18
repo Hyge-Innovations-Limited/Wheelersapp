@@ -235,7 +235,7 @@ export function DriverRequestFeed({ fullHeight = false }: { fullHeight?: boolean
         <View style={styles.topRow}>
           <AppText variant="h3" style={{ flexShrink: 1 }} color={accepted ? theme.colors.green : paying ? theme.colors.blue : theme.colors.black}>
             {accepted
-              ? bid.riderPaid ? 'Rider paid' : 'Accepted'
+              ? bid.paysCash ? 'Accepted · cash' : bid.riderPaid ? 'Rider paid' : 'Accepted'
               : paying
                 ? PAYING_LABEL
                 : countered

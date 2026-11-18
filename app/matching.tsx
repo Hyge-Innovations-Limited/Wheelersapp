@@ -57,6 +57,7 @@ import { AutoBookSheet } from "@/components/rider/auto-book-sheet";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { useAuth } from "@/lib/auth";
 import { fetchFreshBalanceNgn, useWalletOverview } from "@/lib/wallet-overview";
+import { cashOffered } from "@/lib/cash";
 import { useGoHome } from "@/hooks/use-go-home";
 
 const { colors, fonts } = rider;
@@ -375,10 +376,10 @@ export default function MatchingScreen() {
   /* ── actions ───────────────────────────────────────────────────────── */
 
   const handleAccept = useCallback(
-    async (driverId: string, shownNgn: number) => {
+    async (driverId: string, shownNgn: number, method: "wallet" | "cash" = "wallet") => {
       setIsSubmitting(true);
       try {
-        await acceptOffer(driverId, shownNgn);
+        await acceptOffer(driverId, shownNgn, method);
       } catch (acceptError) {
         Alert.alert(
           "Could not accept that offer",
@@ -624,6 +625,17 @@ export default function MatchingScreen() {
         // The price on the sheet the rider tapped, not a newer one that came in since.
         void handleAccept(payOffer.driverId, payStep.fareNgn);
       }}
+      // Cash to the driver (18 Nov 2026), while the server offers it: nothing held, so a short wallet does not matter.
+      onPayCash={
+        cashOffered(wallet)
+          ? () => {
+              if (!payOffer || !payStep) return;
+              setAcceptingFor(payOffer.driverId);
+              setPayFor(null);
+              void handleAccept(payOffer.driverId, payStep.fareNgn, "cash");
+            }
+          : undefined
+      }
       step={payStep}
     />
   );

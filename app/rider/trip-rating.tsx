@@ -161,7 +161,7 @@ export default function TripRatingScreen() {
       <RCard style={styles.paid} tone="ink">
         <View style={styles.paidRow}>
           <RText color={colors.onInkMuted} variant="small">
-            {isNumber(paid) ? "Paid from your wallet" : "Agreed price"}
+            {currentRide?.paysCash ? "Paid in cash" : isNumber(paid) ? "Paid from your wallet" : "Agreed price"}
           </RText>
           {isNumber(paid) || isNumber(agreed) ? (
             <RText color={colors.orange} style={styles.paidAmount}>

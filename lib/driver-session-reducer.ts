@@ -167,6 +167,8 @@ export type PendingBid = {
   acceptedAt?: string;
   agreedFareNgn?: number;
   riderPaid?: boolean;
+  /** The rider pays this one in cash, in the car (18 Nov 2026). */
+  paysCash?: boolean;
   /** The rider came back with a different price after this bid was sent. */
   counteredAt?: string;
   /**
@@ -1138,6 +1140,7 @@ export function reduceDriverSession(
           agreedFareNgn: getNumber(payload.agreedFareNgn) ?? bid.amountNgn,
           // Wallet rides are held at acceptance; anything else is paid later.
           riderPaid: getString(payload.paymentMethod) !== 'CASH',
+          paysCash: getString(payload.paymentMethod) === 'CASH',
         },
       },
     };

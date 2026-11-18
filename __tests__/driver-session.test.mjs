@@ -115,6 +115,9 @@ test('a cash acceptance is accepted but not paid', () => {
     rideId: 'ride-1', riderId: 'rider-1', agreedFareNgn: 6000, paymentMethod: 'CASH',
   }, NOW);
   assert.equal(s.pendingBids['ride-1'].riderPaid, false);
+  assert.equal(s.pendingBids['ride-1'].paysCash, true, 'the card says cash (18 Nov 2026)');
+  const wallet = reduceDriverSession(bidSent(), 'ride:offer_accepted', { rideId: 'ride-1', riderId: 'rider-1', agreedFareNgn: 6000, paymentMethod: 'WALLET' }, NOW);
+  assert.equal(wallet.pendingBids['ride-1'].paysCash, false);
 });
 
 test('ride:matched two minutes later still starts the trip from the remembered bid', () => {

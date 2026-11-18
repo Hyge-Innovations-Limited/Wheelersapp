@@ -327,6 +327,16 @@ export interface WalletOverviewResponse {
   minWithdrawalNgn?: number;
   /** Where the last withdrawal went: the account a new one goes to unless changed. Older servers leave it out. */
   payoutAccount?: SavedPayoutAccount | null;
+  /** Pay with cash (18 Nov 2026): riders may pick Cash at accept. Older servers leave it out (no Cash shown). */
+  cashRides?: boolean;
+  /** A driver: what they owe Wheelers from cash trips (the balance below zero). */
+  owedNgn?: number;
+  /** Owing up to this is fine. */
+  owedLimitNgn?: number;
+  /** Owes past the limit: no new requests until they deposit depositToDriveNgn. */
+  driverPaused?: boolean;
+  /** What to send to be back at ₦0, deposit fee included. */
+  depositToDriveNgn?: number;
 }
 
 export interface SavedPayoutAccount {
@@ -2274,6 +2284,8 @@ export async function requestStellarWithdrawal(input: {
 
 export interface RiderActiveRideDetail {
   id: string;
+  /** WALLET, CASH or XLM (how the rider pays this ride). */
+  paymentMethod?: string;
   /** People, luggage, pet and a note the ride was booked with (newer servers). */
   tripDetails?: unknown;
   tripId: string | null;

@@ -13,6 +13,7 @@ import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { checkPapersGate, PAPERS_GATE_BODY, PAPERS_GATE_TITLE } from '@/lib/papers-gate';
 import { getDriverPapers, getDriverStats, getDriverEarnings, type DriverStatsResponse } from '@/lib/api';
 import { DriverRequestFeed } from '@/components/driver-request-feed';
+import { driverOwed } from '@/lib/cash';
 import { useDriverSession } from '@/lib/driver-session';
 import { ringDeadlineMs } from '@/lib/driver-session-reducer';
 import { useAppLocation } from '@/lib/location';
@@ -22,6 +23,7 @@ import { offerRideOverlayOnce } from '@/lib/ride-overlay';
 import { playBidAlertChime, playRideRequestSound, stopRideRequestSound } from '@/lib/sounds';
 import { theme } from '@/theme';
 import { useMapRevival } from '@/hooks/use-map-revival';
+import { useWalletOverview } from '@/lib/wallet-overview';
 import { toUserMessage } from '@/lib/error-messages';
 
 function formatNgn(amount: number): string {
@@ -184,6 +186,9 @@ export default function DriverHomeScreen() {
   }, [currentLocation]);
 
   const isOnline = session.status !== 'offline';
+  // Owes Wheelers past the cash limit (fees of cash trips): no new requests until a deposit.
+  const { overview: walletOverview } = useWalletOverview();
+  const owed = driverOwed(walletOverview);
   const nearbyAlerts = useNearbyAlerts(getAccessToken, isOnline);
 
   // Online on this phone for the first time: offer requests over other apps
@@ -385,7 +390,7 @@ export default function DriverHomeScreen() {
             <View style={styles.pendingBidRow}>
               <AppText variant="label" color={theme.colors.green}>
                 Trip in progress · {formatNgn(currentRide.fareNgn)}
-                {currentRide.riderPaid ? ' · paid' : ''}
+                {currentRide.paymentMethod === 'CASH' ? ' · cash' : currentRide.riderPaid ? ' · paid' : ''}
               </AppText>
               <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
                 {tripStatus === 'active'
@@ -437,6 +442,22 @@ export default function DriverHomeScreen() {
             gap: responsive.scale(12),
           },
         ]}>
+        {owed?.paused ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/driver/(tabs)/wallet' as Href)}
+            style={({ pressed }) => [styles.owedCard, pressed && styles.pendingBidPressed]}>
+            <OnLight>
+            <AppText variant="label" color={theme.colors.orange} numberOfLines={1}>
+              {`Deposit ${formatNgn(owed.depositNgn)} to keep driving`}
+            </AppText>
+            <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
+              {`You owe Wheelers ${formatNgn(owed.owedNgn)} from cash trips`}
+            </AppText>
+            </OnLight>
+          </Pressable>
+        ) : null}
+
         {/* Metrics row */}
         <View style={[styles.metricsCard, { paddingVertical: responsive.scale(14) }]}>
           <OnLight>
@@ -602,6 +623,15 @@ const styles = StyleSheet.create({
   queueRowPressed: {
     opacity: 0.6,
     backgroundColor: theme.colors.orangeLight,
+  },
+  owedCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1.5,
+    borderColor: theme.colors.orange,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 4,
   },
   pendingBidCard: {
     backgroundColor: theme.colors.white,

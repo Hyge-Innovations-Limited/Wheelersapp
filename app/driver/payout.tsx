@@ -11,6 +11,7 @@ import { FloatingView } from '@/components/motion';
 import { SectionHeader } from '@/components/SectionHeader';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
+import { cashPayout } from '@/lib/cash';
 import { pricingVersionOf, rideFees } from '@/lib/ride-fees';
 import { theme } from '@/theme';
 
@@ -34,7 +35,10 @@ export default function DriverPayoutScreen() {
   const perKmPricing = fees.pricingVersion === 2 || fees.pricingVersion === 3;
   // Waiting time is all the driver's (no fees on it): added when the rider's wallet paid it, else shown as not paid.
   const waiting = ride?.waitingResult ?? null;
-  const finalPayout = fees.driverPayoutNgn + (waiting?.paid ? waiting.feeNgn : 0);
+  // Cash: the rider pays the driver the whole fare (and any waiting) in the car; Wheelers' share comes off the wallet.
+  const cash = ride?.paymentMethod === 'CASH' ? cashPayout(grossFare, fees.driverPayoutNgn) : null;
+  const waitingInCash = cash && waiting && !waiting.paid ? waiting.feeNgn : 0;
+  const finalPayout = fees.driverPayoutNgn + (waiting?.paid ? waiting.feeNgn : 0) + waitingInCash;
 
   const handleNextRide = () => {
     clearCompleted();
@@ -115,9 +119,9 @@ export default function DriverPayoutScreen() {
         )}
         {waiting ? (
           <SummaryRow
-            color={waiting.paid ? theme.colors.green : theme.colors.muted}
+            color={waiting.paid || waitingInCash ? theme.colors.green : theme.colors.muted}
             label={`Waiting time · ${waiting.minutes} min`}
-            value={waiting.paid ? `+${formatNgn(waiting.feeNgn)}` : `${formatNgn(waiting.feeNgn)} not paid`}
+            value={waiting.paid ? `+${formatNgn(waiting.feeNgn)}` : waitingInCash ? `+${formatNgn(waiting.feeNgn)} in cash` : `${formatNgn(waiting.feeNgn)} not paid`}
           />
         ) : null}
         {ride?.distanceKm != null && (
@@ -128,16 +132,19 @@ export default function DriverPayoutScreen() {
         )}
         <View style={styles.totalRow}>
           <AppText variant="bodyMedium">
-            {ride?.paymentMethod === 'CASH'
+            {cash
               ? 'Collect in cash'
               : ride?.paymentMethod === 'XLM'
                 ? 'Paid in XLM to your Stellar wallet'
                 : 'Credited to wallet'}
           </AppText>
           <AppText variant="monoLarge" color={theme.colors.orange} numberOfLines={1} style={styles.rowValue}>
-            {formatNgn(finalPayout)}
+            {formatNgn(cash ? cash.collectNgn + waitingInCash : finalPayout)}
           </AppText>
         </View>
+        {cash && cash.owedNgn > 0 ? (
+          <SummaryRow color={theme.colors.danger} label="Owed to Wheelers · from your wallet" value={formatNgn(cash.owedNgn)} />
+        ) : null}
       </AppCard>
 
       {/* Two-sided reputation starts here: the driver's one-tap verdict on

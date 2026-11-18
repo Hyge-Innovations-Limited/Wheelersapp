@@ -214,9 +214,11 @@ export default function DriverNavigationScreen() {
             label="HEADING TO PICKUP"
             variant="dark"
           />
-          {ride.riderPaid && (
+          {ride.paymentMethod === 'CASH' ? (
+            <StatusPill label="CASH" variant="green" />
+          ) : ride.riderPaid ? (
             <StatusPill label="PAID" variant="green" />
-          )}
+          ) : null}
         </View>
 
         <DriverRouteChangeLine change={ride.routeChange} />

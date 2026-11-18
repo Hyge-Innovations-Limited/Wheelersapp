@@ -32,6 +32,8 @@ export type RestoredOffer = DriverProfile & {
 
 export type RestoredRide = {
   rideId: string;
+  /** The rider pays the driver in cash (18 Nov 2026). */
+  paysCash?: boolean;
   status: 'bidding' | 'matched' | 'active';
   /** This ride was brought back from the server, not started in this run of the app. */
   restored: true;
@@ -130,12 +132,12 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
 }
 
 /** The meter while the driver waits (matched), or the fee's line once the trip started (active). */
-export function waitingFields(value: unknown, status: 'matched' | 'active', now = Date.now()): { waiting?: WaitingInfo; waitingLine?: string } {
+export function waitingFields(value: unknown, status: 'matched' | 'active', now = Date.now(), cash = false): { waiting?: WaitingInfo; waitingLine?: string } {
   if (status === 'matched') {
     const waiting = parseWaiting(value, now);
     return waiting ? { waiting } : {};
   }
-  const line = waitingLineForRider(parseWaitingResult(value));
+  const line = waitingLineForRider(parseWaitingResult(value), cash);
   return line ? { waitingLine: line } : {};
 }
 
@@ -150,8 +152,9 @@ export function restoredRideFrom(ride: RiderActiveRideDetail | null | undefined,
     status,
     restored: true,
     ...(ride.tripCode && status === 'matched' ? { tripCode: ride.tripCode } : {}),
+    ...(ride.paymentMethod === 'CASH' ? { paysCash: true } : {}),
     ...(parseRiderGroupTrip(ride.group) ? { group: parseRiderGroupTrip(ride.group) } : {}),
-    ...waitingFields(ride.waiting, status, now),
+    ...waitingFields(ride.waiting, status, now, ride.paymentMethod === 'CASH'),
     ...safetyFields(ride),
     itinerary: itineraryOf(ride),
     fareEstimateNgn: ride.agreedFareNgn ?? ride.fareEstimateNgn ?? undefined,

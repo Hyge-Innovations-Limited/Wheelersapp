@@ -382,7 +382,7 @@ export default function RiderActiveTripScreen() {
         <View style={styles.price}>
           <View style={styles.priceText}>
             <RText color={colors.muted} style={styles.priceLabel}>
-              {isNumber(agreed) ? "Agreed price" : "Estimated price"}
+              {isNumber(agreed) ? (currentRide?.paysCash ? "Pay your driver in cash" : "Agreed price") : "Estimated price"}
             </RText>
             <RText numberOfLines={2} style={styles.priceTo}>
               To {destination}

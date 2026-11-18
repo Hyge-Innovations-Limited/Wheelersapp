@@ -62,7 +62,7 @@ export default function DriverActiveScreen() {
           <View style={styles.tripCopy}>
             <AppText variant="label" color={theme.colors.green}>
               Trip in progress · {formatNgn(currentRide.fareNgn)}
-              {currentRide.riderPaid ? ' · paid' : ''}
+              {currentRide.paymentMethod === 'CASH' ? ' · cash' : currentRide.riderPaid ? ' · paid' : ''}
             </AppText>
             <AppText variant="bodySmall" color={theme.colors.muted} numberOfLines={1}>
               {session.status === 'active'

@@ -170,8 +170,10 @@ export function minutesSeconds(totalSeconds: number): string {
 const naira = (n: number) => `₦${Math.round(n).toLocaleString('en-NG')}`;
 
 /** The rider's line once the trip started; null when no fee was due. Same words as the server and the ride page. */
-export function waitingLineForRider(result: WaitingResult | null | undefined): string | null {
+export function waitingLineForRider(result: WaitingResult | null | undefined, cash = false): string | null {
   if (!result || !(result.feeNgn > 0)) return null;
+  // A cash ride (18 Nov 2026): as the server says it.
+  if (cash && !result.paid) return `Waiting time: ${result.minutes} min · ${naira(result.feeNgn)}. Pay it to your driver in cash with the fare.`;
   return result.paid
     ? `Waiting time: ${result.minutes} min · ${naira(result.feeNgn)}, paid from your wallet.`
     : `Waiting time: ${result.minutes} min · ${naira(result.feeNgn)}. Your wallet couldn't cover it, so pay your driver.`;
