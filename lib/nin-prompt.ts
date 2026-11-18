@@ -14,6 +14,14 @@ export function markNinAsked(): void {
   askedThisRun = true;
 }
 
+/** The sheet never came up (another sheet or a system prompt was in front): Home may try again. */
+export function releaseNinAsk(): void {
+  askedThisRun = false;
+}
+
+/** How long the sheet has to appear before it counts as not shown. */
+export const NIN_SHOW_TIMEOUT_MS = 3000;
+
 /** 11 digits, spaces and dashes taken out; null when it is not a NIN. */
 export function cleanNinInput(raw: string): string | null {
   const digits = raw.replace(/[\s-]/g, "");

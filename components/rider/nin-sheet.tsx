@@ -7,7 +7,7 @@ import { RButton, RText, rider } from "@/components/rider/kit";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import { getNinPrompt, sendNinPrompt, sendRiderNin } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { cleanNinInput, markNinAsked, ninSheetMayOpen } from "@/lib/nin-prompt";
+import { cleanNinInput, markNinAsked, NIN_SHOW_TIMEOUT_MS, ninSheetMayOpen, releaseNinAsk } from "@/lib/nin-prompt";
 
 const { colors, fonts } = rider;
 
@@ -25,6 +25,8 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const done = useRef(false);
+  const shownRef = useRef(false);
+  const notShownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user || !ninSheetMayOpen({ focused, rideActive, otherSheet: false })) return;
@@ -37,12 +39,31 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
         if (!due?.ask) return;
         markNinAsked();
         setRetry(due.retry);
+        shownRef.current = false;
         setOpen(true);
-        void sendNinPrompt(token, "shown").catch(() => undefined);
+        // Counted as shown only when it is on screen (onShow). On iOS a sheet asked for while another one or a
+        // system prompt is up never appears: then it is put away uncounted and Home may try again.
+        notShownTimer.current = setTimeout(() => {
+          if (shownRef.current) return;
+          setOpen(false);
+          releaseNinAsk();
+        }, NIN_SHOW_TIMEOUT_MS);
       })();
     }, 2500);
     return () => clearTimeout(timer);
   }, [focused, rideActive, user, getAccessToken]);
+
+  useEffect(() => () => { if (notShownTimer.current) clearTimeout(notShownTimer.current); }, []);
+
+  const onShow = () => {
+    if (shownRef.current) return;
+    shownRef.current = true;
+    if (notShownTimer.current) clearTimeout(notShownTimer.current);
+    void (async () => {
+      const token = await getAccessTokenWithRetry(getAccessToken).catch(() => null);
+      if (token) await sendNinPrompt(token, "shown").catch(() => undefined);
+    })();
+  };
 
   // A search or a trip starting under it: put away (not counted as a close).
   useEffect(() => {
@@ -51,7 +72,7 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
 
   const close = () => {
     setOpen(false);
-    if (done.current) return;
+    if (done.current || !shownRef.current) return;
     void (async () => {
       const token = await getAccessTokenWithRetry(getAccessToken).catch(() => null);
       if (token) await sendNinPrompt(token, "closed").catch(() => undefined);
@@ -80,7 +101,7 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={close} transparent visible={open}>
+    <Modal animationType="slide" onRequestClose={close} onShow={onShow} transparent visible={open}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.fill}>
         <Pressable accessibilityLabel="Close" onPress={close} style={styles.backdrop}>
           <Pressable onPress={() => undefined} style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>

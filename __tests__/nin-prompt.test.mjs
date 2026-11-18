@@ -32,3 +32,11 @@ test('the box: 11 digits (spaces and dashes taken out), anything else is not a N
   assert.equal(N.cleanNinInput('1234'), null);
   assert.equal(N.cleanNinInput('1234567890a'), null);
 });
+
+test('a sheet that never came up (another one in front) is put away uncounted, and Home may ask again', () => {
+  N.markNinAsked();
+  assert.equal(N.ninSheetMayOpen({ focused: true, rideActive: false, otherSheet: false }), false);
+  N.releaseNinAsk();
+  assert.equal(N.ninSheetMayOpen({ focused: true, rideActive: false, otherSheet: false }), true);
+  assert.ok(N.NIN_SHOW_TIMEOUT_MS >= 1000);
+});
