@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Modal, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useKeyboardHeight } from "@/hooks/use-keyboard";
 
 import { RButton, RText, rider } from "@/components/rider/kit";
 import { getAccessTokenWithRetry } from "@/lib/access-token";
@@ -19,6 +21,7 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
   const focused = useIsFocused();
   const { getAccessToken, user } = useAuth();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const [open, setOpen] = useState(false);
   const [retry, setRetry] = useState(false);
   const [nin, setNin] = useState("");
@@ -101,44 +104,46 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={close} onShow={onShow} transparent visible={open}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.fill}>
-        <Pressable accessibilityLabel="Close" onPress={close} style={styles.backdrop}>
-          <Pressable onPress={() => undefined} style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.copy}>
-              <RText accessibilityRole="header" variant="heading">{retry ? "Check your NIN" : "Add your NIN"}</RText>
-              <RText color={colors.muted} variant="small">
-                {retry ? "We couldn't match the last one. Type it again." : "It keeps your account and your trips safe."}
-              </RText>
-            </View>
-            <TextInput
-              accessibilityLabel="NIN"
-              keyboardType="number-pad"
-              maxLength={11}
-              onChangeText={(t) => { setNin(t.replace(/\D/g, "").slice(0, 11)); setError(null); }}
-              placeholder="11-digit NIN"
-              placeholderTextColor={colors.muted}
-              style={styles.input}
-              value={nin}
-            />
-            {error ? <RText color={colors.danger} variant="small">{error}</RText> : null}
-            <RButton loading={busy} onPress={() => void verify()} title="Verify" />
-          </Pressable>
+    <Modal animationType="fade" onRequestClose={close} onShow={onShow} statusBarTranslucent transparent visible={open}>
+      {/* In the middle of the screen, and of the space above the keyboard while typing (iPhone and Android). */}
+      <Pressable
+        accessibilityLabel="Close"
+        onPress={close}
+        style={[styles.backdrop, { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, keyboardHeight) + 16 }]}>
+        <Pressable onPress={() => undefined} style={styles.card}>
+          <View style={styles.copy}>
+            <RText accessibilityRole="header" variant="heading">{retry ? "Check your NIN" : "Add your NIN"}</RText>
+            <RText color={colors.muted} variant="small">
+              {retry ? "We couldn't match the last one. Type it again." : "It keeps your account and your trips safe."}
+            </RText>
+          </View>
+          <TextInput
+            accessibilityLabel="NIN"
+            keyboardType="number-pad"
+            maxLength={11}
+            onChangeText={(t) => { setNin(t.replace(/\D/g, "").slice(0, 11)); setError(null); }}
+            placeholder="11-digit NIN"
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+            value={nin}
+          />
+          {error ? <RText color={colors.danger} variant="small">{error}</RText> : null}
+          <RButton loading={busy} onPress={() => void verify()} title="Verify" />
         </Pressable>
-      </KeyboardAvoidingView>
+      </Pressable>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  backdrop: { flex: 1, backgroundColor: "rgba(13,13,13,0.5)", justifyContent: "flex-end" },
-  sheet: {
+  backdrop: { flex: 1, backgroundColor: "rgba(13,13,13,0.5)", justifyContent: "center", paddingHorizontal: rider.gutter },
+  card: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
     backgroundColor: colors.cream,
-    borderTopLeftRadius: rider.radius.sheet,
-    borderTopRightRadius: rider.radius.sheet,
-    paddingHorizontal: rider.gutter,
-    paddingTop: 20,
+    borderRadius: rider.radius.sheet,
+    padding: 20,
     gap: 12,
   },
   copy: { gap: 4 },
