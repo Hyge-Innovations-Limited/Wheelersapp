@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandLogo } from "@/components/brand-logo";
 import { LiveMap } from "@/components/live-map";
 import { naira, rider, RText } from "@/components/rider/kit";
+import { NinSheet } from "@/components/rider/nin-sheet";
 import type { ScheduledRide } from "@/lib/api";
 import { useEmailGate } from "@/lib/email-gate";
 import { usePasskeyOffer, useRememberPasskeyHere } from "@/lib/passkey-account";
@@ -564,6 +565,8 @@ export default function RiderHomeScreen() {
           </View>
         </GestureDetector>
       </Animated.View>
+      {/* The NIN popup (18 Nov 2026): when the server says it is due, only while Home is idle. */}
+      <NinSheet rideActive={Boolean(liveRide)} />
     </View>
   );
 }

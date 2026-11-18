@@ -2387,6 +2387,16 @@ export async function sendRiderNin(accessToken: string, nin: string, fullName: s
   });
 }
 
+/** The NIN popup (18 Nov 2026): show it now? retry: their NIN did not check out before. Older servers: 404 (never shown). */
+export async function getNinPrompt(accessToken: string): Promise<{ ask: boolean; retry: boolean }> {
+  return getJson<{ ask: boolean; retry: boolean }>("/nin/prompt", { accessToken, fallbackError: "Could not check." });
+}
+
+/** The NIN popup was shown, or closed without a NIN. */
+export async function sendNinPrompt(accessToken: string, event: "shown" | "closed"): Promise<void> {
+  await requestJson<{ ok: boolean }>("POST", "/nin/prompt", { accessToken, body: { event }, fallbackError: "Could not save." });
+}
+
 export async function getRiderActiveRide(input: { accessToken: string }): Promise<{ ride: RiderActiveRideDetail | null }> {
   return getJson<{ ride: RiderActiveRideDetail | null }>("/rides/active", {
     accessToken: input.accessToken,
