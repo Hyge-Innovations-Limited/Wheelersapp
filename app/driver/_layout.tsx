@@ -29,6 +29,7 @@ export default function DriverLayout() {
         <Stack.Screen name="incoming-request" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pending-bid" options={{ presentation: 'modal' }} />
         <Stack.Screen name="navigation" />
+        <Stack.Screen name="face-check" />
         <Stack.Screen name="arrived" />
         <Stack.Screen name="active-trip" />
         <Stack.Screen name="group-trip" />

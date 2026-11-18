@@ -2094,6 +2094,8 @@ export interface DriverActiveRide {
   matchedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;
+  /** The face scan still due before Arrived (server face/face-check.ts). Absent: none. */
+  faceCheck?: unknown;
 }
 
 export interface DriverActiveRideResponse {
@@ -2393,6 +2395,11 @@ export async function getNinPrompt(accessToken: string): Promise<{ ask: boolean;
 }
 
 /** The NIN popup was shown, or closed without a NIN. */
+/** The driver's face scan before a ride: three JPEGs (straight, turned, straight), base64. */
+export async function sendFaceScan(accessToken: string, rideId: string, frames: string[]): Promise<unknown> {
+  return requestJson<unknown>("POST", "/drivers/face-check", { accessToken, body: { rideId, frames }, fallbackError: "Could not send the scan. Try again." });
+}
+
 export async function sendNinPrompt(accessToken: string, event: "shown" | "closed"): Promise<void> {
   await requestJson<{ ok: boolean }>("POST", "/nin/prompt", { accessToken, body: { event }, fallbackError: "Could not save." });
 }

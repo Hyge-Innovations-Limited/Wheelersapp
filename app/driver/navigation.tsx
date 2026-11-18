@@ -18,6 +18,7 @@ import { TripChatButton } from '@/components/TripChatButton';
 import { TripDetailsChips } from '@/components/TripDetailsChips';
 import { DriverRouteChangeLine } from '@/components/DriverRouteChangeLine';
 import { useDriverSession } from '@/lib/driver-session';
+import { faceScanDue } from '@/lib/driver-face-check';
 import { estimateEtaMinutes, haversineKm } from '@/lib/geo';
 import { useAppLocation } from '@/lib/location';
 import { useCourseBearing, useLiveRoute } from '@/lib/use-live-route';
@@ -67,6 +68,16 @@ export default function DriverNavigationScreen() {
       router.replace('/driver/(tabs)/home' as Href);
     }
   }, [ride, router]);
+
+  // Booked: the face scan first (once per check; the Arrived button brings it back).
+  const faceDue = faceScanDue(ride);
+  const openedCheckRef = useRef<string | null>(null);
+  useEffect(() => {
+    const checkId = ride?.faceCheck?.checkId;
+    if (!faceDue || !checkId || openedCheckRef.current === checkId) return;
+    openedCheckRef.current = checkId;
+    router.push('/driver/face-check' as Href);
+  }, [faceDue, ride?.faceCheck?.checkId, router]);
 
   useEffect(() => {
     if (session.status === 'arrived') {
@@ -152,6 +163,10 @@ export default function DriverNavigationScreen() {
   };
 
   const handleArrived = async () => {
+    if (faceDue) {
+      router.push('/driver/face-check' as Href);
+      return;
+    }
     try {
       await arriveAtPickup(ride.rideId);
     } catch (err) {
@@ -289,7 +304,7 @@ export default function DriverNavigationScreen() {
           </View>
         </AppCard>
 
-        <AppButton title="I've arrived" onPress={handleArrived} />
+        <AppButton title={faceDue ? 'Scan your face' : "I've arrived"} onPress={handleArrived} />
         <Pressable onPress={handleCancelTrip} style={styles.cancelLink}>
           <AppText variant="bodySmall" color={theme.colors.muted}>
             Can&apos;t do this trip? Cancel

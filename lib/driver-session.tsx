@@ -28,6 +28,7 @@ import { sendWaitingDeal } from '@/lib/waiting-deal-api';
 import { startDriverLivenessUpdates, stopDriverLivenessUpdates } from '@/lib/background-location';
 import { readOnlineIntent, rememberOnline } from '@/lib/driver-online-intent';
 import { driverCancelNotice } from '@/lib/cancel-copy';
+import type { FaceScanAnswer } from '@/lib/driver-face-check';
 import { riderCancelledNotice, showDriverNotice } from '@/lib/driver-notice';
 import { pauseStandbyUpdates, resumeStandbyIfEnabled } from '@/lib/standby-location';
 import {
@@ -143,6 +144,8 @@ type DriverSessionContextValue = {
   /** Close the open request without rejecting it — it stays in the queue. */
   closeOffer: () => void;
   arriveAtPickup: (rideId: string) => Promise<void>;
+  /** The face scan's answer from POST /drivers/face-check: passed or over, the session moves as the socket would. */
+  faceScanResult: (rideId: string, answer: FaceScanAnswer) => void;
   /** `tripCode`: the 4 digits the rider gave, when the server asks for them. */
   startTrip: (rideId: string, tripCode?: string, options?: { startAnyway?: boolean }) => Promise<void>;
   /** The waiting price (Timi, 16 Nov 2026): accept the rider's price a minute, or counter with another. Throws with the server's words. `rideId`: a group ride's seat (default: the current ride). */
@@ -194,6 +197,7 @@ const defaultContext: DriverSessionContextValue = {
   dismissMissedOffer: () => undefined,
   rateRider: async () => { throw new Error('Driver session unavailable.'); },
   arriveAtPickup: async () => { throw new Error('Driver session unavailable.'); },
+  faceScanResult: () => undefined,
   startTrip: async () => { throw new Error('Driver session unavailable.'); },
   answerWaiting: async () => { throw new Error('Driver session unavailable.'); },
   groupSeat: async () => { throw new Error('Driver session unavailable.'); },
@@ -418,6 +422,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
       if (
         type === 'ride:cancelled' ||
+        type === 'ride:face_check:failed' ||
         type === 'ride:cancel:accepted' ||
         type === 'ride:end:accepted' ||
         type === 'ride:completed'
@@ -448,6 +453,13 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
       // Everything else is a session transition — see driver-session-reducer.
       setSession((prev) => reduceDriverSession(prev, type, payload) ?? prev);
+
+      // The face scan did not pass (or could not run): the ride went to another driver, in the server's words.
+      if (type === 'ride:face_check:failed') {
+        const said = getString(payload.reason) ?? 'The ride went to another driver.';
+        setError(said);
+        Alert.alert('Face check', said);
+      }
 
       if (type === 'ride:cancelled') {
         // In words, never a code — and nothing at all when the driver cancelled it themselves.
@@ -587,7 +599,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
                 payload: { rideId: sessionRef.current.currentRide.rideId, ...lastOnline, timestamp: new Date().toISOString() },
               }));
             } else {
-              socket.send(JSON.stringify({ type: 'driver:online', payload: { ...lastOnline, groupTrips: true } }));
+              socket.send(JSON.stringify({ type: 'driver:online', payload: { ...lastOnline, groupTrips: true, faceChecks: true } }));
             }
           }
           // The gateway also re-sends ride:matched for an assigned ride on
@@ -696,7 +708,8 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       await connect();
       console.log('[driver-session] connected, sending driver:online');
       // groupTrips: this app drives group rides (its group screen, a code per rider): the server may send it one.
-      await sendEnvelope('driver:online', { lat, lng, groupTrips: true });
+      // faceChecks: this app scans the driver's face before a ride (app/driver/face-check.tsx).
+      await sendEnvelope('driver:online', { lat, lng, groupTrips: true, faceChecks: true });
       console.log('[driver-session] driver:online sent');
       // The pocket heartbeat: keeps this driver alive in matching when the
       // app backgrounds and the socket dies. Best-effort by design.
@@ -848,6 +861,21 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
     const dropped = ride.group.seats.filter((s) => s.status === 'COMPLETED').length;
     markRideEnded(ride.rideId);
     setSession((prev) => reduceDriverSession(prev, 'ride:group_done', { tripId: ride.rideId, ridersDropped: dropped }) ?? prev);
+  }, [markRideEnded]);
+
+  const faceScanResult = useCallback((rideId: string, answer: FaceScanAnswer) => {
+    // Shadow: the trip goes on whatever the answer; the scan is just done.
+    const shadow = sessionRef.current.currentRide?.faceCheck?.mode === 'shadow';
+    if (answer.status === 'passed' || shadow) {
+      setSession((prev) => reduceDriverSession(prev, 'ride:face_check:passed', { rideId }) ?? prev);
+    } else if (answer.status === 'failed' || answer.status === 'expired' || answer.status === 'error') {
+      markRideEnded(rideId);
+      setSession((prev) => reduceDriverSession(prev, 'ride:face_check:failed', { rideId }) ?? prev);
+    } else if (answer.status === 'retry') {
+      setSession((prev) => (prev.currentRide?.rideId === rideId && prev.currentRide.faceCheck
+        ? { ...prev, currentRide: { ...prev.currentRide, faceCheck: { ...prev.currentRide.faceCheck, challenge: answer.challenge, triesLeft: answer.triesLeft } } }
+        : prev));
+    }
   }, [markRideEnded]);
 
   const arriveAtPickup = useCallback(
@@ -1220,6 +1248,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       selectOffer,
       closeOffer,
       arriveAtPickup,
+      faceScanResult,
       startTrip,
       answerWaiting,
       groupSeat,
@@ -1248,6 +1277,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
       selectOffer,
       closeOffer,
       arriveAtPickup,
+      faceScanResult,
       startTrip,
       answerWaiting,
       groupSeat,

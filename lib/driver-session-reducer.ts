@@ -8,6 +8,7 @@
  * which is how the "bid card never updates after the rider pays" bug should
  * have been caught.
  */
+import { parseFaceCheck, type DriverFaceCheck } from './driver-face-check';
 import type { DriverActiveRide, RideEstimateWaypoint, RideRouteGeometry } from '@/lib/api';
 import { outcomeFromServerStatus } from '@/lib/bid-card-state';
 import { pricingVersionOf, type PricingVersion } from '@/lib/ride-fees';
@@ -130,6 +131,8 @@ export type DriverRide = {
   riderPhone?: string;
   /** The rider's first name, for "Chat with Ada". Older servers leave it out. */
   riderName?: string;
+  /** The face scan still to pass before Arrived (lib/driver-face-check.ts). Absent: none due. */
+  faceCheck?: DriverFaceCheck;
   /** Start trip asks for the rider's 4-digit trip code. The code itself never comes to the driver. */
   tripCodeRequired?: boolean;
   liveDistanceKm?: number;
@@ -662,6 +665,7 @@ function rideFromSnapshot(ride: DriverActiveRide): DriverRide {
     riderPhone: ride.riderPhone ?? undefined,
     riderName: ride.riderName ?? undefined,
     tripCodeRequired: ride.tripCodeRequired === true,
+    faceCheck: parseFaceCheck(ride.faceCheck),
     tripDetails: parseTripDetails(ride.tripDetails),
     waiting: parseWaiting(ride.waiting),
     group: parseDriverGroup(ride.group),
@@ -876,6 +880,7 @@ export function applyActiveRideSnapshot(
             riderPhone: prev.currentRide.riderPhone ?? snapshot.riderPhone,
             riderName: prev.currentRide.riderName ?? snapshot.riderName,
             tripCodeRequired: snapshot.tripCodeRequired,
+            faceCheck: snapshot.faceCheck,
             startedAt: prev.currentRide.startedAt ?? snapshot.startedAt,
             tripDetails: snapshot.tripDetails ?? prev.currentRide.tripDetails,
             // The server's clock wins over the one this phone started at Arrived.
@@ -1096,6 +1101,8 @@ export function reduceDriverSession(
           typeof payload.tripCodeRequired === 'boolean'
             ? payload.tripCodeRequired
             : sameRide ? prev.currentRide?.tripCodeRequired : undefined,
+        // The server's word on every ride:matched (a resync too): a scan still due, or none.
+        faceCheck: parseFaceCheck(payload.faceCheck),
         tripDetails:
           parseTripDetails(payload.tripDetails) ?? offer?.tripDetails ?? (sameRide ? prev.currentRide?.tripDetails : undefined),
         // A group trip: its seats and stops come with the booking, so the group screen opens at once.
@@ -1369,6 +1376,20 @@ export function reduceDriverSession(
           }
         : prev.currentRide,
     };
+  }
+
+  // The face scan passed: the trip goes on.
+  if (type === 'ride:face_check:passed') {
+    const rideId = getString(payload.rideId);
+    if (!prev.currentRide || (rideId && rideId !== prev.currentRide.rideId)) return prev;
+    return { ...prev, currentRide: { ...prev.currentRide, faceCheck: undefined } };
+  }
+
+  // Not the driver, no scan in time, or the check could not run: the ride went to another driver.
+  if (type === 'ride:face_check:failed') {
+    const rideId = getString(payload.rideId);
+    if (!prev.currentRide || (rideId && rideId !== prev.currentRide.rideId)) return prev;
+    return reduceDriverSession(prev, 'ride:cancelled', { rideId: prev.currentRide.rideId, cancelledBy: 'driver' }, now) ?? prev;
   }
 
   // ride:cancel:accepted is the gateway's ack of the driver's own cancel; the

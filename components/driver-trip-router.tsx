@@ -7,6 +7,7 @@ import { stopRideRequestSound } from '@/lib/sounds';
 /** Screens that move themselves when the trip changes — leave them to it. */
 const SELF_ROUTING_PATHS = [
   '/driver/navigation',
+  '/driver/face-check',
   '/driver/arrived',
   '/driver/active-trip',
   '/driver/group-trip',
