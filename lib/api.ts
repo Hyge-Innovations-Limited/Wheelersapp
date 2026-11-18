@@ -2397,7 +2397,25 @@ export async function getNinPrompt(accessToken: string): Promise<{ ask: boolean;
 /** The NIN popup was shown, or closed without a NIN. */
 /** The driver's face scan before a ride: three JPEGs (straight, turned, straight), base64. */
 export async function sendFaceScan(accessToken: string, rideId: string, frames: string[]): Promise<unknown> {
-  return requestJson<unknown>("POST", "/drivers/face-check", { accessToken, body: { rideId, frames }, fallbackError: "Could not send the scan. Try again." });
+  // Never "Checking…" for ever on a dropped connection: 90 s, then the driver can scan again.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000);
+  try {
+    if (!apiBaseUrl) throw new Error("Wheelers is not available right now. Please try again later.");
+    const response = await fetch(`${apiBaseUrl}/drivers/face-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ rideId, frames }),
+      signal: controller.signal,
+    }).catch(() => {
+      throw new Error(controller.signal.aborted ? "That took too long. Check your connection and scan again." : buildConnectivityErrorMessage());
+    });
+    const payload = (await response.json().catch(() => null)) as unknown;
+    if (!response.ok) throw new ApiError(getErrorMessage(payload, "Could not send the scan. Try again."), response.status);
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function sendNinPrompt(accessToken: string, event: "shown" | "closed"): Promise<void> {

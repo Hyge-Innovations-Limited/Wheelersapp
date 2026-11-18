@@ -73,3 +73,12 @@ test('the answers and the words', () => {
   assert.equal(F.secondsLeft(CHECK.deadlineAt, at - 90_500), 91);
   assert.equal(F.secondsLeft(CHECK.deadlineAt, at + 5000), 0);
 });
+
+test('the camera photo size: the smallest with 700+ pixels on the short side; none suitable, the camera\'s own', () => {
+  assert.equal(F.scanPictureSize(['4032x3024', '1920x1080', '1280x720', '640x480', '352x288']), '1280x720');
+  assert.equal(F.scanPictureSize(['3264x2448', '2592x1944', '1600x1200']), '1600x1200');
+  assert.equal(F.scanPictureSize(['Photo', 'High', 'Medium', 'Low']), undefined, 'iPhone preset names only');
+  assert.equal(F.scanPictureSize(['640x480']), undefined, 'too small to trust');
+  assert.equal(F.scanPictureSize([]), undefined);
+  assert.ok(F.stepWaitMs('turn') > F.stepWaitMs('straight'), 'longer to turn');
+});

@@ -11,12 +11,10 @@ import { AppText } from '@/components/app-text';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { sendFaceScan } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { parseFaceScanAnswer, SCAN_STEPS, secondsLeft, stepWords, type ScanStep } from '@/lib/driver-face-check';
+import { parseFaceScanAnswer, SCAN_STEPS, scanPictureSize, secondsLeft, stepWaitMs, stepWords, type ScanStep } from '@/lib/driver-face-check';
 import { useDriverSession } from '@/lib/driver-session';
 import { useResponsive } from '@/lib/responsive';
 import { theme } from '@/theme';
-
-const STEP_MS = 1600;
 
 type Phase = { kind: 'idle' } | { kind: 'step'; step: ScanStep } | { kind: 'sending' } | { kind: 'retry'; reason: string };
 
@@ -34,6 +32,8 @@ export default function DriverFaceCheckScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
   const [ready, setReady] = useState(false);
+  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
+  const sizeAsked = useRef(false);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [now, setNow] = useState(Date.now());
   const running = useRef(false);
@@ -64,7 +64,7 @@ export default function DriverFaceCheckScreen() {
     try {
       for (const step of SCAN_STEPS) {
         setPhase({ kind: 'step', step });
-        await new Promise((resolve) => setTimeout(resolve, STEP_MS));
+        await new Promise((resolve) => setTimeout(resolve, stepWaitMs(step)));
         const pic = await camera.current?.takePictureAsync({ quality: 0.4, base64: true, shutterSound: false }).catch(() => null);
         if (!pic?.base64) {
           setPhase({ kind: 'retry', reason: "The camera didn't take the photo. Try again." });
@@ -124,7 +124,20 @@ export default function DriverFaceCheckScreen() {
           facing="front"
           mode="picture"
           animateShutter={false}
-          onCameraReady={() => setReady(true)}
+          onCameraReady={() => {
+            setReady(true);
+            // Once: a 1280x720 photo when the camera offers one (fast upload, quick check).
+            if (sizeAsked.current) return;
+            sizeAsked.current = true;
+            const cam = camera.current;
+            if (!cam || typeof cam.getAvailablePictureSizesAsync !== 'function') return;
+            try {
+              void cam.getAvailablePictureSizesAsync().then((sizes) => setPictureSize(scanPictureSize(sizes)), () => undefined);
+            } catch {
+              // An older camera module: its own size.
+            }
+          }}
+          pictureSize={pictureSize}
           onMountError={() => setPhase({ kind: 'retry', reason: "Your camera didn't start. Close any other app using it." })}
         />
         {step === 'turn' ? (

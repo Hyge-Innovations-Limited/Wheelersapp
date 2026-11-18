@@ -67,3 +67,26 @@ export function secondsLeft(deadlineAt: string, now: number = Date.now()): numbe
 export function faceScanDue(ride: { faceCheck?: DriverFaceCheck; group?: unknown } | null | undefined): boolean {
   return Boolean(ride?.faceCheck && !ride.group);
 }
+
+/**
+ * The camera's photo size for a scan: the smallest it offers with at least 700 pixels on the short side (a
+ * 1280x720 photo), so three photos upload fast on mobile data and the server reads them quickly. Nothing suitable
+ * (iPhone names like "Photo" only): undefined, the camera's own size.
+ */
+export function scanPictureSize(sizes: string[]): string | undefined {
+  let best: { size: string; area: number } | undefined;
+  for (const size of sizes) {
+    const m = /^(\d+)x(\d+)$/.exec(size.trim());
+    if (!m) continue;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    if (Math.min(w, h) < 700) continue;
+    if (!best || w * h < best.area) best = { size, area: w * h };
+  }
+  return best?.size;
+}
+
+/** How long each step waits before its photo (the turn gets longer: people turn slowly). */
+export function stepWaitMs(step: ScanStep): number {
+  return step === 'turn' ? 2200 : 1500;
+}
