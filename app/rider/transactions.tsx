@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, RefreshControl, StyleSheet, View } from "react-native";
 
 import { RBack, RScreen, RText, rider } from "@/components/rider/kit";
@@ -7,8 +8,13 @@ import { useWalletTransactions } from "@/lib/wallet-transactions";
 
 export default function RiderTransactionsScreen() {
   const { items, isLoading, error, refresh } = useWalletTransactions(40);
-  const refreshing = isLoading && items.length > 0;
-  const displayError = error && !/no wallet found/i.test(error) ? error : null;
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refresh(); } finally { setRefreshing(false); }
+  }, [refresh]);
+  // Shown from the copy kept on the phone; only with nothing kept and no answer is there a line, never "offline".
+  const displayError = error && !/no wallet found/i.test(error) ? "Your transactions will show here. Pull down to refresh." : null;
 
   return (
     <RScreen
@@ -17,7 +23,7 @@ export default function RiderTransactionsScreen() {
       refreshControl={
         <RefreshControl
           colors={[rider.colors.orange]}
-          onRefresh={() => void refresh()}
+          onRefresh={() => void onRefresh()}
           refreshing={refreshing}
           tintColor={rider.colors.orange}
         />
@@ -41,7 +47,7 @@ export default function RiderTransactionsScreen() {
         ) : null}
 
         {displayError ? (
-          <RText accessibilityLiveRegion="polite" color={rider.colors.danger} variant="small">
+          <RText accessibilityLiveRegion="polite" color={rider.colors.muted} style={styles.centered} variant="small">
             {displayError}
           </RText>
         ) : null}

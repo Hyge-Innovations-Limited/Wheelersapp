@@ -1,5 +1,7 @@
 import { useAuth } from "@/lib/auth";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
+
+import { invalidateCached, patchCached, useCachedQuery } from "@/lib/cached-query";
 
 import { getAccessTokenWithRetry } from "@/lib/access-token";
 import type { TripDetails } from "@/lib/trip-details";
@@ -81,6 +83,14 @@ function mapScheduledRideItem(ride: ScheduledRide): ScheduledRideListItem {
   };
 }
 
+/** Upcoming rides: changed by the rider (book, cancel) or when one starts, so fetched again every few minutes. */
+const UPCOMING_FRESH_MS = 5 * 60_000;
+const UPCOMING_KEPT = 30;
+
+/**
+ * The rider's rides booked for later: shown at once from the copy on the phone (even with no connection), fetched
+ * again when booked or cancelled here, every few minutes, and on a pull to refresh.
+ */
 export function useScheduledRides(limit = 20): {
   items: ScheduledRideListItem[];
   rawItems: ScheduledRide[];
@@ -89,77 +99,34 @@ export function useScheduledRides(limit = 20): {
   refresh: () => Promise<void>;
   cancelItem: (scheduledRideId: string, reason?: string) => Promise<void>;
 } {
-  const { getAccessToken, isReady, user } = useAuth();
-  const [rawItems, setRawItems] = useState<ScheduledRide[]>([]);
-  const [items, setItems] = useState<ScheduledRideListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { getAccessToken } = useAuth();
+  const query = useCachedQuery<ScheduledRide[]>({
+    key: "trips.upcoming",
+    fetcher: (accessToken) => getScheduledRides({ accessToken, limit: UPCOMING_KEPT }).then((r) => r.items),
+    staleMs: UPCOMING_FRESH_MS,
+    enabled: isBackendConfigured(),
+  });
+  const rawItems = useMemo(() => (query.data ?? []).slice(0, limit), [query.data, limit]);
+  const items = useMemo(() => rawItems.map(mapScheduledRideItem), [rawItems]);
+  const { refresh } = query;
 
-  const load = useCallback(async (): Promise<void> => {
-    if (!isBackendConfigured() || !isReady || !user) {
-      setRawItems([]);
-      setItems([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) {
-        throw new Error("Could not get an access token for scheduled rides.");
-      }
-
-      const response = await getScheduledRides({
-        accessToken,
-        limit,
-      });
-
-      setRawItems(response.items);
-      setItems(response.items.map(mapScheduledRideItem));
-    } catch (loadError) {
-      setRawItems([]);
-      setItems([]);
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Could not load scheduled rides.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getAccessToken, isReady, limit, user]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function cancelItem(
-    scheduledRideId: string,
-    reason?: string,
-  ): Promise<void> {
+  const cancelItem = useCallback(async (scheduledRideId: string, reason?: string): Promise<void> => {
     const accessToken = await getAccessTokenWithRetry(getAccessToken);
     if (!accessToken) {
       throw new Error("Could not get an access token to cancel this ride.");
     }
-
-    await cancelScheduledRide({
-      accessToken,
-      scheduledRideId,
-      reason,
-    });
-
-    await load();
-  }
+    await cancelScheduledRide({ accessToken, scheduledRideId, reason });
+    // Gone from the list at once; the server's list follows.
+    patchCached("trips.upcoming", (data) => (Array.isArray(data) ? (data as ScheduledRide[]).filter((r) => r.id !== scheduledRideId) : null));
+    await refresh();
+  }, [getAccessToken, refresh]);
 
   return {
     items,
     rawItems,
-    isLoading,
-    error,
-    refresh: load,
+    isLoading: query.loading,
+    error: query.error,
+    refresh: useCallback(() => refresh(), [refresh]),
     cancelItem,
   };
 }
@@ -189,5 +156,6 @@ export async function submitScheduledRide(params: {
     ...(params.tripDetails ? { tripDetails: params.tripDetails } : {}),
   });
 
+  invalidateCached("trips.upcoming");
   return response.item;
 }

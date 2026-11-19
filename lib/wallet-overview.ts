@@ -18,14 +18,14 @@ type UseWalletOverviewResult = {
 /**
  * The balance, the withdrawal fee, and the account the last withdrawal went
  * to. Shown at once from the last copy (kept in the phone's secure storage:
- * it holds an account number), fetched again when it is 30 seconds old, when
+ * it holds an account number). The balance changes live (lib/wallet-live.ts); fetched again when 10 minutes old, when
  * the app comes back, and the moment the server says the wallet changed.
  */
 export function useWalletOverview(): UseWalletOverviewResult {
   const query = useCachedQuery<WalletOverviewResponse>({
     key: "wallet.overview",
     fetcher: (accessToken) => getWalletOverview({ accessToken }),
-    staleMs: 30_000,
+    staleMs: 10 * 60_000,
     storage: "secure",
     enabled: isBackendConfigured(),
   });

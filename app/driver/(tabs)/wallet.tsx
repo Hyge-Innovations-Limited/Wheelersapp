@@ -70,11 +70,11 @@ export default function DriverWalletTabScreen() {
   const responsive = useResponsive();
   const { overview } = useWalletOverview();
   const [balanceVisible, setBalanceVisible] = useState(true);
-  // Today's earnings: shown at once from the last copy, fetched again after a minute.
+  // Today's earnings: shown at once from the last copy, fetched again when a trip ends (or after 15 minutes away).
   const earningsQuery = useCachedQuery<DriverEarningsResponse>({
     key: 'earnings.today',
     fetcher: (accessToken) => getDriverEarnings({ accessToken, period: 'today' }),
-    staleMs: 60_000,
+    staleMs: 15 * 60_000,
   });
   // The driver's own deposit account never changes once opened: kept in secure
   // storage and checked once a day, not asked for on every visit.

@@ -41,6 +41,8 @@ import {
 import { resolvePlaceQuery } from '@/lib/google-places';
 import { isCurrentLocationLabel, serializeRideItinerary, type RideItinerary } from '@/lib/ride-route';
 import { invalidateWalletCache } from '@/lib/wallet-overview';
+import { applyWalletLive, noteSocketClosed, noteSocketOpened, onWalletUpdated } from '@/lib/wallet-live';
+import { invalidateCached } from '@/lib/cache-store';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { isDriverApp } from '@/lib/app-variant';
 import { carryDriver, reconcileSearch, restoredRideFrom, serverAnswerFrom, waitingFields } from '@/lib/rider-active-ride';
@@ -935,6 +937,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       }
 
       if (type === 'ride:completed') {
+        // A new past trip: the Trips list is fetched once (never on every visit).
+        invalidateCached('trips');
         setError(null);
         setRideState((previous) => {
           if (!previous) {
@@ -1054,6 +1058,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           invalidateWalletCache();
           setError(DRIVER_LEFT_SEARCHING_AGAIN);
         }
+        if (!again) invalidateCached('trips');
         setRideState((previous) => rideAfterCancelled(previous, payload));
         return;
       }
@@ -1169,8 +1174,13 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (type === 'wallet:live') {
+        applyWalletLive(payload);
+        return;
+      }
+
       if (type === 'wallet:updated') {
-        invalidateWalletCache();
+        onWalletUpdated();
         return;
       }
     },
@@ -1240,6 +1250,8 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
           setConnectionState('connected');
           setError(null);
           resolve(socket);
+          // Back after a drop: the wallet (and after a long one the trips) once, for news missed meanwhile.
+          noteSocketOpened();
           // Every (re)connect: pick the trip back up if the app had forgotten it (a restart),
           // with its trip code, which the driver cannot start without.
           void restoreActiveRideRef.current();
@@ -1271,6 +1283,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
 
         socket.onclose = () => {
           socketRef.current = null;
+          noteSocketClosed();
           setConnectionState('disconnected');
           if (!settled) {
             settled = true;

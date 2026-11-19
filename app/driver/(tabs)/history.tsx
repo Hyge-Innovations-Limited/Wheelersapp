@@ -8,6 +8,7 @@ import { BackButton } from '@/components/back-button';
 import { AppText } from '@/components/app-text';
 import { DriverBidsList } from '@/components/driver-bids-list';
 import { useCachedQuery } from '@/lib/cached-query';
+import { WALLET_HISTORY_KEPT } from '@/lib/wallet-transactions';
 import {
   getDriverBids,
   getDriverRideHistory,
@@ -79,14 +80,17 @@ export default function DriverHistoryScreen() {
     if (isTab(requestedTab)) setActiveTab(requestedTab);
   }, [requestedTab]);
   const [rideFilter, setRideFilter] = useState<RideFilter>('all');
-  // Shown at once from the last copy; fetched again after a minute, and when a trip ends.
+  // Shown at once from the copy on the phone (with no connection too). Trips are fetched again when one ends; money
+  // rows arrive live (lib/wallet-live.ts); both again only after 15 minutes away, a dropped connection or a pull.
   const ridesQuery = useCachedQuery<DriverHistoryRide[]>({
     key: 'driver-history.rides',
     fetcher: (accessToken) => getDriverRideHistory({ accessToken, limit: 30 }).then((r) => r.items),
+    staleMs: 15 * 60_000,
   });
   const txnsQuery = useCachedQuery<WalletTransaction[]>({
     key: 'wallet.transactions',
-    fetcher: (accessToken) => getWalletTransactions({ accessToken, limit: 30 }).then((r) => r.items),
+    fetcher: (accessToken) => getWalletTransactions({ accessToken, limit: WALLET_HISTORY_KEPT }).then((r) => r.items),
+    staleMs: 15 * 60_000,
   });
   // Bids are best-effort: an older backend without the route must not blank the rest.
   const bidsQuery = useCachedQuery<DriverBidRecord[]>({

@@ -5,11 +5,11 @@ import { AppState } from 'react-native';
 import { getAccessTokenWithRetry } from '@/lib/access-token';
 import { useAuth } from '@/lib/auth';
 import {
-  inflight, listeners, memory, notify, readStored, scopedKey, staleListeners, tokenSubject, writeStored,
+  inflight, listeners, memory, notify, readStored, scopedKey, staleListeners, takeStaleUntilOpened, tokenSubject, writeStored,
   type CacheStorage, type Entry,
 } from '@/lib/cache-store';
 
-export { clearCachedQueries, invalidateCached, type CacheStorage } from '@/lib/cache-store';
+export { clearCachedQueries, invalidateCached, patchCached, type CacheStorage } from '@/lib/cache-store';
 
 /**
  * Data a screen shows at once, from the last time, and refreshes by itself.
@@ -104,8 +104,8 @@ export function useCachedQuery<T>({ key, fetcher, staleMs = 60_000, storage = 'p
   const fetchIfStale = useCallback(() => {
     if (!fullKey) return;
     const current = memory.get(fullKey);
-    if (!current || Date.now() - current.at > staleMs) void fetchNow();
-  }, [fetchNow, fullKey, staleMs]);
+    if (!current || Date.now() - current.at > staleMs || takeStaleUntilOpened(key)) void fetchNow();
+  }, [fetchNow, fullKey, key, staleMs]);
 
   // The copy: memory first, then the phone's storage, then the network if old.
   useEffect(() => {
@@ -139,7 +139,10 @@ export function useCachedQuery<T>({ key, fetcher, staleMs = 60_000, storage = 'p
   // Told it changed: fetch again if it is ours.
   useEffect(() => {
     const onStale = (prefix: string) => {
-      if (key === prefix || key.startsWith(`${prefix}.`)) void fetchNow();
+      if (key === prefix || key.startsWith(`${prefix}.`)) {
+        takeStaleUntilOpened(key); // fetched now: not again when the next screen opens it
+        void fetchNow();
+      }
     };
     staleListeners.add(onStale);
     return () => { staleListeners.delete(onStale); };
@@ -160,7 +163,8 @@ export function useCachedQuery<T>({ key, fetcher, staleMs = 60_000, storage = 'p
     data: (entry?.data as T | undefined) ?? null,
     loading: !entry && enabled && error === null,
     refreshing,
-    error,
+    // Something on screen: it stays, and no error is shown (a saved copy beats "could not load").
+    error: entry ? null : error,
     updatedAt: entry?.at ?? null,
     refresh: fetchNow,
   };

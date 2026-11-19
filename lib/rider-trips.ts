@@ -6,16 +6,15 @@
  * addresses, amounts and dates themselves (to book a ride again, to show a
  * cancelled ride differently), so this reads the same endpoint unshaped.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getAccessTokenWithRetry } from "@/lib/access-token";
 import {
   apiRequest,
   getRiderRideHistory,
   isBackendConfigured,
   type RiderHistoryRide,
 } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { invalidateCached, useCachedQuery } from "@/lib/cached-query";
 import { serializeRideItinerary } from "@/lib/ride-route";
 
 /* ── one ride ──────────────────────────────────────────────────────────── */
@@ -84,11 +83,10 @@ export async function getRide(input: { accessToken: string; rideId: string }): P
 }
 
 /**
- * Trips that are over, kept for this run of the app: a completed or cancelled
- * ride does not change, so its receipt opens at once the second time and is
- * not fetched again unless the rider pulls to refresh.
+ * A trip's receipt, kept on the phone: a completed or cancelled ride does not change, so it opens at once, with no
+ * connection too, and is not fetched again unless the rider pulls to refresh. A trip still going is fetched again
+ * after 15 seconds.
  */
-const finishedRides = new Map<string, RideDetail>();
 const isFinished = (ride: RideDetail) => ride.status === "COMPLETED" || ride.status === "CANCELLED";
 
 export function useRide(rideId: string | null): {
@@ -98,54 +96,22 @@ export function useRide(rideId: string | null): {
   /** Fetch again. Without `force`, a finished trip already kept is left as it is. */
   reload: (options?: { force?: boolean }) => Promise<void>;
 } {
-  const { getAccessToken, isReady, user } = useAuth();
-  const [ride, setRide] = useState<RideDetail | null>(() => (rideId ? finishedRides.get(rideId) ?? null : null));
-  const [isLoading, setIsLoading] = useState(() => !(rideId && finishedRides.has(rideId)));
-  const [error, setError] = useState<string | null>(null);
-  const latest = useRef(0);
-
-  const reload = useCallback(async (options?: { force?: boolean }): Promise<void> => {
-    if (!isReady) return;
-    const kept = rideId ? finishedRides.get(rideId) : undefined;
-    if (kept && !options?.force) {
-      setRide(kept);
-      setError(null);
-      setIsLoading(false);
-      return;
-    }
-    const call = ++latest.current;
-    if (!rideId || !user || !isBackendConfigured()) {
-      setRide(null);
-      setError("Could not load this trip.");
-      setIsLoading(false);
-      return;
-    }
-    // A forced reload keeps the receipt on screen while it fetches.
-    if (!kept) setIsLoading(true);
-    setError(null);
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) throw new Error("Could not load this trip. Please sign in again.");
-      const next = await getRide({ accessToken, rideId });
-      if (isFinished(next)) finishedRides.set(rideId, next);
-      if (call !== latest.current) return;
-      setRide(next);
-    } catch (loadError) {
-      if (call !== latest.current) return;
-      setError(loadError instanceof Error ? loadError.message : "Could not load this trip.");
-    } finally {
-      if (call === latest.current) setIsLoading(false);
-    }
-  }, [getAccessToken, isReady, rideId, user]);
-
+  const [finished, setFinished] = useState(false);
+  const query = useCachedQuery<RideDetail>({
+    key: `trips.ride.${rideId ?? "none"}`,
+    fetcher: (accessToken) => getRide({ accessToken, rideId: rideId ?? "" }),
+    staleMs: finished ? Number.POSITIVE_INFINITY : 15_000,
+    enabled: Boolean(rideId) && isBackendConfigured(),
+  });
+  const ride = query.data;
   useEffect(() => {
-    void reload();
-    return () => {
-      latest.current += 1;
-    };
-  }, [reload]);
-
-  return { ride, isLoading, error, reload };
+    setFinished(Boolean(ride && isFinished(ride)));
+  }, [ride]);
+  const { refresh } = query;
+  const reload = useCallback(async (options?: { force?: boolean }) => {
+    if (options?.force || !ride || !isFinished(ride)) await refresh();
+  }, [refresh, ride]);
+  return { ride, isLoading: query.loading, error: rideId ? query.error : "Could not load this trip.", reload };
 }
 
 /* ── the list ──────────────────────────────────────────────────────────── */
@@ -163,76 +129,39 @@ export function tripPaidNgn(trip: Pick<RiderTrip, "fareFinalNgn" | "fareEstimate
   return typeof amount === "number" && Number.isFinite(amount) ? amount : null;
 }
 
-// Trips is a tab and stays mounted; the list is kept between visits and
-// fetched again once it is this old.
-const TRIPS_FRESH_MS = 30_000;
-let cachedTrips: RiderTrip[] = [];
-let cachedTripsAt = 0;
+/** Past trips do not change; new ones arrive when a trip ends (the session marks the list stale then). */
+const TRIPS_FRESH_MS = 15 * 60_000;
+const TRIPS_KEPT = 30;
 
-/** Forget the kept list: the next person to sign in must not see this one's rides. */
+/** Kept for sign-out: every kept copy goes then (lib/auth clearCachedQueries). */
 export function clearRiderTripsCache(): void {
-  cachedTrips = [];
-  cachedTripsAt = 0;
-  finishedRides.clear();
+  invalidateCached("trips");
 }
 
+/**
+ * The rider's past trips: shown at once from the copy on the phone (even with no connection), never a spinner after
+ * the first time. Fetched again when a trip ends or is cancelled, when the app has been away a while, and on a pull to
+ * refresh, never on every visit.
+ */
 export function useRiderTrips(limit = 30): {
   trips: RiderTrip[];
   isLoading: boolean;
   error: string | null;
-  /** Fetch again. Without `force`, a list fetched in the last 30 seconds is kept. */
+  /** With `force` (a pull to refresh): fetch now. Without: the kept copy stays unless it is old or stale. */
   refresh: (options?: { force?: boolean }) => Promise<void>;
 } {
-  const { getAccessToken, isReady, user } = useAuth();
-  const signedIn = user !== null;
-  const [trips, setTrips] = useState<RiderTrip[]>(() => cachedTrips.slice(0, limit));
-  const [isLoading, setIsLoading] = useState(() => isBackendConfigured() && trips.length === 0);
-  const [error, setError] = useState<string | null>(null);
-  const latest = useRef(0);
-
-  const refresh = useCallback(
-    async (options?: { force?: boolean }): Promise<void> => {
-      if (!isReady) return;
-      const call = ++latest.current;
-      // Signed out: the next rider must not see this one's rides.
-      if (!isBackendConfigured() || !signedIn) {
-        cachedTrips = [];
-        cachedTripsAt = 0;
-        setTrips([]);
-        setIsLoading(false);
-        return;
-      }
-      if (!options?.force && cachedTripsAt > 0 && Date.now() - cachedTripsAt < TRIPS_FRESH_MS) {
-        setTrips(cachedTrips.slice(0, limit));
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setError(null);
-      try {
-        const accessToken = await getAccessTokenWithRetry(getAccessToken);
-        if (!accessToken) throw new Error("Could not load your trips. Please sign in again.");
-        const response = await getRiderRideHistory({ accessToken, limit });
-        cachedTrips = response.items;
-        cachedTripsAt = Date.now();
-        if (call === latest.current) setTrips(response.items.slice(0, limit));
-      } catch (loadError) {
-        // Whatever was already on screen stays there.
-        if (call === latest.current) {
-          setError(loadError instanceof Error ? loadError.message : "Could not load your trips.");
-        }
-      } finally {
-        if (call === latest.current) setIsLoading(false);
-      }
-    },
-    [getAccessToken, isReady, limit, signedIn],
-  );
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { trips, isLoading, error, refresh };
+  const query = useCachedQuery<RiderTrip[]>({
+    key: "trips.past",
+    fetcher: (accessToken) => getRiderRideHistory({ accessToken, limit: TRIPS_KEPT }).then((r) => r.items),
+    staleMs: TRIPS_FRESH_MS,
+    enabled: isBackendConfigured(),
+  });
+  const trips = useMemo(() => (query.data ?? []).slice(0, limit), [query.data, limit]);
+  const { refresh: fetchNow } = query;
+  const refresh = useCallback(async (options?: { force?: boolean }) => {
+    if (options?.force) await fetchNow();
+  }, [fetchNow]);
+  return { trips, isLoading: query.loading, error: query.error, refresh };
 }
 
 /* ── booking a past ride again ─────────────────────────────────────────── */
@@ -258,13 +187,9 @@ export function rebookParams(
 }
 
 /**
- * True once a list that starts out "not loading and empty" has finished a
- * load, so a screen can tell "nothing yet" from "nothing there".
+ * True once there is something to show (a copy kept on the phone, or the first answer), so a screen can tell
+ * "nothing yet" from "nothing there". The lists read from the kept copy are loading only while they have nothing.
  */
 export function useHasLoaded(isLoading: boolean): boolean {
-  const [started, setStarted] = useState(isLoading);
-  useEffect(() => {
-    if (isLoading) setStarted(true);
-  }, [isLoading]);
-  return !isBackendConfigured() || (started && !isLoading);
+  return !isBackendConfigured() || !isLoading;
 }

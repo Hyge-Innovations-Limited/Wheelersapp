@@ -46,6 +46,7 @@ export async function readStored(storage: CacheStorage, fullKey: string): Promis
       ? await SecureStore.getItemAsync(`wc.${fullKey}`)
       : await AsyncStorage.getItem(PLAIN_PREFIX + fullKey);
     if (!raw) return null;
+    storageOf.set(fullKey, storage);
     const parsed = JSON.parse(raw) as Entry;
     return parsed && typeof parsed.at === 'number' ? parsed : null;
   } catch {
@@ -53,7 +54,11 @@ export async function readStored(storage: CacheStorage, fullKey: string): Promis
   }
 }
 
+/** Where each copy in memory is kept on the phone, so a live update can be kept the same way. */
+const storageOf = new Map<string, CacheStorage>();
+
 export async function writeStored(storage: CacheStorage, fullKey: string, entry: Entry): Promise<void> {
+  storageOf.set(fullKey, storage);
   if (storage === 'memory') return;
   try {
     const raw = JSON.stringify(entry);
@@ -80,6 +85,8 @@ export function notify(fullKey: string): void {
  * fetch it again now.
  */
 export function invalidateCached(prefix: string): void {
+  // A copy on the phone not opened yet this run is fetched when it is.
+  staleUntilOpened.add(prefix);
   for (const [fullKey, entry] of memory) {
     const key = fullKey.slice(fullKey.indexOf('.') + 1);
     if (key === prefix || key.startsWith(`${prefix}.`)) {
@@ -91,10 +98,47 @@ export function invalidateCached(prefix: string): void {
 }
 export const staleListeners = new Set<(prefix: string) => void>();
 
+/**
+ * Stale while no screen shows it (nothing in memory yet this run): the next screen to open it fetches it once,
+ * whatever the age of the copy on the phone.
+ */
+export const staleUntilOpened = new Set<string>();
+export function takeStaleUntilOpened(key: string): boolean {
+  for (const prefix of staleUntilOpened) {
+    if (key === prefix || key.startsWith(`${prefix}.`)) {
+      staleUntilOpened.delete(prefix);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The server sent the new value itself (the live wallet): every copy of `key` is changed in place, on screen and on
+ * the phone, with no fetch. `change` gets the copy and returns the new one (null: leave it). No copy in memory yet:
+ * the copy on the phone is fetched again when it is next opened.
+ */
+export function patchCached(key: string, change: (data: unknown) => unknown | null): void {
+  let found = false;
+  for (const [fullKey, entry] of memory) {
+    if (fullKey.slice(fullKey.indexOf('.') + 1) !== key) continue;
+    found = true;
+    const data = change(entry.data);
+    if (data === null) continue;
+    const next = { data, at: Date.now() };
+    memory.set(fullKey, next);
+    void writeStored(storageOf.get(fullKey) ?? 'memory', fullKey, next);
+    notify(fullKey);
+  }
+  if (!found) staleUntilOpened.add(key);
+}
+
 /** Sign-out: nothing of this person stays on the phone. */
 export async function clearCachedQueries(): Promise<void> {
   memory.clear();
   inflight.clear();
+  staleUntilOpened.clear();
+  storageOf.clear();
   try {
     const keys = await AsyncStorage.getAllKeys();
     await AsyncStorage.multiRemove(keys.filter((k) => k.startsWith(PLAIN_PREFIX) && k !== SECURE_INDEX_KEY));

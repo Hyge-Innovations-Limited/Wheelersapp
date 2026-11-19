@@ -1,7 +1,7 @@
 import { HIDDEN_BALANCE, useBalanceHidden } from "@/lib/balance-hidden";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
@@ -34,7 +34,6 @@ export default function WalletScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
   const handledRedirectRef = useRef<string | null>(null);
-  const firstFocusRef = useRef(true);
 
   const redirectReason = firstParam(params.redirectReason);
   const rawDepositAmount = firstParam(params.depositAmount);
@@ -74,16 +73,7 @@ export default function WalletScreen() {
   const refreshTransactions = transactions.refresh;
   const reloadDeposit = deposit.reload;
 
-  // Coming back from adding money or a withdrawal: the list is fetched again.
-  useFocusEffect(
-    useCallback(() => {
-      if (firstFocusRef.current) {
-        firstFocusRef.current = false;
-        return;
-      }
-      void refreshTransactions();
-    }, [refreshTransactions]),
-  );
+  // No fetch on coming back: money that moved (added, withdrawn, a ride) is already here, live (lib/wallet-live.ts).
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -110,8 +100,9 @@ export default function WalletScreen() {
 
   const lockedNgn = overview?.lockedNgn ?? 0;
   const recent = transactions.items.slice(0, RECENT_COUNT);
+  // Nothing kept on this phone yet and it could not be fetched: a calm line, never "offline".
   const transactionsError =
-    transactions.error && !/no wallet found/i.test(transactions.error) ? transactions.error : null;
+    transactions.error && !/no wallet found/i.test(transactions.error) ? "Your transactions will show here. Pull down to refresh." : null;
 
   return (
     <RScreen
@@ -163,7 +154,7 @@ export default function WalletScreen() {
           ) : null}
           {!overview && overviewError ? (
             <RText color={rider.colors.onInkMuted} variant="small">
-              Could not load your balance. Pull down to try again.
+              Pull down to refresh.
             </RText>
           ) : null}
         </View>

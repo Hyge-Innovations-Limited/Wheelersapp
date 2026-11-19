@@ -60,6 +60,8 @@ export default function DriverEarningsScreen() {
   const earningsQuery = useCachedQuery<DriverEarningsResponse>({
     key: `earnings.${activePeriod}`,
     fetcher: (accessToken) => getDriverEarnings({ accessToken, period: activePeriod }),
+    // Changes when a trip ends (the session marks it stale then), not by the minute.
+    staleMs: 15 * 60_000,
   });
   const earnings = earningsQuery.data;
   const loading = earningsQuery.loading;

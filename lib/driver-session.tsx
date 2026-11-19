@@ -53,7 +53,7 @@ import { playBidAlertChime } from '@/lib/sounds';
 import { drainRecordingUploads, recordingRideId, startTripRecording, stopTripRecording } from '@/lib/trip-recorder';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
 import { estimateEtaSeconds, haversineKm } from '@/lib/geo';
-import { invalidateWalletCache } from '@/lib/wallet-overview';
+import { applyWalletLive, noteSocketClosed, noteSocketOpened, onWalletUpdated } from '@/lib/wallet-live';
 import { invalidateCached } from '@/lib/cache-store';
 import { emitCallEvent, isCallMessage } from '@/lib/live-call/events';
 import { markTripChatClosed } from '@/lib/trip-chat';
@@ -415,8 +415,13 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (type === 'wallet:live') {
+        applyWalletLive(payload);
+        return;
+      }
+
       if (type === 'wallet:updated') {
-        invalidateWalletCache();
+        onWalletUpdated();
         return;
       }
 
@@ -578,6 +583,12 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
           connectPromiseRef.current = null;
           setConnectionState('connected');
           setError(null);
+          // Back after a drop: the wallet once; after a long one the trips, earnings and history too.
+          noteSocketOpened(Date.now(), () => {
+            invalidateCached('earnings');
+            invalidateCached('driver-history');
+            invalidateCached('driver');
+          });
           // A reconnect while the driver believes they're online must
           // re-announce — the backend re-sends any ride requests that opened
           // (or were missed) during the connection gap. Without this, a
@@ -634,6 +645,7 @@ export function DriverSessionProvider({ children }: { children: ReactNode }) {
 
         socket.onclose = () => {
           clearTimeout(timeout);
+          noteSocketClosed();
           // Only the CURRENT socket's close means we are disconnected. A
           // timed-out socket closing after its replacement opened used to
           // null the live ref, stop GPS, and open a third, orphaned socket.

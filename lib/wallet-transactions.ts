@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
-import { getAccessTokenWithRetry } from "@/lib/access-token";
-import { useAuth } from "@/lib/auth";
 import {
   getWalletTransactions,
   isBackendConfigured,
   type WalletTransaction,
 } from "@/lib/api";
+import { useCachedQuery } from "@/lib/cached-query";
 
 type UseWalletTransactionsResult = {
   items: WalletTransaction[];
@@ -15,54 +14,28 @@ type UseWalletTransactionsResult = {
   refresh: () => Promise<void>;
 };
 
+/** How many rows the money history keeps on the phone (every list shows its first ones). */
+export const WALLET_HISTORY_KEPT = 40;
+/** Fetched again by itself only this rarely: new rows arrive live (lib/wallet-live.ts). */
+const HISTORY_FRESH_MS = 15 * 60_000;
+
+/**
+ * The money history: shown at once from the copy on the phone (even with no connection), never a spinner after the
+ * first time. A new row arrives by itself the moment money moves (wallet:live); it is fetched again only when the
+ * app has been away a while, after its connection dropped, or on a pull to refresh.
+ */
 export function useWalletTransactions(limit = 30): UseWalletTransactionsResult {
-  const { getAccessToken, isReady, user } = useAuth();
-  const [items, setItems] = useState<WalletTransaction[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (): Promise<void> => {
-    if (!isBackendConfigured() || !isReady || !user) {
-      setItems([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const accessToken = await getAccessTokenWithRetry(getAccessToken);
-      if (!accessToken) {
-        throw new Error("Could not get an access token for wallet transactions.");
-      }
-
-      const response = await getWalletTransactions({
-        accessToken,
-        limit,
-      });
-
-      setItems(response.items);
-    } catch (loadError) {
-      setItems([]);
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Could not load wallet transactions.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getAccessToken, isReady, limit, user]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
+  const query = useCachedQuery<WalletTransaction[]>({
+    key: "wallet.transactions",
+    fetcher: (accessToken) => getWalletTransactions({ accessToken, limit: WALLET_HISTORY_KEPT }).then((r) => r.items),
+    staleMs: HISTORY_FRESH_MS,
+    enabled: isBackendConfigured(),
+  });
+  const { refresh } = query;
   return {
-    items,
-    isLoading,
-    error,
-    refresh: load,
+    items: (query.data ?? []).slice(0, limit),
+    isLoading: query.loading,
+    error: query.error,
+    refresh: useCallback(() => refresh(), [refresh]),
   };
 }

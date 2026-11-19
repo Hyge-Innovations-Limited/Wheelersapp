@@ -59,11 +59,8 @@ export default function ScheduledRideScreen() {
             </>
           ) : error ? (
             <>
-              <RText style={styles.centerText} variant="heading">
-                We could not load this ride
-              </RText>
               <RText color={colors.muted} style={styles.centerText} variant="small">
-                {error}
+                This ride will show here.
               </RText>
               <RButton
                 accessibilityLabel="Try again"

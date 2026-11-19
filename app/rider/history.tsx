@@ -90,20 +90,12 @@ export default function RiderTripsScreen() {
     return () => clearTimeout(timeout);
   }, [notice]);
 
-  // Trips is a tab and stays mounted: coming back to it (after scheduling or
-  // cancelling a ride elsewhere, or finishing one) reads the lists again. The
-  // first visit is left to the hooks, which load on their own.
-  const visited = useRef(false);
+  // Coming back to the tab: the clock behind "Today" moves on. The lists are kept on the phone and fetched again by
+  // themselves when something changed (a trip ended, a ride booked or cancelled), never on every visit.
   useFocusEffect(
     useCallback(() => {
       setNow(new Date());
-      if (!visited.current) {
-        visited.current = true;
-        return;
-      }
-      void refreshScheduled();
-      void refreshTrips();
-    }, [refreshScheduled, refreshTrips]),
+    }, []),
   );
 
   const onRefresh = useCallback(async () => {
@@ -235,11 +227,6 @@ export default function RiderTripsScreen() {
     }
     return (
       <>
-        {tripsError ? (
-          <RText color={colors.danger} variant="small">
-            {tripsError}
-          </RText>
-        ) : null}
         {featured ? (
           <RCard style={styles.featured} tone="outline">
             <View style={styles.featuredTop}>
@@ -502,15 +489,13 @@ function Loading({ label }: { label: string }) {
   );
 }
 
-function Problem({ message, onRetry }: { message: string; onRetry: () => void }) {
+/** Nothing kept on this phone yet and it could not be fetched: a calm line and Try again, never "offline". */
+function Problem({ onRetry }: { message?: string; onRetry: () => void }) {
   return (
     <View style={styles.center}>
-      <Ionicons color={colors.danger} name="cloud-offline-outline" size={32} />
-      <RText style={styles.centerText} variant="bodyBold">
-        We could not load this
-      </RText>
+      <Ionicons color={colors.muted} name="time-outline" size={32} />
       <RText color={colors.muted} style={styles.centerText} variant="small">
-        {message}
+        Your rides will show here.
       </RText>
       <RButton
         accessibilityLabel="Try again"

@@ -74,12 +74,10 @@ export default function TripReceiptScreen() {
             </>
           ) : (
             <>
-              <Ionicons color={colors.danger} name="cloud-offline-outline" size={32} />
-              <RText style={styles.centerText} variant="heading">
-                We could not load this trip
-              </RText>
+              {/* Never opened on this phone and no answer yet: a calm line, never "offline" (a trip once opened is kept). */}
+              <Ionicons color={colors.muted} name="receipt-outline" size={32} />
               <RText color={colors.muted} style={styles.centerText} variant="small">
-                {error ?? "Please try again."}
+                {error ? "This trip will show here." : "Please try again."}
               </RText>
               {rideId ? (
                 <RButton
