@@ -27,6 +27,7 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
   const [nin, setNin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
   const done = useRef(false);
   const shownRef = useRef(false);
   const notShownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,6 +43,7 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
         if (!due?.ask) return;
         markNinAsked();
         setRetry(due.retry);
+        setResult(null);
         shownRef.current = false;
         setOpen(true);
         // Counted as shown only when it is on screen (onShow). On iOS a sheet asked for while another one or a
@@ -93,9 +95,11 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
     try {
       const token = await getAccessTokenWithRetry(getAccessToken);
       if (!token) throw new Error("Sign in again to add your NIN.");
-      await sendRiderNin(token, clean, "");
+      const answer = await sendRiderNin(token, clean, "", true);
       done.current = true;
-      setOpen(false);
+      // Only "verified" when it truly is, with the name on it; a slow check finishes behind.
+      setResult(answer.status === "VERIFIED" ? (answer.name ? `Verified · ${answer.name}` : "Verified") : "Checking your NIN…");
+      setTimeout(() => setOpen(false), 1800);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not check your NIN. Try again.");
     } finally {
@@ -128,7 +132,11 @@ export function NinSheet({ rideActive }: { rideActive: boolean }) {
             value={nin}
           />
           {error ? <RText color={colors.danger} variant="small">{error}</RText> : null}
-          <RButton loading={busy} onPress={() => void verify()} title="Verify" />
+          {result ? (
+            <RText accessibilityLiveRegion="polite" variant="bodyBold">{result}</RText>
+          ) : (
+            <RButton loading={busy} onPress={() => void verify()} title="Verify" />
+          )}
         </Pressable>
       </Pressable>
     </Modal>

@@ -2381,10 +2381,19 @@ export async function sendGroupSelfie(accessToken: string, imageBase64: string, 
  * against the name typed beside it. A wrong one throws an ApiError with status 422 and the words to show
  * under the box ("We couldn't find this NIN…"); Prembly slow or down answers ok (checked behind).
  */
-export async function sendRiderNin(accessToken: string, nin: string, fullName: string): Promise<void> {
-  await requestJson<{ ok: boolean }>("POST", "/auth/nin", {
+/**
+ * A NIN to check. `prompt`: the NIN popup (not sign-up): the server answers only when it really checked out
+ * (VERIFIED, with the name on it) or is still checking (PENDING); anything else is an error to show.
+ */
+export async function sendRiderNin(
+  accessToken: string,
+  nin: string,
+  fullName: string,
+  prompt = false,
+): Promise<{ status?: string | null; name?: string }> {
+  return requestJson<{ ok: boolean; status?: string | null; name?: string }>("POST", "/auth/nin", {
     accessToken,
-    body: { nin, fullName },
+    body: prompt ? { nin, fullName, prompt: true } : { nin, fullName },
     fallbackError: "Could not check your NIN. Try again.",
   });
 }
