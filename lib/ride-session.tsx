@@ -60,7 +60,7 @@ function takeGroupNote(id: string): boolean {
 }
 import { parseRiderGroupTrip, type RiderGroupTrip } from '@/lib/rider-group-trip';
 import { createReconnectBackoff } from '@/lib/reconnect-backoff';
-import { applySearchStatus } from '@/lib/ride-search-status';
+import { applySearchStatus, parseSearchSituation, type SearchEnded, type SearchSituation } from '@/lib/ride-search-status';
 import {
   ROUTE_NOT_PRICED,
   pendingCancelAnswerFrom,
@@ -179,6 +179,10 @@ export type RiderRideState = {
   bidsCloseAt?: string;
   /** How many drivers the request went to (ride:search_status, newer servers). */
   driversNotified?: number | null;
+  /** What is happening with the search, as the server says it ("No drivers near you right now"): newer servers. */
+  situation?: SearchSituation | null;
+  /** How the search ended ("No drivers came online near you."), with the prices worth trying: newer servers. */
+  searchEnded?: SearchEnded | null;
   /** Auto-accept is on for this search: the server books the first driver at or under the price. */
   autoAccept?: boolean;
   /** The server books by itself (newer servers). */
@@ -1916,6 +1920,36 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       /* the meter runs on this phone's clock until the next read */
     }
   };
+
+  // A search with no offer yet: what is happening with it, from the server (Timi, 21 Nov 2026). Nobody near sends no
+  // message (no driver was sent it), so the app asks: 9 s after the price went out, then every 30 s, while nothing came.
+  const quietSearchId =
+    currentRide && currentRide.status === 'bidding' && !currentRide.bidTimeout && (currentRide.offers ?? []).length === 0
+      ? `${currentRide.rideId}:${currentRide.riderOfferNgn ?? ''}`
+      : null;
+  useEffect(() => {
+    if (!quietSearchId || isDriverApp || !isBackendConfigured()) return;
+    let stopped = false;
+    const look = async () => {
+      try {
+        const accessToken = await getAccessTokenWithRetry(getAccessToken);
+        if (!accessToken || stopped) return;
+        const { ride } = await getRiderActiveRide({ accessToken });
+        const situation = ride?.search ? parseSearchSituation(ride.search.situation) : null;
+        if (!ride || !situation || stopped) return;
+        setRideState((previous) => (previous && previous.rideId === ride.id && previous.status === 'bidding' ? { ...previous, situation } : previous));
+      } catch {
+        /* the next look tries again */
+      }
+    };
+    const first = setTimeout(() => void look(), 9_000);
+    const every = setInterval(() => void look(), 30_000);
+    return () => {
+      stopped = true;
+      clearTimeout(first);
+      clearInterval(every);
+    };
+  }, [quietSearchId, getAccessToken]);
 
   // A driver is booked: the trip's safety tips (and whether it is recorded), fetched once per ride.
   const safetyAskedRef = useRef<string | null>(null);

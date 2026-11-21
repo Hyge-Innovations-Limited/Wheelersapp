@@ -6,6 +6,7 @@ import { offersAfterServerList, type OfferEvent, type RideOffer } from '@/lib/ri
 import { parseWaiting, parseWaitingResult, waitingLineForRider, type WaitingInfo } from '@/lib/waiting';
 import { parseChecks, safetyFields, type TripSafety } from '@/lib/rider-safety';
 import { parseRiderGroupTrip, type RiderGroupTrip } from '@/lib/rider-group-trip';
+import { parseSearchSituation, type SearchSituation } from '@/lib/ride-search-status';
 
 /**
  * The rider's trip as the server has it, turned into what the ride screen
@@ -45,6 +46,8 @@ export type RestoredRide = {
   riderOfferNgn?: number;
   bidsCloseAt?: string;
   offers?: RestoredOffer[];
+  /** What is happening with the search ("No drivers near you right now"), newer servers. */
+  situation?: SearchSituation | null;
   /** A group ride on offer to the search (lib/group-offer.ts), or null. */
   groupOffer?: GroupOfferView | null;
   /** The group this search is in while it looks for a driver, and a driver's price this rider is asked about. */
@@ -106,6 +109,7 @@ function restoredSearchFrom(ride: RiderActiveRideDetail, now: number): RestoredR
     fareEstimateNgn: ride.fareEstimateNgn ?? undefined,
     ...(typeof ride.riderOfferNgn === 'number' ? { riderOfferNgn: ride.riderOfferNgn } : {}),
     bidsCloseAt: ride.search.bidsCloseAt,
+    situation: parseSearchSituation(ride.search.situation),
     groupOffer: parseGroupOffer(ride.search.groupOffer),
     groupFormed: parseGroupFormed(ride.search.groupFormed),
     groupCounter: parseGroupCounter(ride.search.groupCounter),
@@ -216,6 +220,7 @@ type SearchLike = {
   bidTimeout?: boolean;
   riderOfferNgn?: number;
   offers?: RideOffer[];
+  situation?: SearchSituation | null;
   autoAcceptSupported?: boolean;
   autoAcceptChosen?: boolean;
   driver?: DriverLike;
@@ -259,6 +264,7 @@ export function reconcileSearch<T extends SearchLike>(
       autoAcceptChosen: ride.autoAcceptChosen ?? previous.autoAcceptChosen,
       bidsCloseAt: ride.bidsCloseAt ?? previous.bidsCloseAt,
       riderOfferNgn: ride.riderOfferNgn ?? previous.riderOfferNgn,
+      situation: ride.situation ?? previous.situation,
       offers,
     } as T;
   }

@@ -2331,6 +2331,8 @@ export interface RiderActiveRideDetail {
     groupCounter?: unknown;
     groupNote?: unknown;
     bidsCloseAt: string;
+    /** What is happening with the search (newer servers; lib/ride-search-status.ts reads it). */
+    situation?: unknown;
     offers: Array<{
       driverId: string;
       driverUserId: string;

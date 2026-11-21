@@ -18,7 +18,7 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = join(here, '..');
 const outFile = join(mkdtempSync(join(tmpdir(), 'wheelers-search-status-')), 'bundle.cjs');
 execFileSync('npx', ['esbuild', join(projectRoot, 'lib/ride-search-status.ts'), '--bundle', '--platform=node', '--format=cjs', `--outfile=${outFile}`], { cwd: projectRoot, stdio: 'pipe' });
-const { applySearchStatus, driversSawLine, searchClock, shouldNudgeRaise, RAISE_NUDGE_AFTER_MS } = createRequire(import.meta.url)(outFile);
+const { applySearchStatus, driversSawLine, searchClock, shouldNudgeRaise, RAISE_NUDGE_AFTER_MS, parseSearchSituation, parseSearchEnded, situationPrice, endedRetryPrices } = createRequire(import.meta.url)(outFile);
 
 const NOW = Date.parse('2026-10-27T10:00:00Z');
 const ride = { rideId: 'ride-1', status: 'bidding', bidsCloseAt: new Date(NOW + 300_000).toISOString() };
@@ -61,4 +61,40 @@ test('the raise nudge comes after two minutes at one price with no offer', () =>
   assert.equal(shouldNudgeRaise({ pricedAtMs: NOW, nowMs: NOW + RAISE_NUDGE_AFTER_MS, offerCount: 0 }), true);
   assert.equal(shouldNudgeRaise({ pricedAtMs: NOW, nowMs: NOW + 600_000, offerCount: 1 }), false);
   assert.equal(shouldNudgeRaise({ pricedAtMs: null, nowMs: NOW + 600_000, offerCount: 0 }), false);
+});
+
+/* ── what is happening with the search (Timi, 21 Nov 2026) ── */
+
+test('the server\'s situation rides on search status, for this ride only', () => {
+  const situation = { kind: 'none_near', title: 'No drivers near you right now', line: 'We’ll keep looking.', suggestNgn: null };
+  const next = applySearchStatus(ride, { rideId: 'ride-1', driversNotified: null, situation });
+  assert.equal(next.situation.kind, 'none_near');
+  assert.equal(next.situation.title, 'No drivers near you right now');
+  assert.equal(applySearchStatus(ride, { rideId: 'ride-2', situation }), ride);
+  // A message without one keeps what was there; a kind the app does not know is ignored.
+  assert.equal(applySearchStatus(next, { rideId: 'ride-1', driversNotified: null }).situation, next.situation);
+  assert.equal(applySearchStatus(next, { rideId: 'ride-1', situation: { kind: 'brand_new', title: 'x' } }).situation, next.situation);
+});
+
+test('a price is offered only when drivers passed on the price or asked more, and above the rider\'s', () => {
+  const passed = parseSearchSituation({ kind: 'passed', title: '3 drivers passed at ₦2,800', line: '', suggestNgn: 3500 });
+  assert.deepEqual(situationPrice(passed, 2800), { label: 'Offer ₦3,500', amountNgn: 3500 });
+  const countered = parseSearchSituation({ kind: 'countered', title: '2 drivers asked ₦3,900 – ₦4,300', line: '', suggestNgn: 3900 });
+  assert.equal(situationPrice(countered, 3500).label, 'Match ₦3,900');
+  assert.equal(situationPrice(countered, 4000), null);
+  for (const kind of ['none_near', 'waiting', 'on_trips', 'looking']) {
+    assert.equal(situationPrice(parseSearchSituation({ kind, title: 't', line: '', suggestNgn: 5000 }), 2800), null, kind);
+  }
+  assert.equal(parseSearchSituation(null), null);
+  assert.equal(parseSearchSituation({ kind: 'waiting' }).title, '');
+});
+
+test('the end screen: the server\'s prices when it says how it ended, else +5/10/15% as before', () => {
+  const none = parseSearchEnded({ kind: 'none_near', title: 'No drivers came online near you.', retryNgn: [] });
+  assert.deepEqual(endedRetryPrices(none, 3000, [1.05, 1.1, 1.15]), []);
+  const passed = parseSearchEnded({ kind: 'passed', title: '3 drivers passed at ₦2,800.', retryNgn: [3500, 4200, 3500] });
+  assert.deepEqual(endedRetryPrices(passed, 2800, [1.05]), [3500, 4200]);
+  assert.deepEqual(endedRetryPrices(null, 3000, [1.05, 1.1, 1.15]), [3150, 3300, 3450]);
+  assert.equal(parseSearchEnded({ kind: 'offers', title: '1 offer came in.' }), null);
+  assert.equal(parseSearchEnded({ kind: 'waiting', title: '' }), null);
 });

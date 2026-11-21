@@ -5,6 +5,8 @@
  * ride goes back to finding drivers instead of ending.
  */
 
+import { parseSearchEnded, type SearchEnded } from '@/lib/ride-search-status';
+
 /** What the rider reads when their driver pulled out and the search goes on. */
 export const DRIVER_LEFT_SEARCHING_AGAIN = 'Your driver cancelled. Finding another.';
 
@@ -17,6 +19,8 @@ type CancellableRide = {
   tripCode?: string;
   bidsCloseAt?: string;
   bidTimeout?: boolean;
+  searchEnded?: SearchEnded | null;
+  situation?: unknown;
   startedAt?: string;
   cancelReason?: string;
   cancelStage?: string;
@@ -70,5 +74,6 @@ export function rideAfterBidTimeout<T extends CancellableRide>(previous: T | nul
   const rideId = typeof payload.rideId === 'string' && payload.rideId ? payload.rideId : undefined;
   if (rideId && rideId !== previous.rideId) return previous;
   if (previous.status !== 'bidding' && previous.status !== 'requesting' && previous.status !== 'matching') return previous;
-  return { ...previous, status: 'bidding', bidTimeout: true, offers: [], driver: undefined };
+  // How it ended, as the server says it ("No drivers came online near you."): newer servers.
+  return { ...previous, status: 'bidding', bidTimeout: true, offers: [], driver: undefined, searchEnded: parseSearchEnded(payload.ended), situation: null };
 }

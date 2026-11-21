@@ -43,7 +43,7 @@ import { parseRideEstimateParam } from "@/lib/ride-estimate";
 import { parseRideItineraryParam, serializeRideItinerary } from "@/lib/ride-route";
 import { addMoneyStep, payingDriverId, releaseAccepting, trackPaySheet } from "@/lib/pay-sheet-signal";
 import { useRideSession } from "@/lib/ride-session";
-import { driversSawLine, searchClock, shouldNudgeRaise } from "@/lib/ride-search-status";
+import { driversSawLine, endedRetryPrices, searchClock, shouldNudgeRaise, situationPrice, type SearchSituation } from "@/lib/ride-search-status";
 import {
   autoAcceptAnswerParam,
   autoAcceptParam,
@@ -807,12 +807,9 @@ export default function MatchingScreen() {
   /* ── nobody took it ────────────────────────────────────────────────── */
 
   if (timedOut) {
-    const retryPrices =
-      riderOfferNgn !== undefined
-        ? Array.from(
-            new Set(RETRY_RAISES.map((raise) => Math.round((riderOfferNgn * raise) / 50) * 50)),
-          ).filter((price) => price > riderOfferNgn)
-        : [];
+    // How it ended, as the server says it; a higher price only when it would help (drivers passed or asked more).
+    const ended = currentRide?.searchEnded ?? null;
+    const retryPrices = endedRetryPrices(ended, riderOfferNgn, RETRY_RAISES);
     const picked =
       pickedRetryNgn !== null && retryPrices.includes(pickedRetryNgn)
         ? pickedRetryNgn
@@ -858,9 +855,11 @@ export default function MatchingScreen() {
 
           <View style={styles.titleBlock}>
             <RText variant="display" style={styles.noDriverTitle}>
-              {riderOfferNgn !== undefined
-                ? `No driver accepted ${naira(riderOfferNgn)}`
-                : "No driver accepted your offer"}
+              {ended
+                ? ended.title
+                : riderOfferNgn !== undefined
+                  ? `No driver accepted ${naira(riderOfferNgn)}`
+                  : "No driver accepted your offer"}
             </RText>
             <RText color={colors.muted}>
               You have not been charged. Your trip details are saved.
@@ -921,6 +920,8 @@ export default function MatchingScreen() {
                 title="Enter another amount"
               />
             </RCard>
+          ) : ended ? (
+            <RLink onPress={() => openChangePrice()} title="Enter another amount" />
           ) : null}
 
           {errorBanner}
@@ -1005,6 +1006,14 @@ export default function MatchingScreen() {
           ) : null}
         </View>
 
+        {currentRide?.situation?.kind === "countered" ? (
+          <SituationCard
+            onPrice={(amount) => openChangePrice(amount - (riderOfferNgn ?? amount))}
+            riderOfferNgn={riderOfferNgn}
+            situation={currentRide.situation}
+          />
+        ) : null}
+
         {errorBanner}
 
         <ScrollView
@@ -1069,8 +1078,10 @@ export default function MatchingScreen() {
       ? `A driver at ${naira(riderOfferNgn)} is booked for you`
       : null;
   const clockText = status === "bidding" && !requestFailed ? searchClock(currentRide?.bidsCloseAt, nowMs) : null;
+  // What is happening with the search, as the server says it (newer servers): it replaces the two-minute nudge.
+  const situation = status === "bidding" && !requestFailed && currentRide?.situation?.title ? currentRide.situation : null;
   const nudgeRaise =
-    canReprice && shouldNudgeRaise({ pricedAtMs, nowMs, offerCount: offers.length });
+    canReprice && !situation && shouldNudgeRaise({ pricedAtMs, nowMs, offerCount: offers.length });
 
   return (
     <RScreen
@@ -1117,15 +1128,18 @@ export default function MatchingScreen() {
               </RText>
             ) : null}
           </View>
-          <RText accessibilityLiveRegion="polite" variant="small" color={colors.muted}>
-            {requestFailed
-              ? "We could not send your request. Check your connection and try again."
-              : sawLine
-                ? sawLine
-                : status === "bidding"
-                  ? "Your offer has been sent to drivers near you."
-                  : "Sending your offer to drivers near you."}
-          </RText>
+          {/* The situation card below says what is happening: no second line here then. */}
+          {situation ? null : (
+            <RText accessibilityLiveRegion="polite" variant="small" color={colors.muted}>
+              {requestFailed
+                ? "We could not send your request. Check your connection and try again."
+                : sawLine
+                  ? sawLine
+                  : status === "bidding"
+                    ? "Your offer has been sent to drivers near you."
+                    : "Sending your offer to drivers near you."}
+            </RText>
+          )}
           {autoBookLine ? (
             <RText variant="caption" color={colors.muted} style={styles.tabular}>
               {autoBookLine}
@@ -1162,7 +1176,16 @@ export default function MatchingScreen() {
 
         {errorBanner}
 
-        {canReprice ? (
+        {situation ? (
+          <SituationCard
+            onPrice={(amount) => openChangePrice(amount - (riderOfferNgn ?? amount))}
+            riderOfferNgn={riderOfferNgn}
+            situation={situation}
+          />
+        ) : null}
+
+        {/* Nobody near: a higher price changes nothing, so no price buttons. */}
+        {canReprice && situation?.kind !== "none_near" ? (
           <View style={styles.raise}>
             <RText
               accessibilityLiveRegion="polite"
@@ -1206,7 +1229,7 @@ export default function MatchingScreen() {
             onPress={() => setPendingSearch({ offerNgn: askedNgn, autoAccept: autoAcceptRef.current })}
             title="Try again"
           />
-        ) : (
+        ) : situation ? null : (
           <View style={styles.waiting}>
             <RText variant="bodyBold" color={colors.muted}>
               Waiting for the first offer
@@ -1225,6 +1248,27 @@ export default function MatchingScreen() {
       />
       <GroupNoteBanner note={currentRide?.groupNote} />
     </RScreen>
+  );
+}
+
+/**
+ * What is happening with the search (Timi, 21 Nov 2026): one small card, "No drivers near you right now" with the line
+ * under it; a price button only when drivers passed on the price ("Offer ₦3,500") or asked more ("Match ₦3,900").
+ */
+function SituationCard({ situation, riderOfferNgn, onPrice }: { situation: SearchSituation; riderOfferNgn?: number; onPrice: (amountNgn: number) => void }) {
+  const price = situationPrice(situation, riderOfferNgn);
+  return (
+    <View accessibilityLiveRegion="polite" style={styles.situation}>
+      <RText variant="smallBold">{situation.title}</RText>
+      {situation.line ? (
+        <RText variant="caption" color={colors.muted}>
+          {situation.line}
+        </RText>
+      ) : null}
+      {price ? (
+        <RButton onPress={() => onPrice(price.amountNgn)} size="md" style={styles.situationButton} title={price.label} variant="ghost" />
+      ) : null}
+    </View>
   );
 }
 
@@ -1302,6 +1346,8 @@ const styles = StyleSheet.create({
   offerFigure: { fontSize: 30, lineHeight: 33 },
   offerMeta: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 8 },
   raise: { gap: 8 },
+  situation: { gap: 2, paddingHorizontal: 14, paddingVertical: 12, borderRadius: rider.radius.lg, backgroundColor: colors.tint },
+  situationButton: { marginTop: 8 },
   waiting: {
     height: 60,
     borderRadius: rider.radius.lg,
