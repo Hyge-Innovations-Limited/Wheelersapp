@@ -113,3 +113,36 @@ test('security icons where the plan put them (shield = checked, lock = money/cod
   assert.match(read('app/driver/profile.tsx'), /<CheckChips checks=\{checks\} \/>/, 'the driver sees their own checks');
   assert.doesNotMatch(read('components/security-icons.tsx'), /#FF7700|colors\.orange/i, 'never orange');
 });
+
+// ── The playful tip cards (21 Nov 2026) ──
+const CARD = (key, title) => ({ key, emoji: '🚘', kick: 'Plate check', title, line: 'A line.', tone: 'orange' });
+const SERVER_CARDS = {
+  byStage: { far: CARD('share', 'Let someone ride along'), close: CARD('plate', 'Plate or nothing'), here: CARD('name', 'Make them say it'), trip: CARD('belt', 'Click clack'), after: CARD('keys', 'Phone, wallet, keys'), bogus: CARD('x', 'X') },
+  groups: [{ title: 'After the trip', cards: [CARD('keys', 'Phone, wallet, keys'), { key: 'broken' }] }],
+};
+
+test('cards: read from the server, anything broken dropped; none from an older server', () => {
+  const cards = S.parseSafetyCards(SERVER_CARDS);
+  assert.equal(cards.byStage.close.title, 'Plate or nothing');
+  assert.equal(cards.byStage.bogus, undefined);
+  assert.equal(cards.groups[0].cards.length, 1);
+  assert.equal(S.parseSafetyCards(undefined), null);
+  assert.equal(S.parseSafetyCards({ byStage: {} }), null);
+  assert.equal(S.safetyFields({ safetyCards: SERVER_CARDS }).safetyCards.byStage.far.key, 'share');
+});
+
+test('cards: the stage follows the ride, as the server picks it', () => {
+  const stage = (etaMinutes, extra = {}) => S.safetyStageFor({ status: 'matched', etaMinutes, ...extra });
+  assert.deepEqual([stage(10), stage(6), stage(3), stage(1), stage(null)], ['far', 'wait', 'near', 'close', 'near']);
+  assert.equal(stage(3, { arrived: true }), 'here');
+  assert.equal(S.safetyStageFor({ status: 'active' }), 'trip');
+  assert.equal(S.safetyStageFor({ status: 'completed' }), 'after');
+});
+
+test('cards: no "Before you get in" pop-up when the cards came (the tip is on the trip screen); the recorded one stays', () => {
+  const seen = () => false;
+  const ride = { rideId: 'r', status: 'matched', safety: { before: ['a'], after: [] }, safetyCards: S.parseSafetyCards(SERVER_CARDS) };
+  assert.equal(S.dueSafetyMoment(ride, seen), null);
+  assert.equal(S.dueSafetyMoment({ ...ride, safetyCards: null }, seen), 'before', 'an older server: the old sheet');
+  assert.equal(S.dueSafetyMoment({ ...ride, status: 'active', recorded: true }, seen), 'start');
+});

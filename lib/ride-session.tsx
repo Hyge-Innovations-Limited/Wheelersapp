@@ -13,7 +13,7 @@ import {
   type RideOffer,
 } from '@/lib/ride-offers';
 import { carryProfile, profileFrom, type DriverProfile } from '@/lib/driver-photo';
-import { parseChecks, parseTips, safetyFields, type TripSafety } from '@/lib/rider-safety';
+import { parseChecks, parseTips, safetyFields, type SafetyCards, type TripSafety } from '@/lib/rider-safety';
 import { useAuth } from '@/lib/auth';
 import type { TripDetails } from '@/lib/trip-details';
 import { useAppLocation } from '@/lib/location';
@@ -160,6 +160,8 @@ export type RiderRideState = {
   groupNote?: string | null;
   /** Three safety tips for before the trip and after it (from the server, the same as on the ride page). */
   safety?: TripSafety;
+  /** The playful tip cards (21 Nov 2026): the one for where the ride is shows on the trip screen. */
+  safetyCards?: SafetyCards | null;
   itinerary: RideItinerary;
   fareEstimateNgn?: number;
   plannedDistanceKm?: number;
@@ -1908,7 +1910,7 @@ export function RideSessionProvider({ children }: { children: ReactNode }) {
       if (!ride) return;
       const group = parseRiderGroupTrip(ride.group);
       const fields = { ...waitingFields(ride.waiting, ride.status === 'IN_PROGRESS' ? 'active' : 'matched', Date.now(), ride.paymentMethod === 'CASH'), ...safetyFields(ride), ...(group ? { group } : {}) };
-      if (!fields.waiting && !fields.waitingLine && !fields.safety && fields.recorded === undefined && !group) return;
+      if (!fields.waiting && !fields.waitingLine && !fields.safety && !fields.safetyCards && fields.recorded === undefined && !group) return;
       setRideState((previous) => (previous && previous.rideId === ride.id ? { ...previous, ...fields, recorded: fields.recorded || previous.recorded } : previous));
     } catch {
       /* the meter runs on this phone's clock until the next read */

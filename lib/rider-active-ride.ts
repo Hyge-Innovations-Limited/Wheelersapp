@@ -63,6 +63,8 @@ export type RestoredRide = {
   recorded?: boolean;
   /** The three safety tips for before and after the trip (newer servers). */
   safety?: TripSafety;
+  /** The playful tip cards (newer servers). */
+  safetyCards?: unknown;
   itinerary: { pickup: string; stops: string[] };
   fareEstimateNgn?: number;
   /** People, luggage, pet and a note the search went out with (newer servers). */

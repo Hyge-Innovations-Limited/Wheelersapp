@@ -42,6 +42,8 @@ export default function TripRatingScreen() {
 
   // "Before you go" (Timi, 14 Nov 2026): three safety tips over the end of a completed trip, once per trip.
   const afterTips = currentRide?.status === "completed" ? currentRide.safety?.after ?? [] : [];
+  // The playful cards (21 Nov 2026): the after-trip ones, when the server sent the cards with the trip.
+  const afterCards = currentRide?.status === "completed" ? currentRide.safetyCards?.groups.find((g) => g.cards.some((c) => c.key === "keys"))?.cards ?? [] : [];
   const [afterOpen, setAfterOpen] = useState(false);
   useEffect(() => {
     if (!isFocused || !rideId || afterTips.length === 0) return;
@@ -265,7 +267,7 @@ export default function TripRatingScreen() {
         onPress={() => router.push("/support/chat")}
         title="Report a problem with this trip"
       />
-      <SafetySheet button="Done" onClose={() => setAfterOpen(false)} tips={afterTips} title={afterOpen ? "Before you go" : null} />
+      <SafetySheet button="Done" cards={afterCards} onClose={() => setAfterOpen(false)} tips={afterTips} title={afterOpen ? "Before you go" : null} />
     </RScreen>
   );
 }

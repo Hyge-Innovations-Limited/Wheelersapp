@@ -21,8 +21,9 @@ import { useCallDriver } from "@/components/rider/use-call-driver";
 import { WaitingCard, WaitingDealSheet, WaitingLine } from "@/components/rider/waiting-card";
 import { waitingAskKey } from "@/lib/waiting";
 import { SafetySheet } from "@/components/rider/safety-sheets";
+import { SafetyTipCard, SafetyTipsSheet } from "@/components/rider/safety-tip";
 import { LockIcon } from "@/components/security-icons";
-import { dueSafetyMoment, type SafetyMoment } from "@/lib/rider-safety";
+import { dueSafetyMoment, safetyStageFor, type SafetyMoment } from "@/lib/rider-safety";
 import { groupStopLine, groupTripTitle } from "@/lib/rider-group-trip";
 import { GroupNoteBanner } from "@/components/rider/group-offer-sheet";
 import { loadSafetySeen, markSafetySeen, safetySeen } from "@/lib/safety-seen";
@@ -69,6 +70,8 @@ export default function RiderActiveTripScreen() {
   // is recorded" when it runs and the driver's phone records it. Each once per trip, on this screen only.
   const [seenReady, setSeenReady] = useState(false);
   const [safetySheet, setSafetySheet] = useState<SafetyMoment | null>(null);
+  // Every safety tip of the ride (the card under the driver shows the one for now).
+  const [tipsOpen, setTipsOpen] = useState(false);
   useEffect(() => { void loadSafetySeen().finally(() => setSeenReady(true)); }, []);
   useEffect(() => {
     if (!seenReady || safetySheet || !isFocused || !currentRide) return;
@@ -197,6 +200,10 @@ export default function RiderActiveTripScreen() {
       : driver?.etaSeconds
         ? Math.max(1, Math.ceil(driver.etaSeconds / 60))
         : null;
+  // The safety tip for where the ride is (lib/rider-safety safetyStageFor): still until the moment changes.
+  const tipCard = currentRide?.safetyCards
+    ? currentRide.safetyCards.byStage[safetyStageFor({ status: currentRide.status, arrived: Boolean(currentRide.waiting), etaMinutes })] ?? null
+    : null;
   const kmLeft = active && isNumber(location?.distanceToNextStopKm) ? location.distanceToNextStopKm : null;
   const nextStop = shortPlace(location?.nextStopAddress);
   const chip = etaMinutes
@@ -309,6 +316,15 @@ export default function RiderActiveTripScreen() {
                 <RText style={styles.plateText}>{driver.vehiclePlate.trim()}</RText>
               </View>
             ) : null}
+          </View>
+        ) : null}
+
+        {live && tipCard ? (
+          <View style={styles.tip}>
+            <SafetyTipCard card={tipCard} />
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setTipsOpen(true)} style={styles.tipAll}>
+              <RText color={colors.orangeText} variant="caption">See all safety tips</RText>
+            </Pressable>
           </View>
         ) : null}
 
@@ -450,6 +466,9 @@ export default function RiderActiveTripScreen() {
         sending={waitSending}
         waiting={waitSheet && dealOpen ? waitingNow : null}
       />
+      {currentRide?.safetyCards ? (
+        <SafetyTipsSheet cards={currentRide.safetyCards} currentKey={tipCard?.key ?? null} onClose={() => setTipsOpen(false)} open={tipsOpen} />
+      ) : null}
       <SafetySheet
         button={safetySheet === "start" ? "OK" : "Got it"}
         onClose={() => setSafetySheet(null)}
@@ -532,6 +551,8 @@ const styles = StyleSheet.create({
   fill: { height: 8, borderRadius: 4, backgroundColor: colors.orange },
 
   driver: { flexDirection: "row", alignItems: "center", gap: 12 },
+  tip: { gap: 6 },
+  tipAll: { alignSelf: "flex-start", paddingVertical: 2 },
   driverText: { flex: 1, minWidth: 0, gap: 2 },
   driverName: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 21 },
   plate: {

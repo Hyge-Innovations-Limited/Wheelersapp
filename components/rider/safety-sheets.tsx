@@ -4,8 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { RButton, RText, rider } from '@/components/rider/kit';
+import { SafetyTipCard } from '@/components/rider/safety-tip';
 import { MicIcon, ShieldIcon, WheelersMark } from '@/components/security-icons';
-import { CHECK_WORDS, checkDate, type DriverCheck } from '@/lib/rider-safety';
+import { CHECK_WORDS, checkDate, type DriverCheck, type SafetyCard } from '@/lib/rider-safety';
 
 const { colors, fonts } = rider;
 
@@ -18,6 +19,7 @@ const { colors, fonts } = rider;
 export function SafetySheet({
   title,
   tips,
+  cards,
   recorded,
   button,
   onClose,
@@ -25,6 +27,8 @@ export function SafetySheet({
   /** Null hides the sheet. */
   title: string | null;
   tips?: string[];
+  /** The playful cards (newer servers): shown instead of the numbered tips. */
+  cards?: SafetyCard[];
   recorded?: boolean;
   button: string;
   onClose: () => void;
@@ -40,7 +44,11 @@ export function SafetySheet({
             <RText accessibilityRole="header" style={styles.headText} variant="heading">{title ?? ''}</RText>
           </View>
           {recorded ? <RecordedLine /> : null}
-          {tips && tips.length > 0 ? (
+          {cards && cards.length > 0 ? (
+            <View style={styles.cards}>
+              {cards.map((card) => <SafetyTipCard animate={false} card={card} key={card.key} />)}
+            </View>
+          ) : tips && tips.length > 0 ? (
             <View style={styles.list}>
               {tips.map((tip, i) => (
                 <View key={tip} style={[styles.tip, i > 0 && styles.divider]}>
@@ -128,6 +136,7 @@ export function ChecksSheet({ checks, onClose }: { checks: DriverCheck[] | null;
 }
 
 const styles = StyleSheet.create({
+  cards: { gap: 8 },
   backdrop: { flex: 1, backgroundColor: 'rgba(13,13,13,0.5)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.cream,
